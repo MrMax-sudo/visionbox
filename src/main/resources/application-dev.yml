@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/visionbox
+    username: visionbox
+    password: visionbox_dev_2026
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+  jpa:
+    defer-datasource-initialization: true
+    show-sql: false
+    hibernate:
+      ddl-auto: create
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: false
+    clean-disabled: false
+
+logging:
+  level:
+    com.visionbox: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+visionbox:
+  jwt:
+    secret: dev_jwt_secret_change_in_prod_32chars_min_dev_jwt_secret_change_in_prod
+  crypto:
+    kek-hex: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+    hmac-pepper: dev_hmac_pepper_change_in_prod_ONLY_DEV
+  s3:
+    bucket: visionbox-receitas
+    endpoint: http://localhost:9000
+    region: us-east-1
+
+# dev: JPA/Hibernate cria/atualiza schema automático — sem Flyway (prod usa Flyway)
+# docker-compose.dev.yml sobrescreve via env SPRING_PROFILES_ACTIVE=dev

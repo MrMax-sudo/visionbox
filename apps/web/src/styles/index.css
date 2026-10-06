@@ -1,0 +1,1087 @@
+@import './theme-visionbox.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset mínimo alinhado ao design system — tokens vêm de theme-visionbox.css */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+  }
+  a {
+    color: var(--color-primary);
+  }
+  a:hover {
+    color: var(--color-primary-dark);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Utilitários de estado OS — espelham classes .status-* do theme mas como layer */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .login-page {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 57% 43%;
+    padding: 28px;
+  }
+
+  .login-left {
+    height: calc(100vh - 56px);
+    border-radius: 26px 0 0 26px;
+  }
+
+  .login-left-content {
+    padding: 64px 68px;
+  }
+
+  .login-kicker {
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.34em;
+  }
+
+  .login-headline {
+    margin-top: 56px;
+    font-size: 46px;
+    line-height: 1.08;
+  }
+
+  .login-subtext {
+    margin-top: 20px;
+    font-size: 18px;
+    line-height: 1.45;
+  }
+
+  .login-benefits {
+    margin-top: 44px;
+    display: grid;
+    gap: 24px;
+  }
+
+  .login-benefit {
+    gap: 24px;
+  }
+
+  .login-benefit-icon {
+    width: 58px;
+    height: 58px;
+  }
+
+  .login-benefit-svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .login-benefit-text {
+    font-size: 17px;
+    line-height: 1.28;
+  }
+
+  .login-bottom p {
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: 0.34em;
+  }
+
+  .login-panel {
+    height: calc(100vh - 56px);
+    border-radius: 0 26px 26px 0;
+    padding: 40px 32px;
+  }
+
+  .login-deco {
+    top: -32px;
+    right: -32px;
+    width: 210px;
+    height: 210px;
+    border-width: 34px;
+  }
+
+  .login-card {
+    height: 100%;
+  }
+
+  .login-logo-wrap {
+    padding-top: 10vh;
+  }
+
+  .login-logo {
+    width: 450px;
+  }
+
+  .login-form {
+    margin-top: 7.2vh;
+    display: grid;
+    gap: 16px;
+  }
+
+  .login-field-icon {
+    left: 26px;
+    width: 28px;
+    height: 28px;
+    z-index: 1;
+  }
+
+  .login-page .login-input {
+    height: 68px !important;
+    padding: 0 18px 0 76px !important;
+    font-size: 19px !important;
+    line-height: 1.2 !important;
+  }
+
+  .login-page .login-input-password {
+    padding-right: 76px !important;
+  }
+
+  .login-password-toggle {
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    z-index: 2;
+  }
+
+  .login-remember {
+    font-size: 16px;
+  }
+
+  .login-checkbox {
+    width: 24px;
+    height: 24px;
+  }
+
+  .login-submit {
+    height: 68px;
+    font-size: 20px;
+  }
+
+  .login-submit-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .login-dev-footer {
+    margin-top: auto;
+    width: 100%;
+    padding-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--color-text-primary);
+  }
+
+  @media (max-height: 860px) and (min-width: 1024px) {
+    .login-page {
+      padding: 16px;
+    }
+
+    .login-left,
+    .login-panel {
+      height: calc(100vh - 32px);
+    }
+
+    .login-left-content {
+      padding: 34px 48px 28px;
+    }
+
+    .login-kicker {
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .login-headline {
+      margin-top: 34px;
+      font-size: 34px;
+    }
+
+    .login-subtext {
+      margin-top: 14px;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .login-benefits {
+      margin-top: 30px;
+      gap: 17px;
+    }
+
+    .login-benefit {
+      gap: 18px;
+    }
+
+    .login-benefit-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .login-benefit-svg {
+      width: 23px;
+      height: 23px;
+    }
+
+    .login-benefit-text {
+      font-size: 15px;
+    }
+
+    .login-bottom p {
+      font-size: 13px;
+      line-height: 1.5;
+      letter-spacing: 0.32em;
+    }
+
+    .login-panel {
+      padding: 22px 28px;
+    }
+
+    .login-deco {
+      width: 136px;
+      height: 136px;
+      border-width: 24px;
+    }
+
+    .login-card {
+      width: 69%;
+    }
+
+    .login-logo-wrap {
+      padding-top: 44px;
+    }
+
+    .login-logo {
+      width: 330px;
+    }
+
+    .login-form {
+      margin-top: 34px;
+      gap: 14px;
+    }
+
+    .login-field-icon {
+      left: 20px;
+      width: 22px;
+      height: 22px;
+    }
+
+    .login-page .login-input {
+      height: 58px !important;
+      padding: 0 14px 0 60px !important;
+      font-size: 16px !important;
+    }
+
+    .login-page .login-input-password {
+      padding-right: 58px !important;
+    }
+
+    .login-password-toggle {
+      right: 14px;
+    }
+
+    .login-remember {
+      font-size: 14px;
+    }
+
+    .login-checkbox {
+      width: 20px;
+      height: 20px;
+    }
+
+    .login-submit {
+      height: 58px;
+      font-size: 16px;
+    }
+
+    .login-submit-icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    .login-dev-footer {
+      padding-bottom: 0;
+      font-size: 12px;
+    }
+
+  }
+
+  @media (max-width: 900px) {
+    .login-page {
+      display: block;
+      padding: 0;
+    }
+
+    .login-panel {
+      width: 100%;
+      height: 100vh;
+      min-height: 100vh;
+      border-radius: 0;
+    }
+  }
+
+  .pdv-main-shell {
+    background: var(--color-pdv-page);
+    padding: 24px 24px;
+    overflow: hidden;
+  }
+
+  .vision-sidebar-link,
+  .vision-sidebar-link:visited,
+  .vision-sidebar-link:hover,
+  .vision-sidebar-link:focus {
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .vision-sidebar-link svg,
+  .vision-sidebar-link span {
+    color: var(--color-text-on-primary) !important;
+    opacity: 1 !important;
+  }
+
+  .vision-sidebar-link-active {
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .vision-sidebar-shortcut,
+  .vision-sidebar-shortcut:visited,
+  .vision-sidebar-shortcut:hover {
+    color: var(--color-primary-dark) !important;
+  }
+
+  .vision-sidebar-collapse,
+  .vision-sidebar-collapse svg {
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .pdv-screen {
+    height: calc(100vh - 80px - 55px - 48px);
+    min-height: 0;
+  }
+
+  .pdv-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 500px;
+    gap: 16px;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .pdv-operational {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .pdv-card,
+  .pdv-summary {
+    position: relative;
+    border: 1px solid var(--color-pdv-border);
+    border-radius: 11px;
+    background: rgb(var(--color-bg-card-soft-rgb) / 0.72);
+    box-shadow: 0 2px 8px rgb(var(--color-primary-dark-rgb) / 0.03);
+  }
+
+  .pdv-client-card,
+  .pdv-product-card {
+    padding: 18px 20px;
+  }
+
+  .pdv-card-header,
+  .pdv-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+
+  .pdv-card-header h2,
+  .pdv-summary-header h2,
+  .pdv-payment h3 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--color-pdv-text);
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .pdv-card-header svg,
+  .pdv-summary-header svg,
+  .pdv-payment h3 svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .pdv-outline-action {
+    height: 40px;
+    border-color: var(--color-pdv-border);
+    background: var(--color-bg-card-soft);
+    color: var(--color-pdv-text);
+    font-size: 15px;
+  }
+
+  .pdv-outline-action svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pdv-search {
+    position: relative;
+  }
+
+  .pdv-search svg {
+    pointer-events: none;
+    position: absolute;
+    left: 17px;
+    top: 50%;
+    z-index: 1;
+    width: 22px;
+    height: 22px;
+    transform: translateY(-50%);
+    color: var(--color-pdv-muted);
+  }
+
+  .pdv-search input {
+    height: 44px;
+    border-color: var(--color-pdv-border);
+    border-radius: 10px;
+    background: rgb(var(--color-bg-card-soft-rgb) / 0.44);
+    padding-left: 46px;
+    font-size: 16px;
+    color: var(--color-pdv-text);
+  }
+
+  .pdv-selected-customer {
+    position: relative;
+    display: grid;
+    grid-template-columns: 52px minmax(170px, 1fr) minmax(230px, 0.9fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 76px;
+    margin-top: 14px;
+    border-radius: 8px;
+    background: var(--color-pdv-soft);
+    padding: 12px 28px 12px 14px;
+  }
+
+  .pdv-empty-customer {
+    display: flex;
+    justify-content: center;
+    color: var(--color-text-muted);
+  }
+
+  .pdv-unlink-customer {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+  }
+
+  .pdv-unlink-customer svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pdv-avatar {
+    display: flex;
+    width: 52px;
+    height: 52px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .pdv-customer-main,
+  .pdv-customer-meta {
+    display: grid;
+    gap: 4px;
+  }
+
+  .pdv-customer-main strong {
+    color: var(--color-pdv-text);
+    font-size: 16px;
+  }
+
+  .pdv-customer-main span,
+  .pdv-customer-meta span {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+
+  .pdv-customer-data {
+    height: 40px;
+    min-width: 126px;
+    border-color: var(--color-pdv-border);
+    background: var(--color-bg-card-soft);
+    font-size: 14px;
+  }
+
+  .pdv-customer-data svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pdv-categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .pdv-categories button {
+    height: 32px;
+    border-radius: 999px;
+    background: var(--color-primary-light);
+    padding: 0 16px;
+    color: var(--color-pdv-text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .pdv-categories button.active {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .pdv-floating-results {
+    position: absolute;
+    z-index: 15;
+    left: 24px;
+    right: 24px;
+    top: 150px;
+    overflow: hidden;
+    border: 1px solid var(--color-pdv-border);
+    border-radius: 10px;
+    background: var(--color-bg-card-soft);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .pdv-product-results {
+    top: 142px;
+  }
+
+  .pdv-floating-results button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 14px;
+    text-align: left;
+    color: var(--color-pdv-text);
+  }
+
+  .pdv-floating-results button:hover {
+    background: var(--color-pdv-soft);
+  }
+
+  .pdv-floating-results small,
+  .pdv-result-empty {
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+
+  .pdv-result-empty {
+    display: block;
+    padding: 12px 14px;
+  }
+
+  .pdv-cart-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .pdv-cart-header {
+    margin: 0;
+    padding: 16px 20px 8px;
+  }
+
+  .pdv-cart-table {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .pdv-cart-row {
+    display: grid;
+    grid-template-columns: 42px minmax(190px, 1fr) 90px 120px 120px 120px 78px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pdv-cart-head {
+    min-height: 40px;
+    border-bottom: 1px solid var(--color-pdv-border-soft);
+    border-top: 1px solid var(--color-pdv-border-soft);
+    background: var(--color-pdv-soft);
+    padding: 0 20px;
+    color: var(--color-pdv-text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .pdv-cart-head span:nth-child(n+3),
+  .pdv-cart-item span:nth-child(n+3) {
+    text-align: center;
+  }
+
+  .pdv-cart-item {
+    min-height: 54px;
+    border-bottom: 1px solid var(--color-pdv-border-soft);
+    padding: 0 20px;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+
+  .pdv-cart-item strong,
+  .pdv-cart-item small {
+    display: block;
+  }
+
+  .pdv-cart-item strong {
+    color: var(--color-pdv-text);
+  }
+
+  .pdv-cart-item small {
+    color: var(--color-text-muted);
+  }
+
+  .pdv-cart-item > button,
+  .pdv-qty button {
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-pdv-border);
+    border-radius: 8px;
+    background: var(--color-bg-card-soft);
+    color: var(--color-pdv-text);
+  }
+
+  .pdv-cart-item > button svg {
+    width: 16px;
+    height: 16px;
+    color: var(--color-danger);
+  }
+
+  .pdv-qty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .pdv-qty b {
+    min-width: 24px;
+    color: var(--color-pdv-text);
+    text-align: center;
+  }
+
+  .pdv-empty-cart {
+    display: flex;
+    min-height: 190px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  .pdv-empty-cart svg {
+    width: 42px;
+    height: 42px;
+    color: var(--color-border-strong);
+  }
+
+  .pdv-empty-cart strong {
+    color: var(--color-text-secondary);
+    font-size: 18px;
+  }
+
+  .pdv-empty-cart span {
+    font-size: 15px;
+  }
+
+  .pdv-summary {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    padding: 20px 24px;
+    background: rgb(var(--color-bg-card-soft-rgb) / 0.76);
+  }
+
+  .pdv-summary-header {
+    margin-bottom: 18px;
+  }
+
+  .pdv-summary-header strong {
+    color: var(--color-primary);
+    font-size: 18px;
+  }
+
+  .pdv-totals {
+    display: grid;
+    gap: 14px;
+  }
+
+  .pdv-totals > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pdv-totals span,
+  .pdv-payment span,
+  .pdv-received span,
+  .pdv-change span {
+    color: var(--color-pdv-text);
+    font-size: 16px;
+  }
+
+  .pdv-totals strong {
+    color: var(--color-pdv-text);
+    font-size: 16px;
+  }
+
+  .pdv-discount {
+    grid-template-columns: 1fr 40px 100px 48px 40px !important;
+  }
+
+  .pdv-discount button {
+    height: 36px;
+    border: 1px solid var(--color-pdv-border-soft);
+    border-radius: 8px;
+    background: var(--color-pdv-soft);
+    color: var(--color-pdv-text);
+    font-weight: 700;
+  }
+
+  .pdv-discount button.active {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .pdv-discount input,
+  .pdv-received input {
+    height: 40px;
+    border-color: var(--color-pdv-border);
+    border-radius: 9px;
+    background: rgb(var(--color-bg-card-soft-rgb) / 0.62);
+    text-align: right;
+    font-size: 15px;
+  }
+
+  .pdv-total-line {
+    margin-top: 2px;
+    border-top: 1px solid var(--color-pdv-border-soft);
+    padding-top: 16px;
+  }
+
+  .pdv-total-line span,
+  .pdv-total-line strong {
+    font-size: 25px;
+    font-weight: 700;
+  }
+
+  .pdv-payment {
+    margin-top: 18px;
+    border-top: 1px solid var(--color-pdv-border-soft);
+    padding-top: 16px;
+  }
+
+  .pdv-payment-methods {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+    margin-top: 14px;
+  }
+
+  .pdv-payment-methods button {
+    display: flex;
+    min-height: 68px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid var(--color-pdv-border-soft);
+    border-radius: 9px;
+    background: var(--color-pdv-soft);
+    color: var(--color-pdv-text);
+  }
+
+  .pdv-payment-methods button.active {
+    background: var(--color-login-button);
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .pdv-categories button.active,
+  .pdv-categories button.active *,
+  .pdv-discount button.active,
+  .pdv-discount button.active *,
+  .pdv-payment-methods button.active,
+  .pdv-payment-methods button.active *,
+  .pdv-finish-button,
+  .pdv-finish-button * {
+    color: var(--color-text-on-primary) !important;
+  }
+
+  .pdv-finish-button:disabled {
+    opacity: 1 !important;
+  }
+
+  .pdv-payment-methods svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .pdv-payment-methods span {
+    font-size: 14px;
+  }
+
+  .pdv-received,
+  .pdv-change {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .pdv-received input {
+    width: 188px;
+  }
+
+  .pdv-change strong {
+    color: var(--color-pdv-success);
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .pdv-finish-button {
+    width: 100%;
+    height: 54px;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--color-login-button);
+    color: var(--color-text-on-primary);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .pdv-finish-button:hover {
+    background: var(--color-primary);
+  }
+
+  .pdv-finish-button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .pdv-next-step {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 12px;
+    margin-top: 16px;
+    border: 1px solid var(--color-pdv-border-soft);
+    border-radius: 9px;
+    background: var(--color-primary-light);
+    padding: 13px 15px;
+  }
+
+  .pdv-next-step > span {
+    width: 14px;
+    height: 14px;
+    margin-top: 3px;
+    border-radius: 999px;
+    background: var(--color-primary);
+    opacity: 0.78;
+  }
+
+  .pdv-next-step strong {
+    color: var(--color-primary);
+    font-size: 15px;
+  }
+
+  .pdv-next-step p {
+    margin-top: 4px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  .pdv-next-step mark {
+    border-radius: 999px;
+    background: var(--color-pdv-info-bg);
+    padding: 3px 10px;
+    color: var(--color-info);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .pdv-summary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 56px;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 16px;
+  }
+
+  .pdv-summary-actions button {
+    height: 44px;
+    border-color: var(--color-pdv-border);
+    background: rgb(var(--color-bg-card-soft-rgb) / 0.58);
+    font-size: 14px;
+  }
+
+  .pdv-summary-actions svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .pdv-feedback {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    border: 1px solid var(--color-pdv-border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .pdv-feedback svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pdv-feedback span {
+    flex: 1;
+  }
+
+  .pdv-feedback button {
+    color: currentColor;
+  }
+
+  .pdv-feedback-success {
+    background: var(--color-success-light);
+    color: var(--color-success-dark);
+  }
+
+  .pdv-feedback-warning {
+    background: var(--color-warning-light);
+    color: var(--color-warning-dark);
+  }
+
+  .pdv-feedback-error {
+    background: var(--color-danger-light);
+    color: var(--color-danger-dark);
+  }
+
+  @media (max-width: 1439px) {
+    .pdv-grid {
+      grid-template-columns: minmax(0, 1fr) 430px;
+    }
+
+    .pdv-cart-row {
+      grid-template-columns: 42px minmax(180px, 1fr) 82px 100px 100px 110px 70px;
+    }
+
+    .pdv-selected-customer {
+      grid-template-columns: 54px minmax(150px, 1fr) minmax(200px, 0.9fr);
+    }
+
+    .pdv-customer-data {
+      grid-column: 2 / -1;
+      justify-self: end;
+    }
+
+    .pdv-discount {
+      grid-template-columns: 1fr 38px 92px 46px 38px !important;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .pdv-main-shell {
+      overflow: auto;
+    }
+
+    .pdv-screen {
+      height: auto;
+    }
+
+    .pdv-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pdv-summary {
+      min-height: 680px;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .pdv-main-shell {
+      padding: 16px;
+    }
+
+    .pdv-selected-customer,
+    .pdv-cart-row {
+      grid-template-columns: 1fr;
+    }
+
+    .pdv-cart-head {
+      display: none;
+    }
+
+    .pdv-payment-methods {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pdv-discount {
+      grid-template-columns: 1fr 1fr !important;
+    }
+
+    .pdv-discount span {
+      grid-column: 1 / -1;
+    }
+  }
+}

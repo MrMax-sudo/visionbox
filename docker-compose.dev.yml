@@ -1,0 +1,79 @@
+name: visionbox-dev
+# docker compose -f docker-compose.dev.yml up -d  → PG/Redis/Rabbit/MinIO (AGENTS.md §8)
+# Validado via: docker compose -f docker-compose.dev.yml config
+# Nota reuse Testcontainers: este compose é para dev local (porta 5432 fixa).
+# Testcontainers postgres:15-alpine com withReuse(true) cria container SEPARADO via Ryuk
+# (porta aleatória, label org.testcontainers.reuse), não conflita com este PG.
+# Em CI Linux runner, este compose é opcional para mvn verify -Pintegration, mas
+# deixamos `up -d postgres redis rabbitmq minio` no CI para testes que usam localhost.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: visionbox-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-visionbox}
+      POSTGRES_USER: ${POSTGRES_USER:-visionbox}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-visionbox_dev_2026}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-visionbox} -d ${POSTGRES_DB:-visionbox}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    command: postgres -c shared_buffers=256MB -c max_connections=200
+
+  redis:
+    image: redis:7-alpine
+    container_name: visionbox-redis-dev
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: visionbox-rabbitmq-dev
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-visionbox}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-visionbox_dev_2026}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  minio:
+    image: minio/minio:latest
+    container_name: visionbox-minio-dev
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-visionbox}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-visionbox123}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata-dev:

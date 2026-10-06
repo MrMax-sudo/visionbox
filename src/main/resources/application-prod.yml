@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_MAX_POOL_SIZE:20}
+      minimum-idle: ${SPRING_DATASOURCE_MIN_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_CONNECTION_TIMEOUT:3000}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+    baseline-on-migrate: false
+
+visionbox:
+  laboratorio:
+    portal-token-secret: ${VISIONBOX_LAB_PORTAL_TOKEN_SECRET}
+  auth:
+    public-register-enabled: false
+  crm:
+    whatsapp:
+      fallback-to-mock: false
+
+logging:
+  level:
+    com.visionbox: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN

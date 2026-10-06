@@ -1,0 +1,57 @@
+# Java / Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Node / Web Frontend
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.turbo
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.npm
+.yarn/
+
+# Environment and Secrets (CRÍTICO)
+.env
+.env.local
+.env.*.local
+*.pem
+*.pfx
+*.p12
+*.crt
+*.key
+*.jks
+
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Logs and Temp
+*.log
+logs/
+temp/
+tmp/
+.scannerwork/
+.testcontainers.properties
+
+# Scratch / AI temp
+scratch/
+.agent-context/

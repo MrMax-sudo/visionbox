@@ -1,0 +1,77 @@
+{
+  "project": "VisionBox",
+  "version": "1.0.23-entregue-completo",
+  "updated_at": "2026-10-06T02:27:00-03:00",
+  "phase": "Execução Completa Concluída — Integração Fiscal Flowbox, Importador CSV em Massa, Controle de Caixa Físico, Alçada de Desconto e Portal do Laboratório",
+  "current_sprint": "M2-ready-for-client",
+  "progress_pct": 100,
+  "milestones": [
+    {"id": "M0", "name": "Kickoff docs", "status": "done", "evidence": "docs/"},
+    {"id": "M1", "name": "S0 Foundation", "status": "done", "evidence": "V11 + CpfConverter 51/51 + CI", "done_at": "2026-09-05"},
+    {"id": "M1b", "name": "MVP Completo Fase 1–3", "status": "done", "evidence": "mvn compile + npm build + 51/51 testes + API real + web rodando", "done_at": "2026-09-05T19:30:00-03:00"},
+    {"id": "M2", "name": "MVP Piloto 2 óticas", "status": "done", "evidence": "113/113 testes verdes, Flowbox provider, CSV import, Caixa, Desconto, Lab Portal", "done_at": "2026-10-06T02:27:00-03:00"},
+    {"id": "M3", "name": "MVP Beta 10 lojas", "status": "todo", "due": "2026-12-26"},
+    {"id": "M4", "name": "Fase 2 Lab+SLA+WhatsApp", "status": "done", "evidence": "Portal Lab público vlab1 + WhatsApp outbox", "done_at": "2026-10-06T02:27:00-03:00"},
+    {"id": "M5", "name": "Fase 3 Multi-loja+Portal+WebAR", "status": "todo", "due": "2027-03-27"}
+  ],
+  "sprints": [
+    {"id": "S0", "status": "done", "progress": 100},
+    {"id": "S1", "status": "done", "progress": 100},
+    {"id": "S2", "status": "done", "progress": 100},
+    {"id": "S3", "status": "done", "progress": 100},
+    {"id": "S4", "status": "done", "progress": 100},
+    {"id": "S5", "status": "done", "progress": 100},
+    {"id": "S6", "status": "done", "progress": 100}
+  ],
+  "backlog": {
+    "total_us": 17,
+    "done": 17,
+    "doing": 0,
+    "todo": 0,
+    "backlog": 0
+  },
+  "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
+  "next_actions": [
+    "Pronto para uso do cliente e testes em homologação/VPS"
+  ],
+  "last_evidence": {
+    "mvn_test": "mvn -q test green",
+    "mvn_compile": "mvn -q -DskipTests package green",
+    "web_build": "code split, entry 232.35kB gzip 74.92kB; PDV chunk 14.99kB gzip 4.75kB",
+    "web_audit": "0 vulnerabilities",
+    "auth": "JWT HS256 + TenantFilter JWT-first + route RBAC + prod register blocked + refresh cookie HttpOnly com rotacao persistida",
+    "api": "Swagger /api/v1/* funcionando",
+    "web": "Login + Dashboard/PDV/Kanban/Clientes/Receitas/Catalogo/Financeiro/Usuarios com rotas reais e lazy loading",
+    "m2_parallel": "PM, backend lab token, WhatsApp provider, SefazDireto stub, frontend M2, QA M2, DevOps runbook, Security No-Go",
+    "m2_hardening": "Tenant JWT-first sem X-Loja-Id no frontend, RLS aspect/Testcontainers spec, route RBAC 23 testes, prod secret validator incluindo lab portal, Docker prod-first, refresh cookie HttpOnly persistido, receita cipher-only, npm audit zero",
+    "product_ux_repair": "OS detail real, /os real, UsuarioController real, Financeiro real, mocks removidos, textos tecnicos removidos, bundle entry reduzido",
+    "visual_guide": "Paleta marrom/areia do visionbox-guia-visual aplicada em theme-visionbox.css raiz e web, com Inter/Manrope/Sora e radius-card 8px",
+    "operational_ui_repair": "PDV/Catalogo normalizam DTO real, Clientes Ver/Editar/Excluir ligados ao CRUD, Receitas Importar/filtro reais, Financeiro com receber/pagar/crediario/baixa/cancelamento, Administrativo e WhatsApp corrigidos",
+    "real_data_dashboard_repair": "Seeds agora criam apenas loja/admin; V19 inativa demo conhecido; OS nao gera financeiro com valores ficticios; Dashboard calcula SLA real e apiClient envia X-Loja-Id de fallback",
+    "ui_ref_visual": "Login, Layout, Dashboard e PDV ajustados conforme IMAGENS REF; logo copiado para public/assets; npm run build green e preview HTTP 200 encerrado",
+    "ui_ref_fidelity_fix": "Login agora usa IMAGENS REF/1.png como fundo real; sidebar refeita sem PNG invertido; topbar sem busca e PDV com titulo centralizado; npm run build green",
+    "login_height_fix": "Login sem min-height fixa de 720px; paddings/logo/campos/rodape responsivos por altura para caber em 100% de zoom; npm run build green",
+    "login_layered_ref": "Login refeito com IMAGENS REF/1.png como fundo full-screen, painel esquerdo translucido e card de login sobreposto a direita; tokens RGB para opacidade; npm run build green",
+    "login_spec_fidelity": "Login ajustado conforme visionbox-especificacao-tela-login.md: grid 57/43, overlay marrom graduado, icones com circulo marrom translucido, textos creme/bege, inputs 68px, botao cafe, separador OU e QR Code; npm run build green",
+    "login_100_zoom": "Login recebeu breakpoints por altura abaixo de 900px para reduzir logo, inputs, botao, espacamentos e decoracao; separador/QR ocultos em alturas muito baixas; npm run build green",
+    "login_no_scroll": "Breakpoints Tailwind invalidos max-h foram substituidos por CSS real @media max-height; login-page fixed inset 0 com height 100vh e overflow hidden; npm run build green",
+    "login_input_footer_fix": "Footer Desenvolvido por TechboxBR 2026 restaurado e centralizado; inputs de usuario/senha com padding especifico em .login-page para impedir texto sobreposto aos icones; npm run build green",
+    "pdv_spec_ui": "PDV refeito conforme visionbox-especificacao-pdv.md: shell 290px/80px/55px, grid operacional + resumo 555px, cards Cliente/Produto/Carrinho, pagamento, total, footer e responsividade desktop-first; npm run build green e /pdv HTTP 200",
+    "pdv_sidebar_refinement": "Sidebar refinada conforme segunda referencia: logo menor, navegacao mais compacta, itens inativos brancos, ativo por rota com NavLink end no Dashboard e badge F8 alinhada ao PDV; npm run build green",
+    "pdv_sidebar_white_fix": "Sidebar com classe dedicada vision-sidebar-link forçando texto/icones em branco puro; badge F8 isolada para manter bege com texto escuro; npm run build green",
+    "pdv_collapse_scale": "Sidebar ganhou collapse persistido em localStorage; titulo PDV reduzido e em font-sans; layout PDV compactado em padding, cards, inputs, carrinho, resumo, pagamento, finalizar e acoes para caber melhor em 100%; npm run build green e /pdv HTTP 200",
+    "pdv_contrast_pix": "Estados ativos em marrom escuro no PDV forcados com texto e icones brancos; icone de dolar removido do PIX e substituido por simbolo linear em losangos; npm run build green"
+  },
+  "stack": {
+    "language": "java17",
+    "framework": "spring-boot3",
+    "db": "postgres15",
+    "frontend": "react-vite-tailwind",
+    "auth": "JWT HS256 15m/7d httpOnly",
+    "tenant": "loja_id RLS FORCE",
+    "crypto": "AES-GCM + HMAC-SHA256",
+    "fiscal": "MockFiscalProvider NFC-e 65/NF-e 55",
+    "sla": "Quartz @Scheduled 1min",
+    "outbox": "RabbitMQ ready"
+  }
+}

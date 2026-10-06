@@ -1,0 +1,120 @@
+name: visionbox
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: visionbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: visionbox
+      POSTGRES_USER: visionbox
+      POSTGRES_PASSWORD: visionbox
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U visionbox -d visionbox"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: visionbox-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: visionbox-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: visionbox
+      RABBITMQ_DEFAULT_PASS: visionbox
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: visionbox-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: visionbox
+      MINIO_ROOT_PASSWORD: visionbox123
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: visionbox-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/visionbox
+      SPRING_DATASOURCE_USERNAME: visionbox
+      SPRING_DATASOURCE_PASSWORD: visionbox
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: visionbox
+      SPRING_RABBITMQ_PASSWORD: visionbox
+      AWS_S3_ENDPOINT: http://minio:9000
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: visionbox-web
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    depends_on:
+      - app
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: visionbox-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitdata:
+  miniodata:

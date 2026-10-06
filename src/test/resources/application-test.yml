@@ -1,0 +1,76 @@
+spring:
+  datasource:
+    # Testcontainers injeta url via @DynamicPropertySource (IsolamentoTenantTest) ou via jdbc:tc fallback.
+    # TC_REUSABLE=true + testcontainers.reuse.enable=true = reaproveita postgres:15-alpine entre classes / mvn -T
+    url: jdbc:tc:postgresql:15-alpine:///visionbox_test?TC_REUSABLE=true&TC_DAEMON=true
+    username: visionbox
+    password: visionbox
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        default_schema: public
+        # Evita auto-commit falso em Testcontainers PG reuse
+        connection.provider_disables_autocommit: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+    validate-on-migrate: true
+    baseline-on-migrate: true
+  # Redis/Rabbit: em Testcontainers puro, lettuce/amqp conectam lazy; se docker compose up -d estiver ativo, usa localhost.
+  # Se não houver infra, o contexto sobe mas health fica DOWN — testes não dependem de Redis para PG.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000
+      lettuce:
+        pool:
+          max-active: 2
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: false
+  security:
+    jwt:
+      secret: test-jwt-secret-min-256-bits-long-for-hs256-visionbox-test-only
+      expiration-ms: 900000
+  test:
+    database:
+      replace: none
+
+# Testcontainers reuse enable — não recria container a cada test class (arquivo.md §15)
+# Lido via .testcontainers.properties (src/test/resources + ~/.testcontainers.properties) e env TESTCONTAINERS_REUSE_ENABLE
+testcontainers:
+  reuse:
+    enable: true
+
+# Flyway valida mas não limpa entre testes — cada @Testcontainers filtra por loja_id
+logging:
+  level:
+    com.visionbox: DEBUG
+    org.hibernate.SQL: WARN
+    com.zaxxer.hikari: WARN
+    org.testcontainers: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

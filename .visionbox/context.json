@@ -1,0 +1,23 @@
+{
+  "project": "VisionBox",
+  "context_prompt": "Você está no VisionBox ERP óticas (TECHBOXBR). Leia docs/PROJECT_CONTEXT.md + docs/PROGRESS.md + .visionbox/state.json antes de qualquer tarefa. Stack: Java17 SpringBoot3 PG15 Flyway React+Tailwind. Diferencial: máquina OS 12 status + timeline + WhatsApp + SLA lab. Regras: nunca plain CPF/Grau (AES-GCM+hash), nunca findById sem lojaId, nunca hard-code tributação, PDV offline-first com outbox+Idempotency-Key. Tokens em theme-visionbox.css.",
+  "canonical_files": [
+    "visionbox-especificacao.md",
+    "theme-visionbox.css",
+    "arquivo.md",
+    "docs/PROJECT_CONTEXT.md",
+    "docs/GOVERNANCE.md",
+    "docs/ROADMAP.md",
+    "docs/BACKLOG.md",
+    "docs/PROGRESS.md",
+    "docs/RISK_REGISTER.md",
+    "docs/METRICS.md",
+    "docs/adrs/ADR-001-multi-tenant.md",
+    "docs/adrs/ADR-002-criptografia.md",
+    "docs/adrs/ADR-003-retencao-lgpd.md",
+    "docs/adrs/ADR-004-fiscal-gateway.md",
+    "docs/adrs/ADR-005-frontend-stack.md"
+  ],
+  "state_file": ".visionbox/state.json",
+  "progress_file": "docs/PROGRESS.md"
+}
