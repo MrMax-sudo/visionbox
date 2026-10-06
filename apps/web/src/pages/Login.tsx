@@ -9,32 +9,42 @@ import { ArrowRight, BarChart3, Eye, EyeOff, FileText, Glasses, Loader2, Lock, U
  * -> FOTO da ótica SEM textos (prateleiras + óculos sobre o balcão).
  * Se não existir, o painel esquerdo mostra um degradê marrom e a tela continua funcionando.
  */
-const BG_PHOTO = '/assets/login-bg.jpg';
+const BG_PHOTO = '/assets/login-bg.png';
 
-/* Logotipo em SVG/HTML — não depende de nenhuma imagem */
 function VisionBoxLogo() {
   return (
     <div className="flex flex-col items-center select-none" aria-label="VisionBox - Um novo olhar em gestão">
-      <svg viewBox="0 0 120 50" className="h-[54px] w-auto mb-1" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="vb-lens" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#B98B57" />
-            <stop offset="1" stopColor="#7A4A22" />
-          </linearGradient>
-        </defs>
-        {/* lente esquerda */}
-        <circle cx="34" cy="27" r="19" stroke="#4A2812" strokeWidth="6.5" />
-        {/* lente direita */}
-        <circle cx="86" cy="27" r="19" stroke="url(#vb-lens)" strokeWidth="6.5" />
-        {/* ponte */}
-        <path d="M52 22 Q60 12 68 22" stroke="#7A4A22" strokeWidth="6" strokeLinecap="round" />
-      </svg>
-      <div className="text-[46px] sm:text-[52px] leading-none font-bold tracking-[-0.045em]">
-        <span className="text-[#4A2812]">Vision</span>
-        <span className="text-[#8A5A2B]">Box</span>
-      </div>
-      <div className="mt-3 text-[10px] sm:text-[11px] uppercase tracking-[0.42em] text-[#5B4030] pl-[0.42em]">
-        Um novo olhar em gestão
+      <img
+        src="/assets/logo_.png"
+        alt="VisionBox - Um novo olhar em gestão"
+        className="h-28 sm:h-32 w-auto object-contain drop-shadow-sm transition-transform hover:scale-[1.02]"
+        onError={(e) => {
+          // Fallback gracioso se a imagem não carregar
+          const target = e.currentTarget;
+          target.style.display = 'none';
+          const fallback = target.parentElement?.querySelector('.logo-fallback');
+          if (fallback) fallback.classList.remove('hidden');
+        }}
+      />
+      <div className="logo-fallback hidden flex flex-col items-center">
+        <svg viewBox="0 0 120 50" className="h-[54px] w-auto mb-1" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="vb-lens" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#B98B57" />
+              <stop offset="1" stopColor="#7A4A22" />
+            </linearGradient>
+          </defs>
+          <circle cx="34" cy="27" r="19" stroke="#4A2812" strokeWidth="6.5" />
+          <circle cx="86" cy="27" r="19" stroke="url(#vb-lens)" strokeWidth="6.5" />
+          <path d="M52 22 Q60 12 68 22" stroke="#7A4A22" strokeWidth="6" strokeLinecap="round" />
+        </svg>
+        <div className="text-[46px] sm:text-[52px] leading-none font-bold tracking-[-0.045em]">
+          <span className="text-[#4A2812]">Vision</span>
+          <span className="text-[#8A5A2B]">Box</span>
+        </div>
+        <div className="mt-3 text-[10px] sm:text-[11px] uppercase tracking-[0.42em] text-[#5B4030] pl-[0.42em]">
+          Um novo olhar em gestão
+        </div>
       </div>
     </div>
   );
