@@ -70,8 +70,10 @@
     "auth": "JWT HS256 15m/7d httpOnly",
     "tenant": "loja_id RLS FORCE",
     "crypto": "AES-GCM + HMAC-SHA256",
-    "fiscal": "MockFiscalProvider NFC-e 65/NF-e 55",
+    "fiscal": "FlowboxFiscalProvider + MockFallback NFC-e 65/NF-e 55",
     "sla": "Quartz @Scheduled 1min",
-    "outbox": "RabbitMQ ready"
+    "outbox": "RabbitMQ ready",
+    "vps_deploy": "GitHub repository origin/main sync + Docker compose up -d healthy (app:8080, web:8088)",
+    "ci_cd": "GitHub Actions deploy.yml on push main via SSH"
   }
 }
