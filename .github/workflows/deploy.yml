@@ -9,26 +9,17 @@ on:
 jobs:
   deploy:
     name: Deploy VisionBox na VPS
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Executar Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          passphrase: ${{ secrets.VPS_PASSPHRASE }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script_stop: true
-          script: |
-            echo "=== Iniciando Deploy do VisionBox ==="
-            cd /home/mrmax/PROJETOS/VisionBox
-            echo "Puxando atualizações do GitHub..."
-            git pull origin main
-            echo "Reconstruindo e iniciando containers..."
-            docker compose up -d --build app web
-            echo "Limpando imagens antigas..."
-            docker image prune -f
-            echo "=== Deploy concluído com sucesso! ==="
-            docker compose ps
+      - name: Executar Deploy Local na VPS
+        run: |
+          echo "=== Iniciando Deploy do VisionBox ==="
+          cd /home/mrmax/PROJETOS/VisionBox
+          echo "Puxando atualizações do GitHub..."
+          git pull origin main
+          echo "Reconstruindo e iniciando containers..."
+          docker compose up -d --build app web
+          echo "Limpando imagens antigas..."
+          docker image prune -f
+          echo "=== Deploy concluído com sucesso! ==="
+          docker compose ps
