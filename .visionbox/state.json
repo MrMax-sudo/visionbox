@@ -74,6 +74,6 @@
     "sla": "Quartz @Scheduled 1min",
     "outbox": "RabbitMQ ready",
     "vps_deploy": "GitHub repository origin/main sync + Docker compose up -d healthy (app:8080, web:8088)",
-    "ci_cd": "GitHub Actions deploy.yml on push main via SSH"
+    "ci_cd": "GitHub Actions Self-Hosted Runner v2.337.0 ativo na VPS (deploy automático no push main)"
   }
 }
