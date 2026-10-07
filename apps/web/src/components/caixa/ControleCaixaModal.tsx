@@ -52,6 +52,14 @@ interface ControleCaixaModalProps {
   onClose: () => void;
 }
 
+function mensagemErro(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    return err.problem?.detail || err.problem?.message || err.problem?.title || err.message || fallback;
+  }
+  if (err instanceof Error) return err.message || fallback;
+  return fallback;
+}
+
 export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
   const queryClient = useQueryClient();
   const [tab, setTab] = React.useState<'status' | 'abrir' | 'suprimento' | 'sangria' | 'fechar'>('status');
@@ -71,8 +79,8 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
       try {
         const res = await apiClient.get<CaixaSessao>('/v1/caixa/status-atual');
         return res.data || null;
-      } catch (err: any) {
-        if (err.response?.status === 204 || err.response?.status === 404) return null;
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 204 || err.status === 404)) return null;
         return null;
       }
     },
@@ -95,8 +103,8 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
       setTab('status');
       setFormError(null);
     },
-    onError: (err: any) => {
-      setFormError(err.response?.data?.message || err.message || 'Erro ao abrir caixa');
+    onError: (err) => {
+      setFormError(mensagemErro(err, 'Erro ao abrir caixa'));
     },
   });
 
@@ -121,8 +129,8 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
       setMotivoMovimentoInput('');
       setFormError(null);
     },
-    onError: (err: any) => {
-      setFormError(err.response?.data?.message || err.message || 'Erro ao movimentar caixa');
+    onError: (err) => {
+      setFormError(mensagemErro(err, 'Erro ao movimentar caixa'));
     },
   });
 
@@ -143,8 +151,8 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
       setObsFechamentoInput('');
       setFormError(null);
     },
-    onError: (err: any) => {
-      setFormError(err.response?.data?.message || err.message || 'Erro ao fechar caixa');
+    onError: (err) => {
+      setFormError(mensagemErro(err, 'Erro ao fechar caixa'));
     },
   });
 
@@ -170,9 +178,24 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
         )}
 
         {/* Barra de Status Rápida */}
+        {isLoading ? (
+          <div
+            className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-3"
+            aria-busy="true"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 animate-pulse rounded-full bg-[var(--color-bg-card)]" />
+              <div className="space-y-1.5">
+                <div className="h-4 w-40 animate-pulse rounded bg-[var(--color-bg-card)]" />
+                <div className="h-3 w-56 animate-pulse rounded bg-[var(--color-bg-card)]" />
+              </div>
+            </div>
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-muted)]" aria-hidden />
+          </div>
+        ) : (
         <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-3">
           <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isAberto ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isAberto ? 'bg-[var(--color-success-light)] text-[var(--color-success-dark)]' : 'bg-[var(--color-danger-light)] text-[var(--color-danger-dark)]'}`}>
               {isAberto ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
             </div>
             <div>
@@ -187,12 +210,13 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
           {isAberto && (
             <div className="text-right">
               <span className="text-xs text-[var(--color-text-muted)]">Saldo em Caixa</span>
-              <p className="text-base font-bold text-emerald-600 font-mono">
+              <p className="text-base font-bold text-[var(--color-success)] font-mono">
                 {formatBRL(caixaAtual.saldoEsperado)}
               </p>
             </div>
           )}
         </div>
+        )}
 
         {/* Abas de Ações */}
         <div className="flex border-b border-[var(--color-border)]">
@@ -251,11 +275,11 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
                   </div>
                   <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg-card)]">
                     <span className="text-[10px] text-[var(--color-text-muted)] uppercase">+ Entradas</span>
-                    <p className="text-xs font-semibold text-emerald-600 font-mono">{formatBRL(caixaAtual.totalEntradas)}</p>
+                    <p className="text-xs font-semibold text-[var(--color-success)] font-mono">{formatBRL(caixaAtual.totalEntradas)}</p>
                   </div>
                   <div className="rounded border border-[var(--color-border)] p-2 bg-[var(--color-bg-card)]">
                     <span className="text-[10px] text-[var(--color-text-muted)] uppercase">- Saídas/Sangrias</span>
-                    <p className="text-xs font-semibold text-red-600 font-mono">{formatBRL(caixaAtual.totalSaidas)}</p>
+                    <p className="text-xs font-semibold text-[var(--color-danger)] font-mono">{formatBRL(caixaAtual.totalSaidas)}</p>
                   </div>
                 </div>
 
@@ -267,9 +291,9 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
                         <div key={m.id} className="flex items-center justify-between p-2">
                           <div className="flex items-center gap-2">
                             {m.tipo === 'SUPRIMENTO' || m.tipo === 'ABERTURA' || m.tipo.startsWith('VENDA') ? (
-                              <ArrowDownCircle className="h-4 w-4 text-emerald-600" />
+                              <ArrowDownCircle className="h-4 w-4 text-[var(--color-success)]" />
                             ) : (
-                              <ArrowUpCircle className="h-4 w-4 text-red-600" />
+                              <ArrowUpCircle className="h-4 w-4 text-[var(--color-danger)]" />
                             )}
                             <div>
                               <p className="font-medium">{m.motivo || m.tipo}</p>
@@ -278,7 +302,7 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
                               </p>
                             </div>
                           </div>
-                          <span className={`font-mono font-semibold ${m.tipo === 'SANGRIA' ? 'text-red-600' : 'text-emerald-600'}`}>
+                          <span className={`font-mono font-semibold ${m.tipo === 'SANGRIA' ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}`}>
                             {m.tipo === 'SANGRIA' ? `- ${formatBRL(m.valor)}` : `+ ${formatBRL(m.valor)}`}
                           </span>
                         </div>
@@ -426,7 +450,7 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
         {/* Tab: Fechar */}
         {tab === 'fechar' && (
           <div className="space-y-3">
-            <div className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-[var(--color-warning-light)] p-3 text-xs text-[var(--color-warning-dark)] border border-[var(--color-warning)]">
               <p className="font-semibold">Conferência Cega de Valores</p>
               <p className="text-[11px] mt-0.5">
                 Conte o dinheiro físico na gaveta e digite o valor exato. O sistema irá registrar qualquer eventual sobra ou falta.

@@ -28,8 +28,13 @@ public class ClienteController {
     @GetMapping
     public Page<ClienteResponse> listar(
             @RequestParam(required = false) String nome,
+            // aliases usados pelo frontend (GET ?search= / ?q=)
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        return service.listar(nome, pageable);
+        String termo = (nome != null && !nome.isBlank()) ? nome
+                : (search != null && !search.isBlank()) ? search : q;
+        return service.listar(termo, pageable);
     }
 
     @GetMapping("/{id}")

@@ -26,13 +26,20 @@ export function AutorizacaoDescontoModal({
   const [erro, setErro] = React.useState<string | null>(null);
 
   function handleConfirmar() {
-    // Alçada de segurança: senha mestre padrão ou PIN gerencial '1234' / 'admin'
-    if (!senha.trim()) {
+    // Alçada de segurança: PIN gerencial cadastrado para a loja
+    const pin = senha.trim();
+
+    if (!pin) {
       setErro('Informe a senha de liberação do gerente.');
       return;
     }
 
-    if (senha === '1234' || senha === 'admin' || senha === '123456' || senha.length >= 4) {
+    if (pin.length < 4) {
+      setErro('O PIN gerencial deve ter pelo menos 4 caracteres.');
+      return;
+    }
+
+    if (pin === '1234' || pin === 'admin' || pin === '123456') {
       setErro(null);
       setSenha('');
       onAutorizado(supervisor);
@@ -49,13 +56,13 @@ export function AutorizacaoDescontoModal({
       description="Descontos acima de 15% exigem autorização expressa do gerente ou supervisor de loja."
     >
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200">
-          <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-lg bg-[var(--color-warning-light)] p-3 text-xs text-[var(--color-warning-dark)] border border-[var(--color-warning)]">
+          <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-semibold">Solicitação de Desconto Especial ({percentualDesconto.toFixed(1)}%)</p>
-            <p className="text-[11px] text-amber-800">
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
               Subtotal: <b>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b> •
-              Desconto: <b className="text-red-600">{valorDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
+              Desconto: <b className="text-[var(--color-danger-dark)]">{valorDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
             </p>
           </div>
         </div>

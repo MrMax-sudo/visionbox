@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, ApiError } from '@/lib/apiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
+import { unwrapPage } from '@/lib/types';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 
 const PERFIS_USUARIO = ['ADMIN', 'GERENTE', 'VENDEDOR', 'OTICO', 'TECNICO', 'FINANCEIRO', 'LABORATORIO'] as const;
 const perfilSchema = z.enum(PERFIS_USUARIO);
@@ -21,7 +23,6 @@ const usuarioSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').optional().or(z.literal('')),
   perfil: perfilSchema,
-  lojaId: z.string().uuid().optional(),
 });
 
 type UsuarioForm = z.infer<typeof usuarioSchema>;
@@ -61,8 +62,9 @@ export default function UserManagement() {
   const [usuarios, setUsuarios] = useState<UsuarioDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [size] = useState(20);
+  const size = 20;
   const [totalPages, setTotalPages] = useState(0);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -77,7 +79,6 @@ export default function UserManagement() {
       email: '',
       senha: '',
       perfil: 'VENDEDOR',
-      lojaId: '',
     },
   });
 
@@ -85,13 +86,14 @@ export default function UserManagement() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await apiClient.get<PageResponse<UsuarioDTO>>('/v1/usuarios', {
+      const { data } = await apiClient.get<PageResponse<UsuarioDTO> | UsuarioDTO[]>('/v1/usuarios', {
         params: { page, size },
       });
-      setUsuarios(data.content);
-      setTotalPages(data.totalPages);
+      setUsuarios(unwrapPage(data));
+      setTotalPages((data as PageResponse<UsuarioDTO>)?.totalPages ?? 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar');
+      const problem = err instanceof ApiError ? err.problem : undefined;
+      setError(problem?.detail || (err instanceof Error ? err.message : 'Erro ao carregar'));
     } finally {
       setLoading(false);
     }
@@ -106,6 +108,7 @@ export default function UserManagement() {
       form.setError('senha', { message: 'Senha é obrigatória para novo usuário' });
       return;
     }
+    setActionError(null);
     try {
       if (isCreating) {
         await apiClient.post('/v1/usuarios', {
@@ -125,31 +128,41 @@ export default function UserManagement() {
       setIsCreating(false);
       carregarUsuarios();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Não foi possível salvar o usuário';
-      alert(msg);
+      const problem = err instanceof ApiError ? err.problem : undefined;
+      const fieldErrors = problem?.errors?.map((e) => `${e.field}: ${e.message}`).join(' • ');
+      const msg =
+        problem?.detail ||
+        problem?.message ||
+        (err instanceof Error ? err.message : null) ||
+        'Não foi possível salvar o usuário';
+      setActionError(fieldErrors ? `${msg} — ${fieldErrors}` : msg);
     }
   }
 
   async function handleDelete() {
     if (!selectedUsuario) return;
+    setActionError(null);
     try {
       await apiClient.delete(`/v1/usuarios/${selectedUsuario.id}`);
       setDeleteDialogOpen(false);
       carregarUsuarios();
-    } catch (err) {
-      alert('Não foi possível excluir o usuário');
+    } catch (err: unknown) {
+      const problem = err instanceof ApiError ? err.problem : undefined;
+      setActionError(
+        problem?.detail || (err instanceof Error ? err.message : null) || 'Não foi possível excluir o usuário',
+      );
     }
   }
 
   function abrirEditar(usuario: UsuarioDTO) {
     setSelectedUsuario(usuario);
     setIsCreating(false);
+    setActionError(null);
     form.reset({
       nome: usuario.nome,
       email: usuario.email,
       senha: '',
       perfil: usuario.perfil,
-      lojaId: '',
     });
     setEditDialogOpen(true);
   }
@@ -157,18 +170,19 @@ export default function UserManagement() {
   function abrirNovo() {
     setIsCreating(true);
     setSelectedUsuario(null);
+    setActionError(null);
     form.reset({
       nome: '',
       email: '',
       senha: '',
       perfil: 'VENDEDOR',
-      lojaId: '',
     });
     setEditDialogOpen(true);
   }
 
   function confirmarDelete(usuario: UsuarioDTO) {
     setSelectedUsuario(usuario);
+    setActionError(null);
     setDeleteDialogOpen(true);
   }
 
@@ -197,8 +211,10 @@ export default function UserManagement() {
         </Button>
       </div>
 
+      <OfflineBanner />
+
       {error && (
-        <div className="rounded-[var(--radius)] bg-[var(--color-danger-light)] p-4 text-[var(--color-danger-dark)] text-sm">
+        <div role="alert" className="rounded-[var(--radius)] bg-[var(--color-danger-light)] p-4 text-[var(--color-danger-dark)] text-sm">
           {error}
         </div>
       )}
@@ -352,6 +368,11 @@ export default function UserManagement() {
               </div>
 
             </div>
+            {actionError && (
+              <p role="alert" className="mb-3 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
+                {actionError}
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
                 Cancelar
@@ -368,6 +389,11 @@ export default function UserManagement() {
           <p className="py-4 text-sm">
             Tem certeza que deseja excluir <strong>{selectedUsuario?.nome}</strong>? Esta ação não pode ser desfeita.
           </p>
+          {actionError && (
+            <p role="alert" className="mb-3 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
+              {actionError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
               Cancelar

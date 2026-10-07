@@ -26,7 +26,8 @@ public class GrauDto {
     @Max(value = 180, message = "eixo 0-180")
     private Integer eixo;
 
-    @DecimalMin(value = "0.00") @DecimalMax(value = "6.00")
+    @DecimalMin(value = "0.00", message = "adicao mínima 0")
+    @DecimalMax(value = "6.00", message = "adicao máxima 6")
     private BigDecimal adicao;
 
     private BigDecimal dnp;

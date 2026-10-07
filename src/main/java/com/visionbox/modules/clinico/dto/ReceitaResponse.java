@@ -14,6 +14,8 @@ public class ReceitaResponse {
     private UUID id;
     private UUID lojaId;
     private UUID clienteId;
+    /** Nome do cliente (exibição na UI — evita round-trip extra no frontend). */
+    private String clienteNome;
     private String dataEmissao;
     private String dataValidade;
     private String nomeMedico;

@@ -18,8 +18,10 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { apiClient } from '@/lib/apiClient';
@@ -107,8 +109,100 @@ function SyncIndicator() {
   );
 }
 
-function Header() {
-  const { theme, toggle } = useTheme();
+function NotificationBell() {
+  const [open, setOpen] = React.useState(false);
+  const [pendentes, setPendentes] = React.useState<Array<{ _ts?: number }>>([]);
+  const boxRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const read = () => {
+      try {
+        const raw = localStorage.getItem('visionbox-outbox');
+        const data = raw ? JSON.parse(raw) : [];
+        setPendentes(Array.isArray(data) ? data : []);
+      } catch {
+        setPendentes([]);
+      }
+    };
+    read();
+    const id = window.setInterval(read, 3000);
+    window.addEventListener('storage', read);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('storage', read);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative h-9 w-9"
+        aria-label={open ? 'Fechar notificações' : 'Notificações'}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Bell className="h-4 w-4" />
+        {pendentes.length > 0 && (
+          <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[11px] font-bold leading-none text-[var(--color-text-on-danger)]">
+            {pendentes.length}
+          </span>
+        )}
+      </Button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-2 w-72 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4 shadow-[var(--shadow-panel)]"
+        >
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Notificações</p>
+
+          {pendentes.length > 0 ? (
+            <>
+              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                {pendentes.length} venda(s) aguardando sincronização com o servidor.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {pendentes.slice(-5).map((item, idx) => (
+                  <li
+                    key={`${item._ts ?? idx}`}
+                    className="rounded-[var(--radius)] border border-[var(--color-warning-light)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning-dark)]"
+                  >
+                    Venda offline pendente
+                    {item._ts ? ` • ${new Date(item._ts).toLocaleString('pt-BR')}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="mt-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-4 text-center text-xs text-[var(--color-text-muted)]">
+              Nenhuma notificação no momento.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleTheme: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
@@ -139,7 +233,7 @@ function Header() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={toggle}
+          onClick={onToggleTheme}
           className="h-9 w-9"
           aria-label={`Alternar para tema ${theme === 'light' ? 'escuro' : 'claro'}`}
           title="Alternar tema"
@@ -147,12 +241,7 @@ function Header() {
           {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
 
-        <Button variant="ghost" size="icon" className="relative h-9 w-9" aria-label="Notificações">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[11px] font-bold leading-none text-white">
-            3
-          </span>
-        </Button>
+        <NotificationBell />
 
         <div className="ml-2 flex items-center gap-3 pl-4">
           <div className="hidden text-right leading-tight sm:block">
@@ -164,8 +253,8 @@ function Header() {
               {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
             </span>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8" aria-label="Sair">
-            <ChevronDown className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8" aria-label="Sair da conta" title="Sair da conta">
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -173,7 +262,7 @@ function Header() {
   );
 }
 
-function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; onToggle: () => void; onOpenConfig: () => void }) {
   const { user } = useAuthStore();
   const isAdmin = user?.perfil === 'ADMIN';
 
@@ -183,7 +272,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
 
   return (
     <aside className={cn(
-      'hidden min-h-screen shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-text-on-primary)] transition-[width] duration-200 md:flex',
+      'hidden min-h-screen shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex',
       collapsed ? 'w-[84px]' : 'w-[252px]',
     )}>
       <div className={cn('relative px-4 pb-7 pt-4 text-center', collapsed && 'px-3 pb-5')}>
@@ -249,10 +338,19 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
                 {!collapsed && <span className="flex-1">{item.label}</span>}
               </NavLink>
             ))}
-            <div className={cn('vision-sidebar-link flex h-[50px] items-center gap-4 rounded-[10px] text-[16px] font-medium', collapsed ? 'justify-center px-0' : 'px-4')} title={collapsed ? 'Configurações' : undefined}>
+            <button
+              type="button"
+              onClick={onOpenConfig}
+              className={cn(
+                'vision-sidebar-link flex h-[50px] w-full items-center gap-4 rounded-[10px] text-[16px] font-medium transition-colors hover:bg-white/10',
+                collapsed ? 'justify-center px-0' : 'px-4',
+              )}
+              title="Configurações"
+              aria-label="Configurações"
+            >
               <Settings className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden />
               {!collapsed && <span>Configurações</span>}
-            </div>
+            </button>
           </>
         )}
 
@@ -308,10 +406,106 @@ function MobileNav() {
   );
 }
 
+function ConfiguracoesDialog({
+  open,
+  onClose,
+  theme,
+  onToggleTheme,
+}: {
+  open: boolean;
+  onClose: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}) {
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    apiClient
+      .post('/v1/auth/logout', undefined, { headers: { 'X-Skip-Idempotency-Key': 'true' } })
+      .finally(() => {
+        logout();
+        navigate('/login', { replace: true });
+      });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Configurações"
+      description="Preferências desta estação e dados da conta."
+    >
+      <div className="space-y-5">
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Aparência</h3>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (theme !== 'light') onToggleTheme();
+              }}
+              aria-pressed={theme === 'light'}
+              className={`h-9 flex-1 rounded-[var(--radius)] border px-3 text-sm font-medium transition ${
+                theme === 'light'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)]'
+              }`}
+            >
+              Tema claro
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (theme !== 'dark') onToggleTheme();
+              }}
+              aria-pressed={theme === 'dark'}
+              className={`h-9 flex-1 rounded-[var(--radius)] border px-3 text-sm font-medium transition ${
+                theme === 'dark'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)]'
+              }`}
+            >
+              Tema escuro
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Conta</h3>
+          <dl className="mt-2 divide-y divide-[var(--color-border)] rounded-[var(--radius)] border border-[var(--color-border)]">
+            <div className="flex items-center justify-between gap-3 px-3 py-2">
+              <dt className="text-xs text-[var(--color-text-secondary)]">Nome</dt>
+              <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user?.nome || '—'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-3 py-2">
+              <dt className="text-xs text-[var(--color-text-secondary)]">Perfil</dt>
+              <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user?.perfil || '—'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-3 py-2">
+              <dt className="text-xs text-[var(--color-text-secondary)]">Loja</dt>
+              <dd className="truncate font-mono text-sm text-[var(--color-text-primary)]">{user?.lojaId || '—'}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-4">
+          <span className="text-xs text-[var(--color-text-muted)]">VisionBox v0.1.0</span>
+          <Button variant="destructive" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" /> Sair da conta
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export default function Layout() {
   const location = useLocation();
   const isPdv = location.pathname === '/pdv';
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => localStorage.getItem('visionbox-sidebar-collapsed') === 'true');
+  const [configOpen, setConfigOpen] = React.useState(false);
+  const { theme, toggle } = useTheme();
 
   React.useEffect(() => {
     localStorage.setItem('visionbox-sidebar-collapsed', String(sidebarCollapsed));
@@ -320,9 +514,13 @@ export default function Layout() {
   return (
     <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
       <div className={cn('flex', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
-        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((value) => !value)} />
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((value) => !value)}
+          onOpenConfig={() => setConfigOpen(true)}
+        />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <Header />
+          <Header theme={theme} onToggleTheme={toggle} />
           <main className={cn('flex-1', isPdv ? 'pdv-main-shell' : 'p-4 sm:p-6')}>
             <Outlet />
           </main>
@@ -333,6 +531,13 @@ export default function Layout() {
           </footer>
         </div>
       </div>
+
+      <ConfiguracoesDialog
+        open={configOpen}
+        onClose={() => setConfigOpen(false)}
+        theme={theme}
+        onToggleTheme={toggle}
+      />
     </div>
   );
 }

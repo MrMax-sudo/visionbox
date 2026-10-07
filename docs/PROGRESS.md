@@ -1,6 +1,6 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-06 02:27 — Execução Completa Concluída (Fiscal Flowbox, Importador CSV, Caixa Físico, Alçada de Desconto, Portal Lab)
+> **Atualizado em:** 2026-10-07 — Frontend: CRUD Usuários/Produtos, botões do PDV, tema escuro e Receitas corrigidos; backend 125/125 testes
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
 ## Snapshot
@@ -9,7 +9,7 @@
 |---|---|
 | **Fase atual** | `Execução Completa Concluída — Pronto para Piloto e Cliente` |
 | **Build** | `mvn -q -DskipTests package` ✅ | `npm run build` ✅ (1.53s) |
-| **Testes** | `mvn test` ✅: **113/113 testes verdes** |
+| **Testes** | `mvn test` ✅: **125/125 testes verdes** |
 | **Fiscal** | Flowbox Fiscal Provider (`D:\TECHBOXBR\PRODUTOS\Flowbox`) ✅ |
 | **Importador** | CSV em lote de Catálogo & Clientes com validação e feedback ✅ |
 | **Caixa Físico** | Sessão de Caixa (Abertura, Suprimento, Sangria, Fechamento cego) ✅ |
@@ -18,6 +18,75 @@
 | **API** | `http://localhost:8080` Swagger + `actuator/health` 200 |
 | **Frontend** | `http://localhost:5173` / `http://localhost:8088` |
 | **Auth** | `admin@visionbox.com.br` / `admin123` → JWT HS256 15m/7d |
+
+## Backend — Contrato Receitas/Usuários/Produtos (2026-10-07)
+
+> Escopo: corrigir `POST /api/v1/receitas` (retornava "Corpo da requisição inválido ou JSON malformado.")
+> e validar CRUD de usuários e produtos de ponta a ponta. Só backend — `apps/web` não foi alterado.
+
+| Área | Bug real (antes) | Correção | Evidência |
+|---|---|---|---|
+| Jackson | `JacksonConfig` injetava `ObjectMapper` cru e **substituía** o do Boot: `spring.jackson.*` do `application.yml` era config morta (`FAIL_ON_UNKNOWN_PROPERTIES=true`) → qualquer campo extra do payload (ex.: `tipoLente`) caía em 400 genérico | `mapper.disable(FAIL_ON_UNKNOWN_PROPERTIES)` no bean da aplicação | `JacksonConfig`, `ReceitaRequestJsonTest.camposDesconhecidosSaoIgnorados` |
+| Payload receitas | `ReceitaRequest` não conhecia `tipoLente` e exigia `dataEmissao`/`dataValidade` (`@NotNull`), mas o frontend não envia datas e usa `tipoLente` | `@JsonAlias("tipoLente")`, datas viraram opcionais com default (hoje / hoje+2 anos) | `ReceitaRequest`, `ReceitaServiceTest.criarSemDatasDefaultaHojeMaisDoisAnos` |
+| `dp` numérico | Frontend envia `"dp": 62` (número) para `String dp` → `MismatchedInputException` → 400 genérico | `LenientStringDeserializer` (número/bool/texto → String) | `shared/json/LenientStringDeserializer`, `ReceitaRequestJsonTest` |
+| Mensagens de erro | Todo erro de leitura do Jackson virava "Corpo da requisição inválido ou JSON malformado." | `ProblemDetailHandler` desembrulha a causa: campo desconhecido / UUID (`clienteId inválido: informe o UUID do cliente.`) / tipo esperado; sem ecoar valor (LGPD) | `ProblemDetailHandler`, 4 testes em `ReceitaRequestJsonTest` |
+| Domínio receita | Frontend envia `MONOFOCAL`; CHECK de `V2__cliente_receita.sql` aceita só `VISAO_SIMPLES` (→ 500 em Flyway) e `adicao: 0` em MONOFOCAL violava a regra "só MULTIFOCAL/BIFOCAL" (→ 400) | `normalizarTipo` (`MONOFOCAL→VISAO_SIMPLES`) + `normalizarGrau` (`adicao 0 → sem adição`) | `ReceitaServiceTest.criarMonofocalNormalizaTipoEAdicao` |
+| Datas | `LocalDate.parse` solto → `DateTimeParseException` = 500 | parse com mensagem PT-BR (`yyyy-MM-dd`) → 400 | `ReceitaServiceTest.criarComDataInvalidaGeraMensagemLegivel` |
+| Listagem receitas | Resposta sem `clienteNome` (UI precisa) e 1 query de cliente por receita (N+1) | `ReceitaResponse.clienteNome` + lookup em lote `findByLojaIdAndIdIn` | `ClienteRepository`, `ReceitaServiceTest.listarPreencheClienteNomeSemN1` |
+| Soft-delete usuário | `Usuario` tinha `@SQLRestriction(ativo=true)`: inativos sumiam da lista (badge "Inativo" da UI nunca aparecia), `PATCH ativo` não reativava (404) e `existsByEmailAndLojaId` não via a linha inativa → INSERT estourava `uq_usuario_loja_email` = 400 "Registro duplicado" | `@SQLRestriction` removido de `Usuario` (login/refresh seguem com check explícito `isAtivo()` → `DisabledException`) | `Usuario.java`, `AuthController` |
+| Soft-delete produto | Mesmo problema em `produto(loja_id, sku)`: excluir e recriar o mesmo SKU dava 400 "Registro duplicado" | Índice **parcial** `WHERE ativo = true` (unicidade só entre ativos) + `@Table` sem unique | `V21__unicidade_parcial_produto_sku.sql`, `Produto.java` |
+| Catálogo | Frontend envia `?search=` e `?categoria=`; backend só aceitava `q` e não filtrava categoria (paginação/totais errados) | alias `search` + filtro `categoria` (rótulo → `TipoProduto`, fallback coluna texto) | `ProdutoController`, `ProdutoRepository.buscarFiltrado` |
+| Produto | `custo` era `@NotNull` no DTO enquanto o service já defaulta `ZERO` | `@NotNull` removido de `custo` | `ProdutoRequest` |
+
+| Verificação | Resultado |
+|---|---|
+| `mvn -q -DskipTests compile` | ✅ EXIT 0 |
+| `mvn test` | ✅ **125/125** (13 de receitas/JSON, 112 pré-existentes, 0 falha) |
+| `mvn test -Dtest=ReceitaServiceTest,ReceitaRequestJsonTest` | ✅ 13/13 |
+| `mvn flyway:validate` / e2e HTTP | ⚠️ **não executados**: sem banco (portas 8080/5432 fechadas) e `docker` não instalado nesta máquina |
+
+> **Pendências sinalizadas (não alteradas):** `db/migration` tem versões duplicadas
+> (`V12` ×3 e `V15` ×2) → Flyway 10.20.1 falha com "Found more than one migration with version" no
+> boot com Flyway ligado; e `V3–V10` (criação de `produto`, `marca`, `categoria`…) não existem no
+> histórico. Itens para **db-admin** + **devops-infra** (ver `docs/decisions.md`).
+
+## Frontend — Correção de Bugs (2026-10-07)
+
+> Escopo: o cliente reportou "CRUD usuários não funciona", "CRUD produtos / +Novo produto não
+> funciona", "nenhum botão do PDV funciona", "tema escuro com textos ilegíveis" e
+> "Corpo da requisição inválido" ao salvar receita. Todos tratados + demais defeitos achados.
+
+| Área | Bug real (antes) | Correção | Arquivo |
+|---|---|---|---|
+| **CRUD Usuários** | `usuarioSchema` exigia `lojaId` **UUID opcional** mas `defaultValues.lojaId = ''` → zod falhava silenciosamente e **todo submit era bloqueado** (nenhum erro visível) | `lojaId` removido do schema e dos defaults (o backend resolve pelo JWT) | `UserManagement.tsx` |
+| **CRUD Usuários** | paginação com `total` inexistente + `alert()` em erro | `size = 20`, `unwrapPage`, `actionError` exibido no dialog, `ApiError` no catch, `OfflineBanner` | idem |
+| **CRUD Produtos** | **não existia UI de CRUD**; botão `+Novo produto` sem `onClick`; SKU nunca podia ser editado | dialog criar/editar (SKU, nome, categoria, marca, custo, preço, estoque, NCM, EAN), dialog de exclusão, `saveMutation`/`deleteMutation` | `Catalogo.tsx` |
+| **Catálogo** | filtro "Marca" era botão inerte; paginação `disabled` errado (`filtered.length < size`); `bg-white`/`border-gray-100` | input de marca com debounce (envia `?marca=`), `disabled` usa o conteúdo da página, tokens de cor | idem |
+| **PDV** | Novo cliente / Ver dados / Novo produto / Orçamento / Mais ações sem `onClick`; `window.location.href`; filtro de categoria nunca aplicado; coluna Desconto fixa em `R$ 0,00` | 3 modais novos (`NovoClienteModal`, `DadosClienteModal`, `MaisAcoesModal`), `useNavigate`, filtro por categoria, desconto calculado | `PDV.tsx`, `components/pdv/*` |
+| **Receitas** | `clienteId` era texto livre não-UUID → 400 do backend (D-002) | combobox com busca `GET /v1/clientes?nome=`, só envia UUID, chip selecionado e tratamento de `ApiError.problem.detail` | `Receitas.tsx` |
+| **Financeiro** | `financeiroMutation` sem `onError` → falha silenciosa | `onError`/sucesso com estados visíveis (substitui `alert`) | `Financeiro.tsx` |
+| **Tema escuro** | sidebar inteira com `--color-text-on-primary` (vira marrom escuro) sobre gradiente escuro → **invisível** | novo token `--color-sidebar-text` fixo branco | `theme-visionbox.css`, `index.css`, `Layout.tsx` |
+| **Tema escuro** | botão "Finalizar" e formas de pagamento usavam `--color-login-button` (fixo marrom) com `--color-text-on-primary` (escuro no dark) → ilegível | novo token `--color-text-on-action` fixo branco | `theme-visionbox.css`, `index.css` |
+| **Tema escuro** | `Button destructive` e badge de notificação com `text-white` sobre `--color-danger` (coral claro no dark) | novo token `--color-text-on-danger` | `button.tsx`, `Layout.tsx` |
+| **Tema escuro** | cores da paleta Tailwind direto no fundo do card (`text-teal-700`, `text-indigo-600`, `bg-amber-50`, `text-gray-500`, `bg-[#E8DDD2]`) | convertidas para `var(--color-*)` | `LabPortal`, `OSDetail`, `ControleCaixaModal`, `AutorizacaoDescontoModal`, `PDV`, `DashboardKanban`, `Receitas` |
+| **Tema escuro** | `<select>`/scrollbar nativos continuavam claros | `color-scheme: light` em `:root`, `color-scheme: dark` no dark | `theme-visionbox.css` |
+| **Controles mortos** | sino (contador fixo "3"), Configurações (`<div>`), logout com ícone de chevron, "Filtros" em Dashboard/Clientes | sino lê a fila offline real; Configurações abre dialog com tema/conta; ícone `LogOut`; filtros funcionais | `Layout.tsx`, `DashboardKanban.tsx`, `Clientes.tsx` |
+| **Alçada desconto** | `senha.length >= 4` aceitava **qualquer** PIN de 4+ caracteres | valida tamanho **e** lista de PINs, mensagens distintas | `AutorizacaoDescontoModal.tsx` |
+| **Caixa** | `err.response?.data?.message` num client que rejeita com `ApiError` → sempre cacia; sem estado de carregamento | `mensagemErro()` sobre `ApiError.problem` + skeleton em `isLoading` | `ControleCaixaModal.tsx` |
+| **OS detalhe** | sem `OfflineBanner` (todas as outras páginas têm) | banner adicionado | `OSDetail.tsx` |
+
+| Verificação | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ EXIT 0 |
+| `npm run build` | ✅ EXIT 0 (code split, entry 241.53 kB / gzip 77.38 kB) |
+| `mvn -q -DskipTests compile` | ✅ EXIT 0 |
+| `mvn test -Dtest=ReceitaServiceTest,ReceitaRequestJsonTest` | ✅ 13/13 |
+| `mvn test` (total) | ✅ **125/125** |
+| Rodar a aplicação / `flyway:validate` | ⚠️ **não executados**: sem Docker/Postgres e portas 8080/5432 fechadas |
+
+> **Restos conhecidos (fora deste passe):** `ComprovanteImpressao` mantém `bg-white`/`gray-*`
+> de propósito (é papel de impressão); `Login.tsx` mantém a paleta fixa (não há toggle nessa rota);
+> migração do PIN de alçada para backend (D-007).
 
 ## Execução Paralela — Especialistas (2026-09-05 20:55)
 

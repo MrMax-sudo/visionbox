@@ -29,7 +29,7 @@ const buttonVariants = cva(
         secondary:
           'bg-[var(--color-secondary)] text-[var(--color-text-on-primary)] hover:bg-[var(--color-secondary-dark)] active:bg-[var(--color-secondary-dark)]',
         destructive:
-          'bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger-dark)] active:bg-[var(--color-danger-dark)]',
+          'bg-[var(--color-danger)] text-[var(--color-text-on-danger)] hover:bg-[var(--color-danger-dark)] active:bg-[var(--color-danger-dark)]',
         outline:
           'border border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)] hover:border-[var(--color-border-strong)]',
         ghost:

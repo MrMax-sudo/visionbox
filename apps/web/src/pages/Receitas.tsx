@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Upload, Plus, Search, Filter, RefreshCw, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { Eye, Upload, Plus, Search, Filter, RefreshCw, Loader2, X, Image as ImageIcon, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog } from '@/components/ui/dialog';
 
 import { apiClient, ApiError } from '@/lib/apiClient';
-import type { PageResponse, ReceitaDTO } from '@/lib/types';
+import type { PageResponse, ReceitaDTO, ClienteDTO } from '@/lib/types';
 import { normalizeReceita, unwrapPage } from '@/lib/types';
 import { useDebounce } from '@/hooks/useOnline';
 import { OfflineBanner } from '@/components/ui/offline-banner';
@@ -26,9 +26,29 @@ import { EmptyState } from '@/components/ui/empty-state';
 type ReceitasPage = PageResponse<ReceitaDTO>;
 
 // ---------------------------------------------------------------------------
+// Helpers — erro da API (ProblemDetail) e detecção de URL de foto navegável
+// ---------------------------------------------------------------------------
+function apiErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    const p = err.problem;
+    const fieldErrors =
+      p?.errors && p.errors.length > 0 ? p.errors.map((fe) => `${fe.field}: ${fe.message}`).join(' • ') : '';
+    return p?.detail || p?.message || fieldErrors || err.message || fallback;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+/** Só é "foto de verdade" se for URL navegável (http(s) ou endpoint da API). */
+function isNavigableFotoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url) || url.startsWith('/api/');
+}
+
+// ---------------------------------------------------------------------------
 // Helpers de validação grau — regras do domínio
 // ---------------------------------------------------------------------------
-function grauOlhoSchema(tipoField: string) {
+function grauOlhoSchema() {
   return z.object({
     esferico: z.coerce
       .number({ invalid_type_error: 'Esférico é obrigatório' })
@@ -44,11 +64,11 @@ function grauOlhoSchema(tipoField: string) {
 }
 
 const baseSchema = z.object({
-  clienteId: z.string().min(1, 'Cliente é obrigatório'),
+  clienteId: z.string().uuid('Selecione um cliente da lista'),
   tipoLente: z.enum(['MONOFOCAL', 'BIFOCAL', 'MULTIFOCAL']),
   dp: z.coerce.number().min(20, 'DP mínimo 20mm').max(80, 'DP máximo 80mm'),
-  od: grauOlhoSchema('od'),
-  oe: grauOlhoSchema('oe'),
+  od: grauOlhoSchema(),
+  oe: grauOlhoSchema(),
   observacao: z.string().max(500).optional().or(z.literal('')),
 });
 
@@ -196,8 +216,22 @@ export default function Receitas() {
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
-  const [viewFotoUrl, setViewFotoUrl] = React.useState<string | null>(null);
+  const [viewFoto, setViewFoto] = React.useState<{ src: string; revoke: boolean; loading: boolean; error: string | null } | null>(null);
+  const [pageNotice, setPageNotice] = React.useState<{ tone: 'success' | 'error'; msg: string } | null>(null);
   const queryClient = useQueryClient();
+
+  React.useEffect(() => {
+    if (!pageNotice || pageNotice.tone !== 'success') return;
+    const id = window.setTimeout(() => setPageNotice(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [pageNotice]);
+
+  // busca de cliente (seletor com debounce — só guarda o UUID no form)
+  const [clienteSearch, setClienteSearch] = React.useState('');
+  const [selectedCliente, setSelectedCliente] = React.useState<ClienteDTO | null>(null);
+  const [clienteHighlight, setClienteHighlight] = React.useState(0);
+  const clienteInputRef = React.useRef<HTMLInputElement>(null);
+  const debouncedClienteSearch = useDebounce(clienteSearch, 350);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['receitas', { q: debouncedQ, page, size }],
@@ -237,13 +271,62 @@ export default function Receitas() {
 
   const total = (data as ReceitasPage)?.totalElements ?? filteredReceitas.length;
 
+  // ---------------------------------------------------------------------------
+  // Busca de cliente para o seletor do formulário
+  // Backend: GET /api/v1/clientes?nome=<termo>&page=0&size=10 (ClienteController)
+  // ---------------------------------------------------------------------------
+  const clienteTerm = clienteSearch.trim();
+  const clienteSearchQuery = useQuery({
+    queryKey: ['receitas-clientes', debouncedClienteSearch],
+    queryFn: async () => {
+      const res = await apiClient.get<PageResponse<ClienteDTO> | ClienteDTO[]>('/v1/clientes', {
+        params: { nome: debouncedClienteSearch.trim() || undefined, page: 0, size: 10 },
+      });
+      return res.data;
+    },
+    enabled: open && debouncedClienteSearch.trim().length >= 2,
+    staleTime: 30_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  const clienteResults = React.useMemo(
+    () => unwrapPage(clienteSearchQuery.data as PageResponse<ClienteDTO> | ClienteDTO[]),
+    [clienteSearchQuery.data],
+  );
+
+  const showClienteDropdown = open && !selectedCliente && clienteTerm.length >= 2;
+
+  React.useEffect(() => {
+    setClienteHighlight(0);
+  }, [debouncedClienteSearch]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => clienteInputRef.current?.focus(), 50);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
+  function selectCliente(c: ClienteDTO) {
+    setSelectedCliente(c);
+    setClienteSearch('');
+    setClienteHighlight(0);
+    setValue('clienteId', c.id, { shouldValidate: true });
+  }
+
+  function clearCliente() {
+    setSelectedCliente(null);
+    setValue('clienteId', '', { shouldValidate: false });
+    window.setTimeout(() => clienteInputRef.current?.focus(), 0);
+  }
+
   // form
   const {
     register,
     handleSubmit,
     watch,
     reset,
-    control: _control,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ReceitaForm>({
     resolver: zodResolver(receitaSchema),
@@ -308,8 +391,9 @@ export default function Receitas() {
 
   const onSubmit = async (form: ReceitaForm) => {
     setUploadError(null);
+    let created: ReceitaDTO | null = null;
     try {
-      const created = await createMutation.mutateAsync(form);
+      created = await createMutation.mutateAsync(form);
       if (file && created?.id) {
         await uploadMutation.mutateAsync({ id: created.id, fileToUpload: file });
       }
@@ -317,9 +401,23 @@ export default function Receitas() {
       setOpen(false);
       reset();
       setFile(null);
+      setSelectedCliente(null);
+      setClienteSearch('');
+      setPageNotice({ tone: 'success', msg: 'Receita salva com sucesso.' });
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Falha ao salvar receita';
-      setUploadError(msg);
+      const msg = apiErrorMessage(e, 'Falha ao salvar receita');
+      if (created) {
+        // receita já persistida — fecha o diálogo para não duplicar no reenvio
+        queryClient.invalidateQueries({ queryKey: ['receitas'] });
+        setOpen(false);
+        reset();
+        setFile(null);
+        setSelectedCliente(null);
+        setClienteSearch('');
+        setPageNotice({ tone: 'error', msg: `Receita criada, mas o envio do anexo falhou: ${msg}` });
+      } else {
+        setUploadError(msg);
+      }
     }
   };
 
@@ -341,6 +439,45 @@ export default function Receitas() {
     setFile(f);
   };
 
+  // Abre a foto: URL navegável direta; senão busca o binário no backend
+  async function abrirFoto(r: ReceitaDTO) {
+    if (isNavigableFotoUrl(r.fotoUrl)) {
+      setViewFoto({ src: r.fotoUrl as string, revoke: false, loading: false, error: null });
+      return;
+    }
+    setViewFoto({ src: '', revoke: false, loading: true, error: null });
+    try {
+      const res = await apiClient.get<Blob>(`/v1/receitas/${r.id}/anexo`, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(res.data);
+      setViewFoto({ src: blobUrl, revoke: true, loading: false, error: null });
+    } catch (e) {
+      // responseType blob → o ProblemDetail chega como Blob; extrai a mensagem real
+      let detail: string | null = null;
+      const problem = e instanceof ApiError ? (e.problem as unknown as Blob | undefined) : undefined;
+      if (problem && typeof problem.text === 'function') {
+        try {
+          const parsed = JSON.parse(await problem.text()) as { detail?: string; title?: string; message?: string };
+          detail = parsed.detail || parsed.title || parsed.message || null;
+        } catch {
+          detail = null;
+        }
+      }
+      setViewFoto({
+        src: '',
+        revoke: false,
+        loading: false,
+        error: detail || apiErrorMessage(e, 'Falha ao carregar o anexo da receita.'),
+      });
+    }
+  }
+
+  function closeViewFoto() {
+    setViewFoto((v) => {
+      if (v?.revoke && v.src) URL.revokeObjectURL(v.src);
+      return null;
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -349,9 +486,6 @@ export default function Receitas() {
           <p className="text-sm text-[var(--color-text-secondary)]">Prescrição óptica, anexos e histórico clínico do cliente.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Importar
-          </Button>
           <Button variant="primary" onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Nova receita
           </Button>
@@ -359,6 +493,33 @@ export default function Receitas() {
       </div>
 
       <OfflineBanner />
+
+      {pageNotice && (
+        <div
+          role={pageNotice.tone === 'error' ? 'alert' : 'status'}
+          aria-live={pageNotice.tone === 'error' ? undefined : 'polite'}
+          className={`flex items-start gap-2 rounded-[var(--radius)] border px-3 py-2 text-sm ${
+            pageNotice.tone === 'error'
+              ? 'border-[var(--color-danger-light)] bg-[var(--color-danger-light)] text-[var(--color-danger-dark)]'
+              : 'border-[var(--color-success-light)] bg-[var(--color-success-light)] text-[var(--color-success-dark)]'
+          }`}
+        >
+          {pageNotice.tone === 'error' ? (
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          )}
+          <span className="min-w-0 flex-1">{pageNotice.msg}</span>
+          <button
+            type="button"
+            onClick={() => setPageNotice(null)}
+            aria-label="Fechar aviso"
+            className="shrink-0 rounded p-0.5 hover:bg-[var(--color-bg-card)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
@@ -417,44 +578,47 @@ export default function Receitas() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredReceitas.map((r) => (
-              <Card key={r.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-mono text-xs font-semibold text-[var(--color-primary)]">{r.id}</p>
-                    <p className="text-sm font-medium text-[var(--color-text-primary)]">{r.clienteNome ?? r.clienteId}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{r.data ? new Date(r.data).toLocaleDateString('pt-BR') : '—'}</p>
+            {filteredReceitas.map((r) => {
+              const fotoReal = isNavigableFotoUrl(r.fotoUrl);
+              const temAnexo = !!r.fotoUrl;
+              return (
+                <Card key={r.id} className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-mono text-xs font-semibold text-[var(--color-primary)]">{r.id}</p>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{r.clienteNome ?? r.clienteId}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">{r.data ? new Date(r.data).toLocaleDateString('pt-BR') : '—'}</p>
+                    </div>
+                    <Badge variant={r.status === 'válida' || r.status === 'VALIDA' ? 'success' : 'warning'}>{r.status ?? '—'}</Badge>
                   </div>
-                  <Badge variant={r.status === 'válida' || r.status === 'VALIDA' ? 'success' : 'warning'}>{r.status ?? '—'}</Badge>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded bg-[var(--color-bg-page)] p-2">
-                    <p className="font-semibold text-[var(--color-text-secondary)]">OD</p>
-                    <p className="font-mono text-[var(--color-text-primary)]">{r.od}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded bg-[var(--color-bg-page)] p-2">
+                      <p className="font-semibold text-[var(--color-text-secondary)]">OD</p>
+                      <p className="font-mono text-[var(--color-text-primary)]">{r.od}</p>
+                    </div>
+                    <div className="rounded bg-[var(--color-bg-page)] p-2">
+                      <p className="font-semibold text-[var(--color-text-secondary)]">OE</p>
+                      <p className="font-mono text-[var(--color-text-primary)]">{r.oe}</p>
+                    </div>
                   </div>
-                  <div className="rounded bg-[var(--color-bg-page)] p-2">
-                    <p className="font-semibold text-[var(--color-text-secondary)]">OE</p>
-                    <p className="font-mono text-[var(--color-text-primary)]">{r.oe}</p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={!temAnexo || !!viewFoto?.loading}
+                      onClick={() => void abrirFoto(r)}
+                      title={temAnexo ? 'Visualizar anexo da receita' : 'Esta receita não possui anexo'}
+                    >
+                      <Eye className="mr-1 h-3.5 w-3.5" /> Ver foto
+                    </Button>
+                    <Badge variant={fotoReal ? 'success' : temAnexo ? 'warning' : 'outline'} className="self-center">
+                      {fotoReal ? 'Foto OK' : temAnexo ? 'Anexo pendente' : 'Sem foto'}
+                    </Badge>
                   </div>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => {
-                      const anexoUrl = r.fotoUrl || `/api/v1/receitas/${r.id}/anexo`;
-                      setViewFotoUrl(anexoUrl);
-                    }}
-                  >
-                    <Eye className="mr-1 h-3.5 w-3.5" /> Ver foto
-                  </Button>
-                  <Badge variant={r.fotoUrl ? 'success' : 'outline'} className="self-center">
-                    {r.fotoUrl ? 'Foto OK' : 'Anexo'}
-                  </Badge>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
           <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
             <span>
@@ -490,12 +654,109 @@ export default function Receitas() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="clienteId">
-                ID do cliente <span className="text-[var(--color-danger)]">*</span>
+              <Label htmlFor="clienteBusca">
+                Cliente <span className="text-[var(--color-danger)]">*</span>
               </Label>
-              <Input id="clienteId" placeholder="UUID ou CPF mascarado" {...register('clienteId')} aria-invalid={!!errors.clienteId} />
+              {selectedCliente ? (
+                <div className="flex items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">{selectedCliente.nome}</p>
+                    <p className="truncate font-mono text-xs text-[var(--color-text-muted)]">
+                      CPF {selectedCliente.cpfMasked ?? selectedCliente.cpf ?? '***'}
+                    </p>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={clearCliente} aria-label="Trocar cliente selecionado">
+                    <X className="mr-1 h-3.5 w-3.5" /> Trocar
+                  </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <Input
+                    ref={clienteInputRef}
+                    id="clienteBusca"
+                    className="pl-9"
+                    role="combobox"
+                    aria-expanded={showClienteDropdown}
+                    aria-controls={
+                      showClienteDropdown && clienteResults.length > 0 && !clienteSearchQuery.isLoading && !clienteSearchQuery.isError
+                        ? 'receita-cliente-listbox'
+                        : undefined
+                    }
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      showClienteDropdown && clienteResults.length > 0 ? `receita-cliente-op-${clienteHighlight}` : undefined
+                    }
+                    aria-invalid={!!errors.clienteId}
+                    autoComplete="off"
+                    placeholder="Buscar cliente pelo nome…"
+                    value={clienteSearch}
+                    onChange={(e) => setClienteSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (!showClienteDropdown || clienteResults.length === 0) return;
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setClienteHighlight((h) => Math.min(h + 1, clienteResults.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setClienteHighlight((h) => Math.max(h - 1, 0));
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        selectCliente(clienteResults[clienteHighlight] ?? clienteResults[0]);
+                      }
+                    }}
+                  />
+                  {showClienteDropdown && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-xl">
+                      {clienteSearchQuery.isLoading ? (
+                        <p role="status" className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Buscando clientes…
+                        </p>
+                      ) : clienteSearchQuery.isError ? (
+                        <div className="p-1">
+                          <ErrorState compact error={clienteSearchQuery.error} onRetry={() => clienteSearchQuery.refetch()} />
+                        </div>
+                      ) : clienteResults.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">
+                          <p>Nenhum cliente encontrado para “{clienteTerm}”.</p>
+                          <p className="mt-1">Cadastre o cliente na tela Clientes e volte aqui.</p>
+                        </div>
+                      ) : (
+                        <ul
+                          id="receita-cliente-listbox"
+                          role="listbox"
+                          aria-label="Clientes encontrados"
+                          className="max-h-56 overflow-auto py-1"
+                        >
+                          {clienteResults.map((c, i) => (
+                            <li key={c.id} id={`receita-cliente-op-${i}`} role="option" aria-selected={i === clienteHighlight}>
+                              <button
+                                type="button"
+                                onMouseEnter={() => setClienteHighlight(i)}
+                                onClick={() => selectCliente(c)}
+                                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                                  i === clienteHighlight
+                                    ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)]'
+                                }`}
+                              >
+                                <span className="truncate font-medium">{c.nome}</span>
+                                <span className="shrink-0 font-mono text-xs text-[var(--color-text-muted)]">
+                                  {c.cpfMasked ?? c.cpf ?? '***'}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {errors.clienteId && <p className="text-xs text-[var(--color-danger)]">{errors.clienteId.message}</p>}
-              <p className="text-[11px] text-[var(--color-text-muted)]">Vincula prescrição ao cliente (multi-tenant).</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">
+                Busque pelo nome e escolha da lista — o vínculo usa o ID do cliente (multi-tenant).
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="tipoLente">
@@ -591,9 +852,9 @@ export default function Receitas() {
             )}
           </div>
 
-          {(createMutation.isError || uploadError) && (
-            <div className="rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
-              {uploadError ?? (createMutation.error as ApiError)?.message ?? 'Falha ao salvar receita'}
+          {uploadError && (
+            <div role="alert" className="rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
+              {uploadError}
             </div>
           )}
           {uploadMutation.isPending && (
@@ -624,42 +885,65 @@ export default function Receitas() {
       </Dialog>
 
       {/* Dialog Visualizar Anexo */}
-      {viewFotoUrl && (
+      {viewFoto && (
         <Dialog
-          open={!!viewFotoUrl}
-          onClose={() => setViewFotoUrl(null)}
+          open={!!viewFoto}
+          onClose={closeViewFoto}
           title="Foto da Receita Oftálmica"
           description="Documento anexado no histórico clínico."
         >
           <div className="space-y-4">
-            <div className="max-h-[70vh] overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-2 flex items-center justify-center">
-              <img
-                src={viewFotoUrl}
-                alt="Receita Oftálmica"
-                className="max-h-[65vh] w-auto object-contain rounded"
-                onError={(e) => {
-                  // Fallback se for PDF ou link não renderizável direto
-                  (e.target as HTMLElement).style.display = 'none';
-                  const parent = (e.target as HTMLElement).parentElement;
-                  if (parent && !parent.querySelector('.pdf-fallback')) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'pdf-fallback p-6 text-center text-sm';
-                    fallback.innerHTML = `<p class="mb-3 font-semibold">Documento PDF ou arquivo anexado</p><a href="${viewFotoUrl}" target="_blank" rel="noreferrer" class="inline-flex items-center px-4 py-2 bg-[var(--color-primary)] text-white rounded font-medium text-xs">Abrir anexo em nova aba</a>`;
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <a
-                href={viewFotoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-[var(--color-primary)] hover:underline font-medium"
+            {viewFoto.loading && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-6 text-sm text-[var(--color-text-secondary)]"
               >
-                Abrir imagem em tamanho real
-              </a>
-              <Button variant="outline" onClick={() => setViewFotoUrl(null)}>
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando anexo do servidor…
+              </p>
+            )}
+            {!viewFoto.loading && viewFoto.error && (
+              <div
+                role="alert"
+                className="rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-3 text-sm text-[var(--color-danger-dark)]"
+              >
+                {viewFoto.error}
+              </div>
+            )}
+            {!viewFoto.loading && !viewFoto.error && viewFoto.src && (
+              <div className="max-h-[70vh] overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-2 flex items-center justify-center">
+                <img
+                  src={viewFoto.src}
+                  alt="Receita Oftálmica"
+                  className="max-h-[65vh] w-auto object-contain rounded"
+                  onError={(e) => {
+                    // Fallback se for PDF ou link não renderizável direto
+                    (e.target as HTMLElement).style.display = 'none';
+                    const parent = (e.target as HTMLElement).parentElement;
+                    if (parent && !parent.querySelector('.pdf-fallback')) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'pdf-fallback p-6 text-center text-sm';
+                      fallback.innerHTML = `<p class="mb-3 font-semibold">Documento PDF ou arquivo anexado</p><a href="${viewFoto.src}" target="_blank" rel="noreferrer" class="inline-flex items-center px-4 py-2 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] rounded font-medium text-xs">Abrir anexo em nova aba</a>`;
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              {!viewFoto.loading && !viewFoto.error && viewFoto.src ? (
+                <a
+                  href={viewFoto.src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-[var(--color-primary)] hover:underline font-medium"
+                >
+                  Abrir imagem em tamanho real
+                </a>
+              ) : (
+                <span />
+              )}
+              <Button variant="outline" onClick={closeViewFoto}>
                 Fechar
               </Button>
             </div>

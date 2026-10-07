@@ -1,5 +1,9 @@
 package com.visionbox.shared.error;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.visionbox.shared.tenant.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -75,8 +79,84 @@ public class ProblemDetailHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
-        log.warn("JSON malformado: {}", ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, "Corpo da requisição inválido ou JSON malformado.", request, "Requisição inválida", "not-readable");
+        String detail = detalheMensagemLegivel(ex);
+        log.warn("JSON não legível em {} {}: {}", request.getMethod(), request.getRequestURI(), detail);
+        return build(HttpStatus.BAD_REQUEST, detail, request, "Requisição inválida", "not-readable");
+    }
+
+    /**
+     * Converte os erros de leitura do Jackson em mensagens legíveis em PT-BR.
+     * <p>
+     * Sem isto, o cliente só via "Corpo da requisição inválido ou JSON malformado." mesmo para
+     * erros claros (campo desconhecido, tipo errado, UUID inválido) — o que tornava impossível
+     * descobrir o problema sem ler log de servidor.
+     * <p>
+     * Nunca ecoa o valor recebido no detail (pode conter CPF/grau → LGPD). Apenas nome do campo
+     * e tipo esperado.
+     *
+     * @return detail legível; se nenhuma causa conhecida, a mensagem genérica original.
+     */
+    private String detalheMensagemLegivel(HttpMessageNotReadableException ex) {
+        Throwable atual = ex.getCause();
+        while (atual != null) {
+            if (atual instanceof UnrecognizedPropertyException desconhecido) {
+                return "Campo desconhecido '" + desconhecido.getPropertyName()
+                        + "' na requisição. Verifique o nome do campo e tente novamente.";
+            }
+            if (atual instanceof InvalidFormatException formato) {
+                return detalheValorInvalido(ultimoCampo(formato), formato.getTargetType());
+            }
+            if (atual instanceof MismatchedInputException incompativel) {
+                // cobre também UUID malformado (Jackson lança MismatchedInputException, não InvalidFormat)
+                return detalheValorInvalido(ultimoCampo(incompativel), incompativel.getTargetType());
+            }
+            atual = atual.getCause();
+        }
+        return "Corpo da requisição inválido ou JSON malformado.";
+    }
+
+    /**
+     * Mensagem legível por tipo alvo do Jackson.
+     * <p>
+     * UUID ganha mensagem orientada (é o campo {@code clienteId} que a UI preenche com texto livre
+     * "UUID ou CPF mascarado"); demais tipos citam campo e tipo esperado. Nada de ecoar o valor.
+     */
+    private String detalheValorInvalido(String campo, Class<?> alvo) {
+        if (alvo != null && java.util.UUID.class.isAssignableFrom(alvo)) {
+            if ("clienteId".equals(campo)) {
+                return "clienteId inválido: informe o UUID do cliente.";
+            }
+            return (campo != null ? campo : "UUID") + " inválido: informe um UUID válido (formato 8-4-4-4-12).";
+        }
+        String onde = campo != null ? " no campo '" + campo + "'" : "";
+        return "Valor" + onde + " com tipo inválido — esperado: "
+                + (alvo != null ? alvo.getSimpleName() : "o tipo correto") + ".";
+    }
+
+    /**
+     * Último nome de campo na cadeia do erro (ex.: "od" ao falhar dentro de ReceitaRequest.od).
+     * Retorna {@code null} quando a falha é na raiz do corpo.
+     */
+    private String ultimoCampo(JsonMappingException ex) {
+        java.util.List<JsonMappingException.Reference> caminhos = ex.getPath();
+        if (caminhos == null || caminhos.isEmpty()) {
+            return null;
+        }
+        for (int i = caminhos.size() - 1; i >= 0; i--) {
+            String nome = caminhos.get(i).getFieldName();
+            if (nome != null && !nome.isBlank()) {
+                return nome;
+            }
+        }
+        return null;
+    }
+
+    @ExceptionHandler(java.time.format.DateTimeParseException.class)
+    public ProblemDetail handleDataInvalida(java.time.format.DateTimeParseException ex, HttpServletRequest request) {
+        log.warn("Data inválida: {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST,
+                "Data com formato inválido: informe a data no formato yyyy-MM-dd (ex: 2026-10-07).",
+                request, "Requisição inválida", "invalid-date");
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

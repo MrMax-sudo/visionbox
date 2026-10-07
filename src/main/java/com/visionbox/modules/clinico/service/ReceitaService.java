@@ -8,6 +8,7 @@ import com.visionbox.modules.clinico.dto.ReceitaRequest;
 import com.visionbox.modules.clinico.dto.ReceitaResponse;
 import com.visionbox.modules.clinico.mapper.ReceitaMapper;
 import com.visionbox.modules.clinico.repository.ReceitaRepository;
+import com.visionbox.modules.pessoa.domain.Cliente;
 import com.visionbox.modules.pessoa.repository.ClienteRepository;
 import com.visionbox.shared.crypto.CryptoService;
 import com.visionbox.shared.tenant.TenantContext;
@@ -20,13 +21,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ReceitaService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ISO_LOCAL_DATE;
+    /** Enviado pelo frontend como MONOFOCAL; domínio (V2__cliente_receita.sql) usa VISAO_SIMPLES. */
+    private static final String TIPO_PADRAO = "VISAO_SIMPLES";
+    private static final String MSG_DATA_INVALIDA =
+            " com formato inválido: informe a data no formato yyyy-MM-dd (ex: 2026-10-07)";
 
     private final ReceitaRepository repository;
     private final ClienteRepository clienteRepository;
@@ -42,7 +56,8 @@ public class ReceitaService {
         } else {
             page = repository.findAllByLojaId(lojaId, pageable);
         }
-        return page.map(this::toSecureResponse);
+        Map<UUID, String> nomes = nomesClientes(lojaId, page.getContent());
+        return page.map(r -> montarResponse(r, nomes.get(r.getClienteId())));
     }
 
     @Transactional(readOnly = true)
@@ -50,23 +65,24 @@ public class ReceitaService {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         Receita r = repository.findByIdAndLojaId(id, lojaId)
                 .orElseThrow(() -> new EntityNotFoundException("Receita não encontrada"));
-        return toSecureResponse(r);
+        return montarResponse(r, lojaId);
     }
 
     @Transactional
     public ReceitaResponse criar(ReceitaRequest req) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
-        // valida cliente pertence à loja (tenant isolation R1)
-        clienteRepository.findByIdAndLojaId(req.getClienteId(), lojaId)
+        // valida cliente pertence à loja (tenant isolation R1) — reutiliza para evitar 2ª consulta
+        Cliente cliente = clienteRepository.findByIdAndLojaId(req.getClienteId(), lojaId)
                 .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado para esta loja"));
 
-        LocalDate emissao = LocalDate.parse(req.getDataEmissao());
-        LocalDate validade = LocalDate.parse(req.getDataValidade());
-        if (validade.isBefore(emissao)) throw new IllegalArgumentException("dataValidade não pode ser anterior à dataEmissao");
+        LocalDate emissao = resolverDataEmissao(req.getDataEmissao());
+        LocalDate validade = resolverDataValidade(req.getDataValidade(), emissao);
 
-        String tipo = req.getTipo() != null ? req.getTipo() : "VISAO_SIMPLES";
-        validarGrau(req.getOd(), "OD", tipo);
-        validarGrau(req.getOe(), "OE", tipo);
+        String tipo = normalizarTipo(req.getTipo());
+        GrauDto od = normalizarGrau(req.getOd());
+        GrauDto oe = normalizarGrau(req.getOe());
+        validarGrau(od, "OD", tipo);
+        validarGrau(oe, "OE", tipo);
 
         Receita e = Receita.builder()
                 .lojaId(lojaId)
@@ -85,16 +101,16 @@ public class ReceitaService {
                 .oeEixo(null)
                 .oeAdicao(null)
                 .oeDnp(null)
-                .dp(req.getDp() != null && !req.getDp().isBlank() ? new BigDecimal(req.getDp()) : null)
+                .dp(parseDp(req.getDp()))
                 .tipo(tipo)
                 .observacao(req.getObservacao())
                 .anexoS3Key(req.getAnexoS3Key())
                 .anexoS3Bucket(req.getAnexoS3Bucket())
-                .odCipher(encryptGrau(req.getOd()))
-                .oeCipher(encryptGrau(req.getOe()))
+                .odCipher(encryptGrau(od))
+                .oeCipher(encryptGrau(oe))
                 .build();
         e = repository.save(e);
-        return toSecureResponse(e);
+        return montarResponse(e, cliente.getNome());
     }
 
     @Transactional
@@ -107,46 +123,50 @@ public class ReceitaService {
                     .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado"));
             e.setClienteId(req.getClienteId());
         }
-        if (req.getDataEmissao() != null) e.setDataEmissao(LocalDate.parse(req.getDataEmissao()));
-        if (req.getDataValidade() != null) e.setDataValidade(LocalDate.parse(req.getDataValidade()));
+        if (req.getDataEmissao() != null && !req.getDataEmissao().isBlank())
+            e.setDataEmissao(parseData(req.getDataEmissao(), "dataEmissao"));
+        if (req.getDataValidade() != null && !req.getDataValidade().isBlank())
+            e.setDataValidade(parseData(req.getDataValidade(), "dataValidade"));
         if (e.getDataValidade() != null && e.getDataEmissao() != null && e.getDataValidade().isBefore(e.getDataEmissao()))
             throw new IllegalArgumentException("dataValidade não pode ser anterior à dataEmissao");
         if (req.getNomeMedico() != null) e.setNomeMedico(req.getNomeMedico());
         if (req.getCrmMedico() != null) e.setCrmMedico(req.getCrmMedico());
 
-        // tipo efetivo para validação de adição
-        String tipoEfetivo = req.getTipo() != null ? req.getTipo() : e.getTipo();
+        // tipo efetivo para validação de adição (normalizado: MONOFOCAL -> VISAO_SIMPLES)
+        String tipoEfetivo = normalizarTipo(req.getTipo() != null && !req.getTipo().isBlank() ? req.getTipo() : e.getTipo());
 
         if (req.getOd() != null) {
-            validarGrau(req.getOd(), "OD", tipoEfetivo);
+            GrauDto od = normalizarGrau(req.getOd());
+            validarGrau(od, "OD", tipoEfetivo);
             e.setOdEsferico(null);
             e.setOdCilindrico(null);
             e.setOdEixo(null);
             e.setOdAdicao(null);
             e.setOdDnp(null);
-            e.setOdCipher(encryptGrau(req.getOd()));
+            e.setOdCipher(encryptGrau(od));
         }
         if (req.getOe() != null) {
-            validarGrau(req.getOe(), "OE", tipoEfetivo);
+            GrauDto oe = normalizarGrau(req.getOe());
+            validarGrau(oe, "OE", tipoEfetivo);
             e.setOeEsferico(null);
             e.setOeCilindrico(null);
             e.setOeEixo(null);
             e.setOeAdicao(null);
             e.setOeDnp(null);
-            e.setOeCipher(encryptGrau(req.getOe()));
+            e.setOeCipher(encryptGrau(oe));
         }
-        if (req.getTipo() != null) {
+        if (req.getTipo() != null && !req.getTipo().isBlank()) {
             // se mudou tipo, revalida graus existentes quanto à regra de adição
-            validarGrau(resolveOd(e), "OD", req.getTipo());
-            validarGrau(resolveOe(e), "OE", req.getTipo());
-            e.setTipo(req.getTipo());
+            validarGrau(resolveOd(e), "OD", tipoEfetivo);
+            validarGrau(resolveOe(e), "OE", tipoEfetivo);
+            e.setTipo(tipoEfetivo);
         }
         if (req.getObservacao() != null) e.setObservacao(req.getObservacao());
         if (req.getAnexoS3Key() != null) e.setAnexoS3Key(req.getAnexoS3Key());
         if (req.getAnexoS3Bucket() != null) e.setAnexoS3Bucket(req.getAnexoS3Bucket());
-        if (req.getDp() != null) e.setDp(req.getDp().isBlank() ? null : new BigDecimal(req.getDp()));
+        if (req.getDp() != null) e.setDp(parseDp(req.getDp()));
         repository.save(e);
-        return toSecureResponse(e);
+        return montarResponse(e, lojaId);
     }
 
     @Transactional
@@ -156,6 +176,112 @@ public class ReceitaService {
                 .orElseThrow(() -> new EntityNotFoundException("Receita não encontrada"));
         e.setAtivo(false);
         repository.save(e);
+    }
+
+    // ---------------------------------------------------------------------
+    // Normalização / parsing do payload do frontend
+    // ---------------------------------------------------------------------
+
+    /**
+     * Normaliza o tipo da receita para o domínio do banco.
+     * <p>
+     * O frontend envia {@code MONOFOCAL}, mas o CHECK de {@code V2__cliente_receita.sql} aceita
+     * apenas {@code VISAO_SIMPLES | MULTIFOCAL | BIFOCAL | LENTE_CONTATO}. Sem esta normalização,
+     * a inserção estourava violação de CHECK (500).
+     */
+    String normalizarTipo(String tipo) {
+        String valor = (tipo == null || tipo.isBlank()) ? TIPO_PADRAO : tipo.trim().toUpperCase(Locale.ROOT);
+        return switch (valor) {
+            case "MONOFOCAL", "SIMPLES", "VISAO_SIMPLES" -> "VISAO_SIMPLES";
+            case "MULTIFOCAL" -> "MULTIFOCAL";
+            case "BIFOCAL" -> "BIFOCAL";
+            case "LENTE_CONTATO", "LENTEDECONTATO" -> "LENTE_CONTATO";
+            default -> throw new IllegalArgumentException("tipoLente inválido: '" + tipo
+                    + "'. Valores aceitos: MONOFOCAL (VISAO_SIMPLES), MULTIFOCAL, BIFOCAL, LENTE_CONTATO");
+        };
+    }
+
+    /**
+     * O frontend envia {@code adicao: 0} mesmo quando o tipo não é multifocal.
+     * Tratamos 0 como "sem adição" para não violar a regra
+     * "adicao só permitida quando tipo é MULTIFOCAL ou BIFOCAL".
+     */
+    GrauDto normalizarGrau(GrauDto grau) {
+        if (grau == null) return null;
+        if (grau.getAdicao() != null && grau.getAdicao().signum() == 0) {
+            grau.setAdicao(null);
+        }
+        return grau;
+    }
+
+    private LocalDate resolverDataEmissao(String valor) {
+        return (valor == null || valor.isBlank()) ? LocalDate.now() : parseData(valor, "dataEmissao");
+    }
+
+    private LocalDate resolverDataValidade(String valor, LocalDate emissao) {
+        LocalDate validade = (valor == null || valor.isBlank()) ? emissao.plusYears(2) : parseData(valor, "dataValidade");
+        if (validade.isBefore(emissao)) {
+            throw new IllegalArgumentException("dataValidade não pode ser anterior à dataEmissao");
+        }
+        return validade;
+    }
+
+    private LocalDate parseData(String valor, String campo) {
+        try {
+            return LocalDate.parse(valor.trim(), FORMATO_DATA);
+        } catch (DateTimeParseException ex) {
+            // mensagem legível (400 via ProblemDetailHandler) em vez de 500
+            throw new IllegalArgumentException(campo + MSG_DATA_INVALIDA);
+        }
+    }
+
+    /** dp aceita número (62) ou texto ("62"); fora da faixa 1..100 → 400 legível. */
+    private BigDecimal parseDp(String valor) {
+        if (valor == null || valor.isBlank()) return null;
+        BigDecimal dp;
+        try {
+            dp = new BigDecimal(valor.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("dp inválido: informe um número (ex: 62)");
+        }
+        if (dp.compareTo(BigDecimal.ONE) < 0 || dp.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("dp fora do intervalo aceito: 1..100 mm");
+        }
+        return dp;
+    }
+
+    // ---------------------------------------------------------------------
+    // Montagem de resposta (clienteNome sem N+1)
+    // ---------------------------------------------------------------------
+
+    private ReceitaResponse montarResponse(Receita receita, String clienteNome) {
+        ReceitaResponse response = mapper.toResponse(receita);
+        response.setOd(resolveOd(receita));
+        response.setOe(resolveOe(receita));
+        response.setClienteNome(clienteNome);
+        return response;
+    }
+
+    private ReceitaResponse montarResponse(Receita receita, UUID lojaId) {
+        return montarResponse(receita, nomeCliente(receita.getClienteId(), lojaId));
+    }
+
+    private String nomeCliente(UUID clienteId, UUID lojaId) {
+        if (clienteId == null || lojaId == null) return null;
+        return clienteRepository.findByIdAndLojaId(clienteId, lojaId).map(Cliente::getNome).orElse(null);
+    }
+
+    /** Uma única consulta para todos os clientes da página (evita N+1 no list). */
+    private Map<UUID, String> nomesClientes(UUID lojaId, List<Receita> receitas) {
+        if (receitas == null || receitas.isEmpty()) return Map.of();
+        Set<UUID> ids = receitas.stream()
+                .map(Receita::getClienteId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return clienteRepository.findByLojaIdAndIdIn(lojaId, ids).stream()
+                .filter(c -> c.getId() != null && c.getNome() != null)
+                .collect(Collectors.toMap(Cliente::getId, Cliente::getNome, (a, b) -> a));
     }
 
     /**
@@ -224,45 +350,38 @@ public class ReceitaService {
         return v != null ? v.toPlainString() : "null";
     }
 
-    private ReceitaResponse toSecureResponse(Receita receita) {
-        ReceitaResponse response = mapper.toResponse(receita);
-        response.setOd(resolveOd(receita));
-        response.setOe(resolveOe(receita));
-        return response;
-    }
-
     private GrauDto resolveOd(Receita receita) {
         GrauDto cipher = decryptGrau(receita.getOdCipher());
         if (cipher != null) {
-            return cipher;
+            return normalizarGrau(cipher);
         }
         if (receita.getOdEsferico()==null && receita.getOdCilindrico()==null && receita.getOdEixo()==null && receita.getOdAdicao()==null && receita.getOdDnp()==null) {
             return null;
         }
-        return GrauDto.builder()
+        return normalizarGrau(GrauDto.builder()
                 .esferico(receita.getOdEsferico())
                 .cilindrico(receita.getOdCilindrico())
                 .eixo(receita.getOdEixo())
                 .adicao(receita.getOdAdicao())
                 .dnp(receita.getOdDnp())
-                .build();
+                .build());
     }
 
     private GrauDto resolveOe(Receita receita) {
         GrauDto cipher = decryptGrau(receita.getOeCipher());
         if (cipher != null) {
-            return cipher;
+            return normalizarGrau(cipher);
         }
         if (receita.getOeEsferico()==null && receita.getOeCilindrico()==null && receita.getOeEixo()==null && receita.getOeAdicao()==null && receita.getOeDnp()==null) {
             return null;
         }
-        return GrauDto.builder()
+        return normalizarGrau(GrauDto.builder()
                 .esferico(receita.getOeEsferico())
                 .cilindrico(receita.getOeCilindrico())
                 .eixo(receita.getOeEixo())
                 .adicao(receita.getOeAdicao())
                 .dnp(receita.getOeDnp())
-                .build();
+                .build());
     }
 
     private GrauDto decryptGrau(byte[] cipher) {

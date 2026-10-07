@@ -350,17 +350,17 @@
   .vision-sidebar-link:visited,
   .vision-sidebar-link:hover,
   .vision-sidebar-link:focus {
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-sidebar-text) !important;
   }
 
   .vision-sidebar-link svg,
   .vision-sidebar-link span {
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-sidebar-text) !important;
     opacity: 1 !important;
   }
 
   .vision-sidebar-link-active {
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-sidebar-text) !important;
   }
 
   .vision-sidebar-shortcut,
@@ -371,7 +371,7 @@
 
   .vision-sidebar-collapse,
   .vision-sidebar-collapse svg {
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-sidebar-text) !important;
   }
 
   .pdv-screen {
@@ -851,18 +851,21 @@
 
   .pdv-payment-methods button.active {
     background: var(--color-login-button);
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-text-on-action) !important;
   }
 
   .pdv-categories button.active,
   .pdv-categories button.active *,
   .pdv-discount button.active,
-  .pdv-discount button.active *,
+  .pdv-discount button.active * {
+    color: var(--color-text-on-primary) !important;
+  }
+
   .pdv-payment-methods button.active,
   .pdv-payment-methods button.active *,
   .pdv-finish-button,
   .pdv-finish-button * {
-    color: var(--color-text-on-primary) !important;
+    color: var(--color-text-on-action) !important;
   }
 
   .pdv-finish-button:disabled {
@@ -904,13 +907,14 @@
     border: 0;
     border-radius: 9px;
     background: var(--color-login-button);
-    color: var(--color-text-on-primary);
+    color: var(--color-text-on-action);
     font-size: 17px;
     font-weight: 600;
   }
 
   .pdv-finish-button:hover {
     background: var(--color-primary);
+    color: var(--color-text-on-primary);
   }
 
   .pdv-finish-button svg {

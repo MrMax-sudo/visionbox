@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { ComprovanteImpressao } from '@/components/pdv/ComprovanteImpressao';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient, type ApiError } from '@/lib/apiClient';
 import { statusClass, statusLabel, type StatusOS } from '@/lib/osStatus';
@@ -113,6 +114,7 @@ export default function OSDetail() {
 
   return (
     <div className="space-y-5">
+      <OfflineBanner />
       <Link to="/os" className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
         <ArrowLeft className="h-4 w-4" /> Voltar para OS
       </Link>
@@ -135,7 +137,7 @@ export default function OSDetail() {
             size="sm"
             onClick={() => gerarLabTokenMutation.mutate()}
             disabled={gerarLabTokenMutation.isPending}
-            className="text-teal-700 border-teal-300 hover:bg-teal-50"
+            className="text-[var(--color-secondary-dark)] border-[var(--color-border)] hover:bg-[var(--color-bg-card-soft)]"
           >
             <Glasses className="mr-2 h-4 w-4" /> Link do Laboratório
           </Button>
@@ -275,9 +277,9 @@ export default function OSDetail() {
         description="Envie este link seguro para o laboratório acompanhar graus, armação, tratamentos e atualizar a produção."
       >
         <div className="space-y-4">
-          <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 text-xs space-y-1 text-teal-950">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary-light)]/60 p-3 text-xs space-y-1 text-[var(--color-text-primary)]">
             <p className="font-semibold">Acesso sem necessidade de login:</p>
-            <p className="text-[11px] text-teal-800">
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
               O técnico do laboratório poderá visualizar a receita completa (OD/OE) e alterar o status para <b>Em Produção</b>, <b>Lente Pronta</b> ou <b>Retrabalho</b> com 1 toque.
             </p>
           </div>
@@ -302,7 +304,7 @@ export default function OSDetail() {
                   }
                 }}
               >
-                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-[var(--color-success)]" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
           </div>

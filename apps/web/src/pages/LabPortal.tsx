@@ -123,13 +123,13 @@ export default function LabPortal() {
         {/* Cabeçalho do Portal */}
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-secondary-light)] text-[var(--color-secondary-dark)]">
               <Glasses className="h-7 w-7" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-[var(--color-text-primary)]">VisionBox Lab Portal</h1>
-                <span className="rounded bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800">
+                <span className="rounded bg-[var(--color-secondary-light)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-secondary-dark)]">
                   Acesso Externo Seguro
                 </span>
               </div>
@@ -156,7 +156,7 @@ export default function LabPortal() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Clock className="h-8 w-8 text-amber-500" />
+              <Clock className="h-8 w-8 text-[var(--color-warning)]" />
               <div>
                 <span className="text-[11px] text-[var(--color-text-muted)] uppercase">Status Atual</span>
                 <div className="mt-0.5">{formatStatusBadge(data.statusAtual)}</div>
@@ -166,7 +166,7 @@ export default function LabPortal() {
 
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Calendar className="h-8 w-8 text-indigo-500" />
+              <Calendar className="h-8 w-8 text-[var(--color-secondary)]" />
               <div>
                 <span className="text-[11px] text-[var(--color-text-muted)] uppercase">Data de Abertura</span>
                 <p className="text-sm font-semibold text-[var(--color-text-primary)]">
@@ -178,7 +178,7 @@ export default function LabPortal() {
 
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <ShieldCheck className="h-8 w-8 text-emerald-500" />
+              <ShieldCheck className="h-8 w-8 text-[var(--color-success)]" />
               <div>
                 <span className="text-[11px] text-[var(--color-text-muted)] uppercase">Previsão de Entrega</span>
                 <p className="text-sm font-semibold text-[var(--color-text-primary)]">
@@ -213,22 +213,22 @@ export default function LabPortal() {
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)] font-mono">
                   <tr className="hover:bg-[var(--color-bg-page)]">
-                    <td className="py-3 px-3 text-left font-sans font-bold text-teal-700">OD (Direito)</td>
+                    <td className="py-3 px-3 text-left font-sans font-bold text-[var(--color-secondary-dark)]">OD (Direito)</td>
                     <td className="py-3 px-3 font-semibold">{data.od?.esferico ?? '0.00'}</td>
                     <td className="py-3 px-3">{data.od?.cilindrico ?? '0.00'}</td>
                     <td className="py-3 px-3">{data.od?.eixo ? `${data.od.eixo}°` : '—'}</td>
                     <td className="py-3 px-3">{data.od?.adicao ?? '—'}</td>
-                    <td className="py-3 px-3 font-semibold text-indigo-600">{data.od?.dnp ?? '—'}</td>
-                    <td className="py-3 px-3 font-semibold text-indigo-600">{data.od?.altura ?? '—'}</td>
+                    <td className="py-3 px-3 font-semibold text-[var(--color-text-primary)]">{data.od?.dnp ?? '—'}</td>
+                    <td className="py-3 px-3 font-semibold text-[var(--color-text-primary)]">{data.od?.altura ?? '—'}</td>
                   </tr>
                   <tr className="hover:bg-[var(--color-bg-page)]">
-                    <td className="py-3 px-3 text-left font-sans font-bold text-teal-700">OE (Esquerdo)</td>
+                    <td className="py-3 px-3 text-left font-sans font-bold text-[var(--color-secondary-dark)]">OE (Esquerdo)</td>
                     <td className="py-3 px-3 font-semibold">{data.oe?.esferico ?? '0.00'}</td>
                     <td className="py-3 px-3">{data.oe?.cilindrico ?? '0.00'}</td>
                     <td className="py-3 px-3">{data.oe?.eixo ? `${data.oe.eixo}°` : '—'}</td>
                     <td className="py-3 px-3">{data.oe?.adicao ?? '—'}</td>
-                    <td className="py-3 px-3 font-semibold text-indigo-600">{data.oe?.dnp ?? '—'}</td>
-                    <td className="py-3 px-3 font-semibold text-indigo-600">{data.oe?.altura ?? '—'}</td>
+                    <td className="py-3 px-3 font-semibold text-[var(--color-text-primary)]">{data.oe?.dnp ?? '—'}</td>
+                    <td className="py-3 px-3 font-semibold text-[var(--color-text-primary)]">{data.oe?.altura ?? '—'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -256,7 +256,7 @@ export default function LabPortal() {
                 </p>
               </div>
               {data.observacoesLaboratorio && (
-                <div className="rounded bg-amber-50 p-2.5 text-amber-900 border border-amber-200">
+                <div className="rounded bg-[var(--color-warning-light)] p-2.5 text-[var(--color-warning-dark)] border border-[var(--color-warning)]">
                   <span className="font-semibold">Instruções de Montagem:</span>
                   <p className="mt-0.5">{data.observacoesLaboratorio}</p>
                 </div>
@@ -267,7 +267,7 @@ export default function LabPortal() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-amber-500" />
+                <Sparkles className="h-4 w-4 text-[var(--color-warning)]" />
                 Tratamentos & Benefícios
               </CardTitle>
             </CardHeader>
@@ -277,7 +277,7 @@ export default function LabPortal() {
                   {data.tratamentos.map((t, idx) => (
                     <span
                       key={idx}
-                      className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800"
+                      className="rounded-full border border-[var(--color-border)] bg-[var(--color-secondary-light)] px-3 py-1 text-xs font-semibold text-[var(--color-secondary-dark)]"
                     >
                       {t}
                     </span>
@@ -291,7 +291,7 @@ export default function LabPortal() {
         </div>
 
         {/* Painel de Ações do Laboratório */}
-        <Card className="border-2 border-[var(--color-primary)]/20 bg-gradient-to-r from-teal-50/50 to-indigo-50/50">
+        <Card className="border-2 border-[var(--color-primary)]/20 bg-gradient-to-r from-[var(--color-secondary-light)]/40 to-[var(--color-primary-light)]/40">
           <CardHeader>
             <CardTitle className="text-sm">Ações do Laboratório Ótico</CardTitle>
           </CardHeader>
@@ -306,7 +306,7 @@ export default function LabPortal() {
                 size="sm"
                 disabled={statusMutation.isPending || data.statusAtual === 'RETRABALHO'}
                 onClick={() => statusMutation.mutate({ status: 'RETRABALHO', obs: 'Retrabalho iniciado pelo técnico de montagem' })}
-                className="text-red-700 border-red-300 hover:bg-red-50"
+                className="text-[var(--color-danger-dark)] border-[var(--color-danger)] hover:bg-[var(--color-danger-light)]"
               >
                 <RotateCcw className="mr-1.5 h-4 w-4" /> Sinalizar Retrabalho
               </Button>

@@ -33,15 +33,36 @@ public class ProdutoService {
     private final ProdutoMapper mapper;
 
     @Transactional(readOnly = true)
-    public Page<ProdutoResponse> listar(String q, Pageable pageable) {
+    public Page<ProdutoResponse> listar(String q, String categoria, String marca, Pageable pageable) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
-        Page<Produto> page;
-        if (q != null && !q.isBlank()) {
-            page = repository.search(lojaId, q.trim(), pageable);
-        } else {
-            page = repository.findAllByLojaId(lojaId, pageable);
-        }
+        String termo = (q == null || q.isBlank()) ? null : q.trim();
+        String categoriaFiltro = (categoria == null || categoria.isBlank()) ? null : categoria.trim();
+        String marcaFiltro = (marca == null || marca.isBlank()) ? null : marca.trim();
+        Produto.TipoProduto tipo = categoriaFiltro == null ? null : tipoPorRotuloCategoria(categoriaFiltro);
+        // rótulo conhecido da UI (Armação/Lente…) → filtra por tipo_produto (sempre preenchido);
+        // rótulo desconhecido → casa com a coluna texto categoria (grafia exata, case-insensitive)
+        Page<Produto> page = repository.buscarFiltrado(lojaId, termo,
+                tipo == null ? categoriaFiltro : null, tipo, marcaFiltro, pageable);
         return page.map(mapper::toResponse);
+    }
+
+    /**
+     * Mapeia o rótulo de categoria usado na UI para o enum do domínio
+     * (sem depender de acento/grafia na coluna texto {@code categoria}).
+     * Retorna {@code null} quando o rótulo não é reconhecido.
+     */
+    static Produto.TipoProduto tipoPorRotuloCategoria(String categoria) {
+        if (categoria == null) return null;
+        String normalizado = java.text.Normalizer.normalize(categoria, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (normalizado) {
+            case "ARMACAO", "ARMACOES" -> Produto.TipoProduto.ARMACAO;
+            case "LENTE", "LENTES" -> Produto.TipoProduto.LENTE;
+            case "LENTEDECONTATO", "LENTESDECONTATO" -> Produto.TipoProduto.LENTE_CONTATO;
+            case "ACESSORIO", "ACESSORIOS" -> Produto.TipoProduto.ACESSORIO;
+            case "SERVICO", "SERVICOS" -> Produto.TipoProduto.SERVICO;
+            default -> null;
+        };
     }
 
     @Transactional(readOnly = true)

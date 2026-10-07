@@ -95,7 +95,9 @@ function OrdersChart({ ordens }: { ordens: OrdemServicoDTO[] }) {
         <CardTitle className="flex items-center gap-2 text-base">
           <PackageCheck className="h-5 w-5" /> Ordens de Serviço
         </CardTitle>
-        <Button variant="outline" size="sm">Últimos 7 dias</Button>
+        <span className="inline-flex h-8 items-center rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-card)] px-3 text-xs font-medium text-[var(--color-text-secondary)]">
+          Últimos 7 dias
+        </span>
       </CardHeader>
       <CardContent className="grid gap-6 lg:grid-cols-[1fr_220px]">
         <div className="flex h-48 items-end gap-5 border-t border-[var(--color-border)] pt-4">
@@ -140,7 +142,7 @@ function OrdersChart({ ordens }: { ordens: OrdemServicoDTO[] }) {
 
 function PromoPanel() {
   return (
-    <Card className="relative overflow-hidden lg:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border)] shadow-[var(--shadow-soft)] p-0 bg-[#E8DDD2] flex items-center justify-center">
+    <Card className="relative overflow-hidden lg:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border)] shadow-[var(--shadow-soft)] p-0 bg-[var(--color-bg-panel)] flex items-center justify-center">
       <img
         src="/assets/dashboard-banner.png"
         alt="Mais organização - Clientes mais satisfeitos. Controle, agilidade e resultados para sua ótica."
@@ -409,9 +411,19 @@ function PilotReadinessPanel({
 
 type OrdensPage = PageResponse<OrdemServicoDTO>;
 
+const STATUS_TERMINAL = new Set<string>(['ENTREGUE', 'CANCELADO', 'DEVOLVIDO_GARANTIA']);
+
+function ehAtrasada(o: OrdemServicoDTO): boolean {
+  const explicitSla = (o.sla ?? o.slaStatus ?? '').toString().toLowerCase();
+  if (explicitSla.includes('atrasado')) return true;
+  const previsao = o.previsao ?? o.previsaoEntrega;
+  return Boolean(previsao && !STATUS_TERMINAL.has(o.status) && new Date(previsao).getTime() < Date.now());
+}
+
 export default function DashboardKanban() {
   const location = useLocation();
   const [q, setQ] = React.useState('');
+  const [apenasAtrasadas, setApenasAtrasadas] = React.useState(false);
   const debouncedQ = useDebounce(q, 350);
   const [page] = React.useState(0);
   const size = 100; // kanban precisa volume maior por página
@@ -436,16 +448,17 @@ export default function DashboardKanban() {
   const ordens: OrdemServicoDTO[] = React.useMemo(() => unwrapPage(data as OrdensPage | OrdemServicoDTO[]), [data]);
 
   const filtered = React.useMemo(() => {
-    if (!debouncedQ) return ordens;
+    const base = apenasAtrasadas ? ordens.filter(ehAtrasada) : ordens;
+    if (!debouncedQ) return base;
     const l = debouncedQ.toLowerCase();
-    return ordens.filter((o) => {
+    return base.filter((o) => {
       const haystack = [o.id, o.numero, o.cliente, o.clienteId, o.produto, o.armacaoId, o.lenteId]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(l);
     });
-  }, [ordens, debouncedQ]);
+  }, [ordens, debouncedQ, apenasAtrasadas]);
 
   const stats = React.useMemo(() => {
     const terminal = new Set(['ENTREGUE', 'CANCELADO', 'DEVOLVIDO_GARANTIA']);
@@ -474,9 +487,9 @@ export default function DashboardKanban() {
             <p className="text-base text-[var(--color-text-secondary)]">Visão geral da sua ótica em um só lugar.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="gap-2">
+            <span className="inline-flex h-10 items-center gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 text-sm font-medium text-[var(--color-text-secondary)]">
               <CalendarDays className="h-4 w-4" /> Hoje, {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-            </Button>
+            </span>
             <Link to="/pdv">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" /> Nova OS
@@ -572,8 +585,14 @@ export default function DashboardKanban() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar OS, cliente, produto…" className="pl-9" aria-label="Buscar OS" />
           </div>
-          <Button variant="outline" size="sm">
-            <Filter className="mr-2 h-4 w-4" /> Filtros
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setApenasAtrasadas((v) => !v)}
+            aria-pressed={apenasAtrasadas}
+            className={apenasAtrasadas ? 'border-[var(--color-danger)] text-[var(--color-danger-dark)]' : undefined}
+          >
+            <Filter className="mr-2 h-4 w-4" /> {apenasAtrasadas ? 'Somente atrasadas' : 'Filtros'}
           </Button>
           <Badge variant="outline" className="hidden sm:inline-flex">
             <Eye className="mr-1 h-3 w-3" /> Fila visível

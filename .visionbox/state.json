@@ -1,7 +1,7 @@
 {
   "project": "VisionBox",
   "version": "1.0.23-entregue-completo",
-  "updated_at": "2026-10-06T02:27:00-03:00",
+  "updated_at": "2026-10-07T02:25:00-03:00",
   "phase": "Execução Completa Concluída — Integração Fiscal Flowbox, Importador CSV em Massa, Controle de Caixa Físico, Alçada de Desconto e Portal do Laboratório",
   "current_sprint": "M2-ready-for-client",
   "progress_pct": 100,
@@ -35,9 +35,11 @@
     "Pronto para uso do cliente e testes em homologação/VPS"
   ],
   "last_evidence": {
-    "mvn_test": "mvn -q test green",
+    "mvn_test": "mvn -q test green (125/125 em 2026-10-07)",
     "mvn_compile": "mvn -q -DskipTests package green",
-    "web_build": "code split, entry 232.35kB gzip 74.92kB; PDV chunk 14.99kB gzip 4.75kB",
+    "backend_contract_fix": "POST /receitas aceita payload do frontend (tipoLente alias, datas default hoje+2anos, dp numerico, MONOFOCAL->VISAO_SIMPLES); ProblemDetailHandler com mensagens legíveis PT-BR; soft-delete de Usuario sem @SQLRestriction (reativacao/lista com inativos) e produto com unidade parcial V21 (recriar SKU); /produtos aceita search+categoria; 125/125 testes",
+    "web_build": "code split, entry 241.53kB gzip 77.38kB; PDV chunk 31.77kB gzip 9.70kB",
+    "frontend_bug_sweep": "UserManagement (lojaId fora do zod => submit desbloqueado, unwrapPage, actionError, OfflineBanner); Catalogo CRUD produto completo + busca marca + ?novo=1; PDV com NovoClienteModal/DadosClienteModal/MaisAcoesModal, filtro de categoria e desconto real; Receitas com combobox de cliente que so envia UUID; Financeiro onError visivel; tema escuro com tokens --color-sidebar-text/--color-text-on-action/--color-text-on-danger + color-scheme; LabPortal/OSDetail/ControleCaixa/AutorizacaoDesconto/PDV/DashboardKanban sem cores Tailwind soltas; sino de notificacoes le a fila offline; ConfiguracoesDialog; PIN de alceada valida lista e nao apenas tamanho; DashboardKanban 'Filtros' filtra atrasadas; typecheck+build+mvn 125/125 verdes",
     "web_audit": "0 vulnerabilities",
     "auth": "JWT HS256 + TenantFilter JWT-first + route RBAC + prod register blocked + refresh cookie HttpOnly com rotacao persistida",
     "api": "Swagger /api/v1/* funcionando",

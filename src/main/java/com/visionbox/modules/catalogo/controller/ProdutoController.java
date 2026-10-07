@@ -27,8 +27,13 @@ public class ProdutoController {
 
     @GetMapping
     public Page<ProdutoResponse> listar(@RequestParam(required = false) String q,
+                                        // alias usado pelo frontend (GET ?search=)
+                                        @RequestParam(required = false) String search,
+                                        @RequestParam(required = false) String categoria,
+                                        @RequestParam(required = false) String marca,
                                         @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        return service.listar(q, pageable);
+        String termo = (q != null && !q.isBlank()) ? q : search;
+        return service.listar(termo, categoria, marca, pageable);
     }
 
     @GetMapping("/{id}")

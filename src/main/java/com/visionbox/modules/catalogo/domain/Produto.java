@@ -11,8 +11,18 @@ import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 
+/**
+ * Produto do catálogo.
+ * <p>
+ * A unicidade de {@code (loja_id, sku)} agora é garantida por índice PARCIAL
+ * {@code WHERE ativo = true} (V21__unicidade_parcial_produto_sku.sql), e não mais pela
+ * unique completa do {@code @Table}: com o soft-delete ({@code @SQLRestriction}), a unique
+ * completa impedia recriar o mesmo SKU após excluir (o {@code existsBySkuAndLojaId} não via a
+ * linha inativa e o INSERT estourava a constraint → 400 "Registro duplicado").
+ * Linhas inativas não disputam SKU; as ativas continuam únicas.
+ */
 @Entity
-@Table(name = "produto", uniqueConstraints = @UniqueConstraint(columnNames = {"loja_id","sku"}))
+@Table(name = "produto")
 @SQLRestriction("ativo = true")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class Produto extends EntidadeBase {

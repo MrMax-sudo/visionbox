@@ -7,12 +7,17 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface ClienteRepository extends JpaRepository<Cliente, UUID> {
 
     Optional<Cliente> findByIdAndLojaId(UUID id, UUID lojaId);
+
+    /** Lookup em lote (evita N+1 ao montar nome das receitas em listagem). */
+    List<Cliente> findByLojaIdAndIdIn(UUID lojaId, Collection<UUID> ids);
 
     Page<Cliente> findAllByLojaId(UUID lojaId, Pageable pageable);
 

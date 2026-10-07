@@ -27,7 +27,7 @@ public class ProdutoRequest {
     private String cest;
     private String cfop;
     private String cbenef;
-    @NotNull
+    /** Opcional — o service defaulta para ZERO (ProdutoService#criar). */
     private BigDecimal custo;
     @NotNull
     private BigDecimal precoVenda;

@@ -1,15 +1,16 @@
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, RefreshCw, Wallet, TrendingUp, ReceiptText, Banknote, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw, Wallet, TrendingUp, ReceiptText, Banknote, XCircle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiClient, type ApiError } from '@/lib/apiClient';
+import { apiClient, ApiError } from '@/lib/apiClient';
 import type { PageResponse } from '@/lib/types';
 import { unwrapPage } from '@/lib/types';
 import { ControleCaixaModal } from '@/components/caixa/ControleCaixaModal';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 
 type ContaReceberDTO = {
   id: string;
@@ -41,6 +42,18 @@ type DreDTO = {
 
 function money(value?: number) {
   return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Mensagem da falha de baixar/cancelar — prioriza problem.detail (RFC 7807). */
+function actionErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    const p = err.problem;
+    const fieldErrors =
+      p?.errors && p.errors.length > 0 ? p.errors.map((fe) => `${fe.field}: ${fe.message}`).join(' • ') : '';
+    return p?.detail || p?.message || fieldErrors || err.message || 'Falha na operação financeira.';
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return 'Falha na operação financeira.';
 }
 
 function MetricCard({ label, value, sub, icon: Icon, tone }: { label: string; value: string; sub: string; icon: React.ElementType; tone: 'info' | 'success' | 'warning' | 'danger' }) {
@@ -116,15 +129,33 @@ export default function Financeiro() {
   const loading = contasQuery.isLoading || contasPagarQuery.isLoading || dreQuery.isLoading;
   const error = contasQuery.error ?? contasPagarQuery.error ?? dreQuery.error;
 
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!actionSuccess) return;
+    const id = window.setTimeout(() => setActionSuccess(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [actionSuccess]);
+
   const financeiroMutation = useMutation({
     mutationFn: async ({ tipo, id, action }: { tipo: 'receber' | 'pagar'; id: string; action: 'baixar' | 'cancelar' }) => {
       const base = tipo === 'receber' ? 'contas-receber' : 'contas-pagar';
+      // POST /v1/financeiro/contas-{receber|pagar}/{id}/{baixar|cancelar} — ContaReceber/ContaPagarController
       await apiClient.post(`/v1/financeiro/${base}/${id}/${action}`);
     },
-    onSuccess: () => {
+    onMutate: () => {
+      setActionError(null);
+      setActionSuccess(null);
+    },
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['financeiro-contas-receber'] });
       queryClient.invalidateQueries({ queryKey: ['financeiro-contas-pagar'] });
       queryClient.invalidateQueries({ queryKey: ['financeiro-dre-mes-atual'] });
+      setActionSuccess(vars.action === 'baixar' ? 'Título baixado com sucesso.' : 'Título cancelado com sucesso.');
+    },
+    onError: (err) => {
+      setActionError(actionErrorMessage(err));
     },
   });
 
@@ -144,7 +175,7 @@ export default function Financeiro() {
             onClick={() => setCaixaOpen(true)}
             className="gap-2"
           >
-            <Banknote className="h-4 w-4 text-emerald-600" />
+            <Banknote className="h-4 w-4 text-[var(--color-success)]" />
             Controle de Caixa
           </Button>
           <Button
@@ -162,6 +193,51 @@ export default function Financeiro() {
           </Button>
         </div>
       </div>
+
+      <OfflineBanner />
+
+      {financeiroMutation.isPending && (
+        <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Processando título…
+        </p>
+      )}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1">{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            aria-label="Fechar aviso de erro"
+            className="shrink-0 rounded p-0.5 hover:bg-[var(--color-bg-card)]"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {actionSuccess && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--color-success-light)] bg-[var(--color-success-light)] px-3 py-2 text-sm text-[var(--color-success-dark)]"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1">{actionSuccess}</span>
+          <button
+            type="button"
+            onClick={() => setActionSuccess(null)}
+            aria-label="Fechar aviso de sucesso"
+            className="shrink-0 rounded p-0.5 hover:bg-[var(--color-bg-card)]"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-3">
