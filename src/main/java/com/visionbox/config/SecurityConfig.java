@@ -87,6 +87,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/clientes/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO")
                         .requestMatchers("/api/v1/ordens-servico/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO", "TECNICO", "LABORATORIO")
                         .requestMatchers("/api/v1/vendas/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                        .requestMatchers("/api/v1/relatorios/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))

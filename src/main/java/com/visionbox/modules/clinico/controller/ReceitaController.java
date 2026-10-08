@@ -3,6 +3,8 @@ package com.visionbox.modules.clinico.controller;
 import com.visionbox.modules.clinico.dto.ReceitaRequest;
 import com.visionbox.modules.clinico.dto.ReceitaResponse;
 import com.visionbox.modules.clinico.service.ReceitaService;
+import com.visionbox.shared.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,15 +22,18 @@ import java.util.UUID;
 public class ReceitaController {
 
     private final ReceitaService service;
+    private final MeterRegistry meterRegistry;
 
     @GetMapping
     public Page<ReceitaResponse> listar(@RequestParam(required = false) UUID clienteId,
                                         @PageableDefault(size = 20) Pageable pageable) {
+        registrarLeituraReceita();
         return service.listar(clienteId, pageable);
     }
 
     @GetMapping("/{id}")
     public ReceitaResponse buscar(@PathVariable UUID id) {
+        registrarLeituraReceita();
         return service.buscar(id);
     }
 
@@ -47,5 +52,18 @@ public class ReceitaController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remover(@PathVariable UUID id) {
         service.remover(id);
+    }
+
+    /**
+     * LGPD (ADR-003): contabiliza leitura de receita (dado sensível — grau/cpf criptografados).
+     * Nome exposto: {@code visionbox_lgpd_leitura_receita_total{loja=...}}.
+     * Nota: optamos por tag de loja real da requisição (não tag estática de ambiente) para
+     * o dashboard "Multi-loja"/"LGPD" (docs/METRICS.md §Instrumentação).
+     */
+    private void registrarLeituraReceita() {
+        if (meterRegistry != null) {
+            String loja = TenantContext.getCurrentLojaId().map(UUID::toString).orElse("none");
+            meterRegistry.counter("visionbox_lgpd_leitura_receita", "loja", loja).increment();
+        }
     }
 }

@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ContaPagarRequest {
@@ -22,6 +23,9 @@ public class ContaPagarRequest {
 
     @NotNull @Positive
     private BigDecimal valor;
+
+    /** US13 DRE por OS — vínculo opcional com a ordem de serviço (custo direto da OS). */
+    private UUID ordemServicoId;
 
     @NotNull(message = "vencimento é obrigatório (yyyy-MM-dd)")
     private String vencimento; // ISO LocalDate yyyy-MM-dd

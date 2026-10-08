@@ -34,6 +34,67 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.dev.yml down -v
 
+  # Validação do schema em PostgreSQL 15 REAL (postgres:15-alpine) — serviço isolado,
+  # sem depender de credenciais de compose/.env. migrate antes do validate garante que
+  # "versões resolvidas mas não aplicadas" não falhem o job.
+  flyway-validate:
+    name: Flyway migrate+validate (PG 15)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: visionbox
+          POSTGRES_USER: visionbox
+          POSTGRES_PASSWORD: visionbox
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U visionbox -d visionbox"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Flyway migrate + validate
+        run: mvn -B flyway:migrate flyway:validate -Dflyway.url=jdbc:postgresql://localhost:5432/visionbox -Dflyway.user=visionbox -Dflyway.password=visionbox -Dflyway.locations=filesystem:src/main/resources/db/migration
+
+  # Build do frontend (tsc + vite) + auditoria de acessibilidade com axe.
+  # axe começa como baseline não-bloqueante (continue-on-error); promover a bloqueante
+  # quando o rollup de violações zerar (docs/PENDENCIAS).
+  web-build:
+    name: Web build + axe
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build (tsc + vite)
+        run: npm run build
+      - name: Serve preview + axe a11y
+        run: |
+          npm run preview -- --port 4173 --strictPort &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4173/ >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -sf http://localhost:4173/ >/dev/null 2>&1 || exit 1
+          npx --yes @axe-core/cli http://localhost:4173 --exit
+        continue-on-error: true
+
   build-push:
     needs: build-test
     runs-on: ubuntu-latest

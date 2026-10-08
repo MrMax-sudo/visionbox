@@ -149,15 +149,59 @@ pareciam clicáveis e não faziam nada.
 
 **Consequência:** custo zero operacional para a ótica e para a plataforma, sem risco de bloqueio de chips, sem necessidade de onboarding no Meta Business Manager e sem dependência de terceiros.
 
+## D-010 — P7: alçada de desconto validada no backend (PIN = senha BCrypt de GERENTE/ADMIN)
+
+**Contexto:** D-007 deixou o PIN em lista hardcoded no frontend (`1234`/`admin`/`123456`),
+com sinalização para migrar para endpoint autenticado com rate-limit. P7 executa isso.
+
+**Decisão — fonte do PIN (opção "a"):** validar a `senha` recebida contra o `senhaHash`
+(BCrypt via `PasswordEncoder`) dos usuários **ativos** com perfil **GERENTE/ADMIN da MESMA
+loja** (`findByLojaIdAndPerfilInAndAtivoTrue`). Não criamos tabela/config de PIN (opção "b")
+porque ela exigiria migration V31 + seed de PIN padrão (fraco, repetiria o erro de `1234`) ou
+endpoint/UI de gestão — mais superfície. Com a opção (a):
+- zero segredo novo para armazenar/cadastrar (senha de login já é BCrypt no banco);
+- identificação do autorizador é automática (o usuário que casou o hash → `autorizadoPor*`);
+- gerente usa UMA credencial (a própria senha de login) — sem "PIN mágico" compartilhado.
+
+**Contrato:** `POST /api/v1/autorizacoes-desconto` (autenticado, qualquer perfil da loja pode
+solicitar), body `{ descontoPercentual, senha }`. Respostas: `200 {autorizado, exigePin,
+rateLimitExcedido, descontoPercentual, limiteSemPinPercentual(15), mensagem, autorizadoPor*}`;
+PIN inválido → `200` com `autorizado=false` + mensagem **genérica**; estouro de rate-limit →
+`429` RFC 7807 (ProblemDetailHandler, nunca loga/ecoia o PIN).
+
+**Rate-limit:** `RateLimiterAlcada` **em memória** (janela fixa 15 min, 5 falhas por
+`lojaId:usuarioId`, sucesso zera o contador; lazy expiry — sem job). Config via
+`visionbox.alcada.rate-limit-max-tentativas` (5) e `visionbox.alcada.rate-limit-janela-minutos`
+(15). Sem Redis de propósito (não assumir infra).
+
+**Auditoria:** cada tentativa com PIN grava `log_auditoria` append-only
+(`acao=AUTORIZACAO_DESCONTO`, `usuario_id` = solicitante, `detalhe_json` = % + motivo
+`PIN_OK|PIN_INVALIDO|PIN_AUSENTE|RATE_LIMIT` + autorizador quando houve). PIN nunca vai para
+log nem para `detalhe_json`. Desconto ≤15% autoriza sem PIN e sem auditoria.
+
+**Migração:** **nenhuma** — a versão reservada `V31__autorizacao_desconto.sql` NÃO foi usada
+(nenhuma mudança de schema: `log_auditoria` já tem `acao VARCHAR(50)` sem CHECK e índices
+`(loja_id, entidade)` / `(loja_id, criado_em)`).
+
+**Frontend:** `AutorizacaoDescontoModal.tsx` chama o endpoint via `apiClient` e exibe
+`ApiError.problem.detail` (429/400). O `<select>` fake de supervisor foi removido — a
+identificação de quem autorizou vem do backend (`autorizadoPorNome`).
+
+**Gap sinalizado (fora do escopo de P7):** a criação de OS/venda (`/api/v1/ordens-servico`,
+`/api/v1/vendas`) ainda aceita `desconto` sem token de alçada — a validação de desconto >15%
+só existe na UI. Enforcement server-side na finalização da venda deve ser pauta de P8/security.
+
 ## Sinalizações para outros agentes
 
-- **security-auditor:** remoção de `@SQLRestriction` em `Usuario` depende do check `isAtivo()`
-  em `AuthController` (login + refresh). Vale um teste de segurança: conta desativada não deve
-  obter refresh nem logar; token de acesso já emitido segue válido até expirar (15 min) — aceito,
-  mas registrar.
-- **qa-engineer:** pontos de teste em `ReceitaRequestJsonTest` (7 casos: payload real do frontend,
-  campo desconhecido, UUID inválido, tipo errado, JSON malformado) e `ReceitaServiceTest`
-  (+5 casos: default de datas, normalização MONOFOCAL, data inválida, tipo inválido, `clienteNome`
-  sem N+1). E2E HTTP e `flyway validate` pendentes de ambiente com Postgres.
-- **db-admin / devops-infra:** D-005 (1) e (2).
+- **security-auditor:** (1) P7 removeu a lista de PINs do client — revisar o `RateLimiterAlcada`
+  em memória (sem Redis, ok para 5 tentativas/15min) e a decisão de PIN = senha de login de
+  GERENTE/ADMIN (D-010): recomendação de senha forte para gerentes; (2) gap de P7:
+  `ordens-servico`/`vendas` não validam alçada server-side; (3) teste de segurança P6 cobre
+  conta `ativo=false` em login/refresh (401 via `DisabledException`) — token de acesso já
+  emitido segue válido 15 min (aceito, conforme D-004).
+- **qa-engineer:** pontos de teste em `AutorizacaoDescontoServiceTest` (5 casos), 
+  `RateLimiterAlcadaTest` (4 casos), `AutorizacaoDescontoControllerTest` (3 casos, inclui 429
+  RFC 7807) e `AuthControllerTest` (+3 casos de conta desativada). E2E HTTP e `flyway validate`
+  seguem pendentes de ambiente com Postgres.
+- **db-admin / devops-infra:** D-005 (1) e (2) permanecem abertos e independentes desta entrega.
 

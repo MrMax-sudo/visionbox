@@ -28,6 +28,12 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, UUID
 
     long countByLojaIdAndStatus(UUID lojaId, StatusOS status);
 
+    long countByStatus(StatusOS status);
+
+    // Métricas: OS atrasadas por laboratório (previsao < agora, status não terminal)
+    @Query("SELECT o.laboratorioId, COUNT(o) FROM OrdemServico o WHERE o.ativo = true AND o.previsaoEntrega < :agora AND o.status NOT IN :excluidos GROUP BY o.laboratorioId")
+    List<Object[]> countAtrasadasPorLaboratorio(@Param("agora") OffsetDateTime agora, @Param("excluidos") Collection<StatusOS> excluidos);
+
     // SLA: atrasadas por loja (previsaoEntrega < now() e status NOT IN terminal)
     List<OrdemServico> findByLojaIdAndPrevisaoEntregaBeforeAndStatusNotIn(UUID lojaId, OffsetDateTime previsaoEntrega, Collection<StatusOS> status);
 
@@ -39,4 +45,8 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, UUID
 
     @Query("SELECT DISTINCT o.lojaId FROM OrdemServico o WHERE o.previsaoEntrega < :agora AND o.status NOT IN :excluidos AND o.alertaAtrasoDisparado = false AND o.ativo = true AND o.previsaoEntrega IS NOT NULL")
     List<UUID> findDistinctLojaIdsComAtraso(@Param("agora") OffsetDateTime agora, @Param("excluidos") Collection<StatusOS> excluidos);
+
+    Page<OrdemServico> findByLojaIdAndStatusIn(UUID lojaId, java.util.Collection<StatusOS> status, Pageable pageable);
+
+    Page<OrdemServico> findByLojaIdAndStatusInAndLaboratorioId(UUID lojaId, java.util.Collection<StatusOS> status, UUID laboratorioId, Pageable pageable);
 }

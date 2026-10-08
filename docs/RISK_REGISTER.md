@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | R1 | Concorrente preço menor já "bom o suficiente" | A | A | Mercado | Churn CAC alto | Vender outcome rastreio+DRE por OS, não feature | Nicho lab próprio paga mais | PO | `monitorando` |
 | R2 | Kanban 12 status complexo vendedor abandona | M | A | UX | Volta planilha | S0 valida 3 óticas, 4 status visíveis + avançado | Flag simplifica para 6 status | UX | `mitigando` |
-| R3 | WhatsApp custo/bloqueio | M | A | Técnico | Diferencial não funciona | MVP manual `wa.me`, F2 Meta Cloud API | Fallback SMS+link rastreio | Backend | `mitigando` |
+| R3 | WhatsApp custo/bloqueio | M | A | Técnico | Diferencial não funciona | D-009: MVP só link manual `wa.me` (custo zero, sem chip/API), `consentimento_recall` + opt-out; Cloud API adiada pós-piloto | Fallback SMS+link rastreio | Backend | `mitigando` |
 | R4 | CSV sujo 10 anos importação | A | M | Ops | TTV >48h | Template + erro linha-a-linha | Concierge import 10 primeiras | PO | `aberto` |
 | R5 | Ótica sem processo culpa sistema | A | M | Produto | Sistema culpado por bagunça | Playbook BPMN padrão VisionBox | Indicar parceiro implantação | PO | `aberto` |
 | R6 | Scope creep NF-e no MVP | A | M | Escopo | Atraso 6 sem | Integrar parceiro fiscal, não construir | Ter eNotas homologado | Fiscal | `vigilante` |

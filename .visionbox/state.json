@@ -1,10 +1,14 @@
 {
   "project": "VisionBox",
-  "version": "1.0.24-fase3-empresa-dev",
-  "updated_at": "2026-10-07T23:05:00-03:00",
-  "phase": "Fase 3 — Config Empresa + wa.me + logo + Painel Desenvolvedor",
-  "current_sprint": "S3-CONFIG-DEV",
-  "progress_pct": 90,
+  "version": "1.0.26-wave-paralela-concluida",
+  "updated_at": "2026-10-08T12:00:00-03:00",
+  "wave_in_progress": [
+    "P1 BLOQUEADO: migrations V3-V10 ausentes + V2 referencia perfil/usuario_loja/sequencia_numeracao/fn_next_sequencia inexistentes — requer db-admin + Postgres real"
+  ],
+  "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (225/225 verdes)",
+  "phase": "Fase 3.5 — Wave paralela de especialistas (seguranca, OFX/DRE, producao+CQ, BI, PWA, observabilidade)",
+  "current_sprint": "S3-WAVE-PARALELA",
+  "progress_pct": 93,
   "milestones": [
     {"id": "M0", "name": "Kickoff docs", "status": "done", "evidence": "docs/"},
     {"id": "M1", "name": "S0 Foundation", "status": "done", "evidence": "V11 + CpfConverter 51/51 + CI", "done_at": "2026-09-05"},
@@ -34,9 +38,13 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fase 3 — validar visual do logo no sidebar (usuario confirma look final) + rodar app com banco para smoke test GET/PUT /api/v1/empresa e /api/v1/dev/info"
+    "P1 (db-admin + Postgres real): reconstruir migrations V3-V10 e tornar V2 auto-suficiente (perfil/usuario/usuario_loja/sequencia_numeracao/fn_next_sequencia/fn_set_atualizado_em); validar com flyway migrate/validate",
+    "Smoke test runtime: GET/PUT /api/v1/empresa, GET /api/v1/dev/info, /api/v1/relatorios/**, /api/v1/autorizacoes-desconto",
+    "US17: implementar endpoint backend de token de rastreio (frontend usa contrato provisorio)"
   ],
   "last_evidence": {
+    "wave_paralela_2026_10_08": "8 frentes: P6/P7 alcada desconto backend (D-010, sem migration) + US13 OFX/DRE (V29) + US11 producao/CQ (V28) + US16 BI (V30, ADR-006) + US17 Portal PWA + devops observabilidade/CI + reescopo US12/14/15 sob D-009; orquestracao corrigiu ProducaoService, SlaMetrics, OutboxRepository, 2 testes getStatus, ProducaoServiceTest, RelatorioBiServiceTest, CurvaAbcClassifier, OfxParser; mvn 225/225 + typecheck + build verdes",
+    "p1_blocker": "V3-V10 nunca existiram no git; V2__cliente_receita.sql referencia sequencia_numeracao/perfil/usuario/usuario_loja/fn_next_sequencia/fn_set_atualizado_em que nenhuma migration cria; V13 cria fn_set_atualizado_em e usuario depois de V2. Requer migracao nova + flyway repair em Postgres real",
     "fase2_backend": "FormaPagamento module (domain/dto/mapper/service/controller) + OrdemServico pagamentos multi-forma (OrdemServicoPagamento + V26) + V25 RLS FORCE padrão V11/V23 + seeds 5 formas; FormaPagamentoServiceTest 6/6",
     "fase3_config_empresa": "Perfil.DESENVOLVEDOR no enum; V27__empresa_config.sql (12 colunas na loja + CHECK usuario_perfil_check com DESENVOLVEDOR); modules/pessoa/empresaconfig (EmpresaRequest/EmpresaResponse/EmpresaConfigService/EmpresaController GET+PUT /api/v1/empresa); SecurityConfig rotas empresa/** (authenticated) + PUT empresa (ADMIN/GERENTE/DESENVOLVEDOR) + dev/** (ADMIN/DESENVOLVEDOR); EmpresaConfigServiceTest 6/6",
     "fase2_frontend": "PDV 3-colunas (pdv-col-products/pdv-col-cart/pdv-summary), FinalizarVendaModal multi-pagamento com select por linha e saldo em tempo real, FormasPagamentoConfig CRUD em Configurações, typecheck+build green",

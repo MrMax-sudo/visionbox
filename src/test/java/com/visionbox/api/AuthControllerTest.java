@@ -8,11 +8,15 @@ import com.visionbox.modules.usuario.dto.LoginRequest;
 import com.visionbox.modules.usuario.repository.UsuarioRefreshTokenRepository;
 import com.visionbox.modules.usuario.repository.UsuarioRepository;
 import com.visionbox.modules.usuario.service.UsuarioService;
+import com.visionbox.shared.error.ProblemDetailHandler;
 import com.visionbox.shared.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ProblemDetail;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -20,9 +24,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AuthControllerTest {
@@ -115,6 +122,63 @@ class AuthControllerTest {
                 .build());
 
         assertThat(response.getStatusCode().value()).isEqualTo(404);
+    }
+
+    // ===== P6 — Conta desativada (D-004): login/refresh bloqueiam com DisabledException =====
+
+    @Test
+    @DisplayName("Login de usuário inativo lança DisabledException e não emite token")
+    void loginUsuarioInativoLancaDisabled() {
+        Usuario inativo = usuario();
+        inativo.setAtivo(false);
+        when(usuarioRepository.findByEmail("admin@visionbox.com.br")).thenReturn(Optional.of(inativo));
+        when(passwordEncoder.matches("admin123", "hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> controller.login(LoginRequest.builder()
+                .email("admin@visionbox.com.br")
+                .senha("admin123")
+                .build()))
+                .isInstanceOf(DisabledException.class)
+                .hasMessage("Usuário desativado");
+
+        // credencial bateu, mas nenhum access/refresh é emitido nem persistido
+        verify(refreshTokenRepository, never()).save(any(UsuarioRefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("Refresh de usuário inativo lança DisabledException e não rotaciona o token")
+    void refreshUsuarioInativoLancaDisabled() {
+        Usuario inativo = usuario();
+        inativo.setAtivo(false);
+        String refresh = tokenProvider.generateRefreshToken(inativo);
+        when(usuarioRepository.findByIdAndLojaId(USUARIO_ID, LOJA_ID)).thenReturn(Optional.of(inativo));
+        when(refreshTokenRepository.findByJtiHashAndLojaId(anyString(), any(UUID.class)))
+                .thenReturn(Optional.of(UsuarioRefreshToken.builder()
+                        .lojaId(LOJA_ID)
+                        .usuarioId(USUARIO_ID)
+                        .jtiHash("hash")
+                        .expiresAt(java.time.OffsetDateTime.now().plusDays(1))
+                        .build()));
+
+        assertThatThrownBy(() -> controller.refresh(refresh))
+                .isInstanceOf(DisabledException.class)
+                .hasMessage("Usuário desativado");
+
+        // mesmo o refresh sendo válido e rotacionável, não rotaciona para conta inativa
+        verify(refreshTokenRepository, never()).save(any(UsuarioRefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("DisabledException é devolvida como 401 (ProblemDetailHandler)")
+    void disabledExceptionVira401() {
+        ProblemDetailHandler handler = new ProblemDetailHandler();
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+        ProblemDetail pd = handler.handleAuth(new DisabledException("Usuário desativado"), request);
+
+        assertThat(pd.getStatus()).isEqualTo(401);
+        assertThat(pd.getDetail()).contains("Faça login novamente");
     }
 
     private Usuario usuario() {

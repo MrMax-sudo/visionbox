@@ -1,5 +1,6 @@
 package com.visionbox.shared.tenant;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
@@ -44,6 +46,18 @@ public class TenantFilter extends OncePerRequestFilter {
     public static final String HEADER_TENANT_ID = "X-Tenant-Id";
     public static final String MDC_LOJA_ID = "loja_id";
 
+    private final MeterRegistry meterRegistry;
+
+    /** Construtor para testes unitários (sem MeterRegistry). */
+    public TenantFilter() {
+        this(null);
+    }
+
+    @Autowired
+    public TenantFilter(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -66,6 +80,7 @@ public class TenantFilter extends OncePerRequestFilter {
             return;
         }
         if (resolution.status() == TenantResolutionStatus.TENANT_MISMATCH) {
+            incrementCrossTenantAttempt();
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Tenant divergente do token");
             return;
         }
@@ -97,6 +112,17 @@ public class TenantFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/auth/")
                 || path.startsWith("/api/v1/auth/")
                 || path.equals("/error");
+    }
+
+    /**
+     * Métrica de segurança (LGPD/multi-tenant): tentativa de acesso cruzado entre lojas
+     * (header X-Loja-Id divergente do claim JWT). Nome exposto:
+     * {@code visionbox_security_cross_tenant_attempt_total{motivo=jwt_header_divergente}}.
+     */
+    private void incrementCrossTenantAttempt() {
+        if (meterRegistry != null) {
+            meterRegistry.counter("visionbox_security_cross_tenant_attempt", "motivo", "jwt_header_divergente").increment();
+        }
     }
 
     TenantResolution resolveTenantId(HttpServletRequest request) {

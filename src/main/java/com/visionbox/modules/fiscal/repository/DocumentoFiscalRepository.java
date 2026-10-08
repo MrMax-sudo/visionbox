@@ -17,4 +17,7 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
     Page<DocumentoFiscal> findAllByLojaId(UUID lojaId, Pageable pageable);
 
     Optional<DocumentoFiscal> findByLojaIdAndModeloAndSerieAndNumero(UUID lojaId, DocumentoFiscal.ModeloFiscal modelo, String serie, Integer numero);
+
+    // Métricas: documentos em contingência aguardando sincronização (Fisco — NFC-e/SAT-CF-e)
+    long countByStatus(DocumentoFiscal.StatusFiscal status);
 }

@@ -46,6 +46,7 @@ public class ContaPagarService {
                 .fornecedor(req.getFornecedor().trim())
                 .descricao(req.getDescricao())
                 .numeroDocumento(req.getNumeroDocumento())
+                .ordemServicoId(req.getOrdemServicoId())
                 .valor(valor)
                 .valorPago(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN))
                 .vencimento(venc)

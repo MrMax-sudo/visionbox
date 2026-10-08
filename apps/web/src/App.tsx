@@ -15,6 +15,7 @@ const OSDetail = React.lazy(() => import('@/pages/OSDetail'));
 const Financeiro = React.lazy(() => import('@/pages/Financeiro'));
 const UserManagement = React.lazy(() => import('@/pages/UserManagement'));
 const LabPortal = React.lazy(() => import('@/pages/LabPortal'));
+const RastreioPortal = React.lazy(() => import('@/pages/RastreioPortal'));
 const PainelDesenvolvedor = React.lazy(() => import('@/pages/PainelDesenvolvedor'));
 
 function PageLoading() {
@@ -84,6 +85,9 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/lab/:token" element={<LazyPage><LabPortal /></LazyPage>} />
+        {/* Portal do Cliente (US17) — rotas públicas sem login, PWA de rastreio da OS */}
+        <Route path="/rastreio" element={<LazyPage><RastreioPortal /></LazyPage>} />
+        <Route path="/rastreio/:token" element={<LazyPage><RastreioPortal /></LazyPage>} />
         <Route
           element={
             <Protected>

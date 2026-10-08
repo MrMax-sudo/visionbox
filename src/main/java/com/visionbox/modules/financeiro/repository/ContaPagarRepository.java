@@ -27,6 +27,15 @@ public interface ContaPagarRepository extends JpaRepository<ContaPagar, UUID> {
 
     List<ContaPagar> findByLojaIdAndStatusAndVencimentoBefore(UUID lojaId, ContaPagar.StatusContaPagar status, LocalDate data);
 
+    /** US13 — conciliação OFX: candidatas pelo mesmo valor (status != CANCELADO). */
+    List<ContaPagar> findByLojaIdAndValorAndStatusNot(UUID lojaId, BigDecimal valor, ContaPagar.StatusContaPagar status);
+
+    /** US13 — DRE por OS: custo da OS, opcionalmente no período. */
+    List<ContaPagar> findByLojaIdAndOrdemServicoId(UUID lojaId, UUID ordemServicoId);
+
+    List<ContaPagar> findByLojaIdAndOrdemServicoIdAndVencimentoBetween(
+            UUID lojaId, UUID ordemServicoId, LocalDate inicio, LocalDate fim);
+
     @Query("select coalesce(sum(c.valor), 0) from ContaPagar c where c.lojaId = :lojaId and c.status <> 'CANCELADO' and c.vencimento between :inicio and :fim")
     BigDecimal sumValorByLojaIdAndVencimentoBetween(@Param("lojaId") UUID lojaId, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 

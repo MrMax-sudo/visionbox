@@ -227,6 +227,15 @@ public class ProblemDetailHandler {
         return pd;
     }
 
+    @ExceptionHandler(com.visionbox.modules.seguranca.desconto.service.RateLimitExcedidoException.class)
+    public ProblemDetail handleRateLimit(com.visionbox.modules.seguranca.desconto.service.RateLimitExcedidoException ex,
+                                         HttpServletRequest request) {
+        log.warn("Rate limit de alçada de desconto excedido: {} {}", request.getMethod(), request.getRequestURI());
+        return build(HttpStatus.TOO_MANY_REQUESTS,
+                "Muitas tentativas de autorização. Aguarde alguns minutos e tente novamente.",
+                request, "Limite de tentativas excedido", "rate-limit");
+    }
+
     // catch-all — deve ser último
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {

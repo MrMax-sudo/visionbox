@@ -2,6 +2,7 @@ package com.visionbox.shared.idempotency;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.visionbox.shared.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,10 +41,12 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
     private final IdempotencyRepository repository;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
-    public IdempotencyFilter(IdempotencyRepository repository, ObjectMapper objectMapper) {
+    public IdempotencyFilter(IdempotencyRepository repository, ObjectMapper objectMapper, MeterRegistry meterRegistry) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -85,6 +88,7 @@ public class IdempotencyFilter extends OncePerRequestFilter {
                 repository.delete(rec);
             } else if (rec.isProcessado()) {
                 log.info("Idempotency replay loja={} key={} status={}", lojaId, key, rec.getStatusCode());
+                incrementResultado("replay");
                 response.setStatus(rec.getStatusCode());
                 if (rec.getResponseContentType() != null) {
                     response.setContentType(rec.getResponseContentType());
@@ -96,6 +100,7 @@ public class IdempotencyFilter extends OncePerRequestFilter {
                 return;
             } else {
                 // em processamento concorrente — 409
+                incrementResultado("conflito");
                 response.sendError(HttpStatus.CONFLICT.value(), "Requisição com mesma Idempotency-Key em processamento");
                 return;
             }
@@ -112,8 +117,10 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         // tenta salvar; se race, unique violation será tratada como 409 no handler
         try {
             repository.save(pending);
+            incrementResultado("novo");
         } catch (Exception ex) {
             log.warn("Race idempotency save loja={} key={}: {}", lojaId, key, ex.getMessage());
+            incrementResultado("conflito");
             response.sendError(HttpStatus.CONFLICT.value(), "Conflito de idempotência");
             return;
         }
@@ -135,6 +142,17 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
             // copia body para response real
             wrappedResponse.copyBodyToResponse();
+        }
+    }
+
+    /**
+     * Contador PDV (R4): replay = chave já processada respondida do cache;
+     * novo = primeira execução da chave; conflito = corrida/processamento concorrente.
+     * Nome exposto: {@code visionbox_pdv_idempotency_hit_total{resultado=...}}.
+     */
+    private void incrementResultado(String resultado) {
+        if (meterRegistry != null) {
+            meterRegistry.counter("visionbox_pdv_idempotency_hit", "resultado", resultado).increment();
         }
     }
 }

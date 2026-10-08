@@ -1,0 +1,14 @@
+# VisionBox — Prometheus (compose profile "observability")
+# Coleta /actuator/prometheus do app. No ambiente multi-instância (VPS), adicionar
+# um target por instância com o endpoint público interno (ex.: 10.0.0.1:8080, 10.0.0.2:8080).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: visionbox-app
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['app:8080']
+        labels:
+          app: visionbox-api

@@ -69,6 +69,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        # Garante buckets (le) para histogram_quantile(0.95,...) no dashboard "Multi-loja"
+        http.server.requests: true
 
 springdoc:
   api-docs:

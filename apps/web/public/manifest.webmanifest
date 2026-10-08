@@ -1,0 +1,43 @@
+{
+  "name": "VisionBox — Rastreio de OS",
+  "short_name": "VisionBox",
+  "description": "Portal do cliente VisionBox: acompanhe a situação da sua Ordem de Serviço e consulte a 2ª via da garantia.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/rastreio",
+  "scope": "/",
+  "id": "/rastreio",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EDE1D3",
+  "theme_color": "#6B4A32",
+  "categories": ["business", "shopping"],
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Rastrear minha OS",
+      "short_name": "Rastreio",
+      "url": "/rastreio",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import com.visionbox.modules.ordemservico.repository.OrdemServicoPagamentoReposi
 import com.visionbox.modules.ordemservico.repository.OrdemServicoRepository;
 import com.visionbox.modules.pessoa.domain.Cliente;
 import com.visionbox.modules.pessoa.repository.ClienteRepository;
+import com.visionbox.shared.metrics.SlaMetrics;
 import com.visionbox.shared.tenant.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -49,6 +51,7 @@ public class OrdemServicoService {
     private final OrdemServicoPagamentoRepository pagamentoRepository;
     private final FormaPagamentoRepository formaPagamentoRepository;
     private final ClienteRepository clienteRepository;
+    private final SlaMetrics slaMetrics;
 
     public OrdemServicoMapper getMapper() {
         return mapper;
@@ -65,7 +68,8 @@ public class OrdemServicoService {
                                @Autowired(required = false) ProdutoRepository produtoRepository,
                                @Autowired(required = false) OrdemServicoPagamentoRepository pagamentoRepository,
                                @Autowired(required = false) FormaPagamentoRepository formaPagamentoRepository,
-                               @Autowired(required = false) ClienteRepository clienteRepository) {
+                               @Autowired(required = false) ClienteRepository clienteRepository,
+                               @Autowired(required = false) SlaMetrics slaMetrics) {
         this.registry = registry;
         this.repository = repository;
         this.mapper = mapper;
@@ -76,6 +80,7 @@ public class OrdemServicoService {
         this.pagamentoRepository = pagamentoRepository;
         this.formaPagamentoRepository = formaPagamentoRepository;
         this.clienteRepository = clienteRepository;
+        this.slaMetrics = slaMetrics;
     }
 
     // Construtor legado para testes unitarios (4 args) — mantem compatibilidade
@@ -83,7 +88,7 @@ public class OrdemServicoService {
                                OrdemServicoRepository repository,
                                OrdemServicoMapper mapper,
                                Clock clock) {
-        this(registry, repository, mapper, clock, null, null, null, null, null, null);
+        this(registry, repository, mapper, clock, null, null, null, null, null, null, null);
     }
 
     @Transactional
@@ -414,6 +419,25 @@ public class OrdemServicoService {
 
         os.addEvento(evento);
         OrdemServico saved = repository.save(os);
+
+        // Métrica: lead time laboratório (SLA) — janela ENVIADO_LABORATORIO (fallback PEDIDO_CONFIRMADO)
+        // → PRONTO_PARA_RETIRADA. Só contabiliza a primeira vez que a OS chega em PRONTO_PARA_RETIRADA.
+        if (slaMetrics != null && novoStatus == StatusOS.PRONTO_PARA_RETIRADA
+                && anterior != StatusOS.PRONTO_PARA_RETIRADA && os.getHistorico() != null) {
+            OffsetDateTime inicio = os.getHistorico().stream()
+                    .filter(e -> e.getStatusNovo() == StatusOS.ENVIADO_LABORATORIO)
+                    .map(EventoOS::getDataHora)
+                    .min(OffsetDateTime::compareTo)
+                    .or(() -> os.getHistorico().stream()
+                            .filter(e -> e.getStatusNovo() == StatusOS.PEDIDO_CONFIRMADO)
+                            .map(EventoOS::getDataHora)
+                            .min(OffsetDateTime::compareTo))
+                    .orElse(null);
+            if (inicio != null) {
+                slaMetrics.registrarLeadTimeLaboratorio(saved.getLaboratorioId(),
+                        Duration.between(inicio, OffsetDateTime.now(clock)));
+            }
+        }
 
         // --- Integracao estoque em transicoes terminais ---
         if (estoqueService != null) {

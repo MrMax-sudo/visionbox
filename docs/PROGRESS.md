@@ -1,7 +1,26 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-07 — Fase 3: backend + frontend implementados e validados (145 testes verdes)
+> **Atualizado em:** 2026-10-08 — Wave paralela (8 frentes): segurança alçada, OFX/DRE, produção+CQ, BI, Portal PWA, observabilidade/CI. **225 testes verdes**
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
+
+## Fase 3.5 — Wave Paralela de Especialistas (2026-10-08)
+
+> **Objetivo:** fechar pendências em 8 frentes paralelas sob decisões D-009 (WhatsApp manual) e D-010 (alçada no backend). Máquina sem Docker (permanente): apenas testes unitários rodam localmente.
+
+| Frente | Status | Evidência |
+|---|---|---|
+| P6/P7 — Alçada de desconto no backend | ✅ Concluído | `POST /api/v1/autorizacoes-desconto`, `modules/seguranca/desconto/**`, PIN = senha BCrypt de GERENTE/ADMIN ativos da loja, `RateLimiterAlcada` em memória (15min/5), auditoria `log_auditoria`. **Sem migration** (D-010) |
+| US13 — Conciliação OFX + DRE por loja/OS | ✅ Concluído | `V29__conciliacao_ofx.sql`, `OfxParser` (SGML/XML), `OfxConciliacaoService`, `OfxController`, `DREService`; ~46 testes |
+| US11 — Fila de produção + CQ com foto | ✅ Concluído | `V28__producao_cq.sql`, `modules/producao/**`; `ProducaoService` reescrito pela orquestração (veio truncado) |
+| US16 — BI giro/margem/ABC | ✅ Concluído | `V30__relatorios_bi.sql` (índices), `modules/relatorios/**`, `ADR-006` (sem view materializada), `SecurityConfig` +`/api/v1/relatorios/**` |
+| US17 — Portal do cliente PWA | ✅ Concluído | `RastreioPortal.tsx`, `lib/rastreioApi.ts`, `lib/pwa.ts`, `manifest.webmanifest`, `sw.js`, ícones; rotas `/rastreio[/:token]` |
+| Observabilidade + CI | ✅ Concluído | `shared/metrics/SlaMetrics`, `LojaObservationConvention`, `ops/prometheus`, `ops/grafana`, `.github/workflows/ci.yml` (flyway-validate + web-build), `docker-compose.dev.yml`, `pom.xml` flyway-database-postgresql |
+| US12/US14/US15 — Reescopo sob D-009 | ✅ Concluído (docs) | `docs/BACKLOG.md`, `docs/RISK_REGISTER.md` R3 — WhatsApp só link manual `wa.me` no MVP; auto (Cloud API) adiado pós-piloto |
+| P1 — Migrations `V3–V10` ausentes | ⛔ **Bloqueado** | Não há `CREATE TABLE produto/marca/categoria/pedido_venda/item_pedido` em nenhum lugar; **V2 também referencia** `perfil`/`usuario`/`usuario_loja`/`sequencia_numeracao`/`fn_next_sequencia`/`fn_set_atualizado_em` inexistentes. Requer db-admin + Postgres real (sem Docker aqui) |
+
+**Correções de integração feitas pela orquestração:** `ProducaoService` reescrito; import `OutboxMessage` em `SlaMetrics`; `import Collection` em `OutboxRepository`; `ProblemDetail.getStatus()` (int) em 2 testes; `ProducaoServiceTest` (clock `lenient`, sem `toBuilder`); `RelatorioBiServiceTest` (helpers de mock fora do `thenReturn`); `CurvaAbcClassifier` (1º item = classe A) + dado de teste corrigido; `OfxParser` (regex para tags SGML sem fechamento).
+
+**Validação:** `mvn clean test -Punit-only` → **225/225 verdes** · `npm run typecheck` ✅ · `npm run build` ✅ · `mvn -q -DskipTests compile` ✅
 
 ## Fase 3 — Config Empresa + WhatsApp + Profile Desenvolvedor (Em Validação)
 

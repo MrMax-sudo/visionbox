@@ -28,4 +28,6 @@ public class ContaPagarResponse {
     private Integer totalParcelas;
     private OffsetDateTime criadoEm;
     private boolean vencida;
+    /** US13 — vínculo opcional com ordem de serviço (custo direto da OS). */
+    private UUID ordemServicoId;
 }

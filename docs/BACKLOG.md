@@ -41,15 +41,15 @@ Estados: `ORCAMENTO→PEDIDO_CONFIRMADO→ENVIADO_LABORATORIO→EM_PRODUCAO→LE
 |---|---|---|---|---|
 | US10 | Lab terceirizado recebe OS em portal token e atualiza `EM_PRODUCAO` | MUST | Token por OS + lote, sem login para single | `backlog` |
 | US11 | Técnico vê fila `EM_PRODUCAO`, aponta início/fim, reprova CQ com foto | MUST | Reprovação → `RETRABALHO` exige foto | `backlog` |
-| US12 | Sistema dispara WhatsApp auto a cada transição crítica 5/9/10 | SHOULD | Z-API/Meta Cloud, log entrega, opt-out | `backlog` |
+| US12 | Notificar cliente por WhatsApp nas transições críticas 5/9/10 (D-009: link `wa.me` manual no MVP) | SHOULD | Botão `wa.me` com mensagem pronta por status, registro do clique e opt-out (`consentimento_recall`); envio automático (Z-API/Meta Cloud) adiado para pós-piloto, sem custo de API no MVP | `backlog` |
 
 ### F3 — Financeiro & CRM
 
 | ID | US | MoSCoW | Aceite | Status |
 |---|---|---|---|---|
 | US13 | Contas Receber/Pagar, conciliação OFX, DRE por loja/OS | MUST | `DRE = receita OS - custo - comissão` | `backlog` |
-| US14 | Régua cobrança PIX boleto + negativação | MUST | D+1 WhatsApp, D+7 boleto | `backlog` |
-| US15 | Campanha "seu óculos faz 1 ano" + NPS pós-entrega | SHOULD | Segmentação grau/compra, open >25% | `backlog` |
+| US14 | Régua cobrança PIX/boleto + negativação (D-009: cobrança via `wa.me` manual) | MUST | D+1 e D+7 com link `wa.me` manual (mensagem + link PIX/boleto prontos) e registro em `conta_receber`; disparo automático adiado para pós-piloto; negativação só após política formal | `backlog` |
+| US15 | Campanha "seu óculos faz 1 ano" + NPS pós-entrega (D-009: disparo `wa.me` manual) | SHOULD | Segmentação grau/compra + listas de contato; abordagem por `wa.me` manual com mensagem pronta; NPS por link; sem API paga no MVP | `backlog` |
 
 ### F4 — Inteligência
 

@@ -1,8 +1,9 @@
 import * as React from 'react';
-import { ShieldAlert, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldAlert, Lock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiPost, ApiError } from '@/lib/apiClient';
 
 interface AutorizacaoDescontoModalProps {
   open: boolean;
@@ -13,6 +14,27 @@ interface AutorizacaoDescontoModalProps {
   onAutorizado: (supervisorNome: string) => void;
 }
 
+/**
+ * Resposta de POST /api/v1/autorizacoes-desconto (P7).
+ * Autorizado via PIN retorna identificação de quem autorizou (GERENTE/ADMIN).
+ */
+type AutorizacaoDescontoResponse = {
+  autorizado: boolean;
+  exigePin: boolean;
+  descontoPercentual: number;
+  limiteSemPinPercentual: number;
+  mensagem?: string | null;
+  autorizadoPorId?: string | null;
+  autorizadoPorNome?: string | null;
+  autorizadoPorPerfil?: string | null;
+};
+
+/**
+ * Alçada de Desconto — P7.
+ * A validação do PIN agora é feita NO BACKEND (endpoint autenticado com rate-limit),
+ * nunca mais contra lista local hardcoded (D-007). O backend identifica o
+ * GERENTE/ADMIN que autorizou e devolve o nome para o comprovante.
+ */
 export function AutorizacaoDescontoModal({
   open,
   onClose,
@@ -22,11 +44,20 @@ export function AutorizacaoDescontoModal({
   onAutorizado,
 }: AutorizacaoDescontoModalProps) {
   const [senha, setSenha] = React.useState('');
-  const [supervisor, setSupervisor] = React.useState('Gerente Geral');
   const [erro, setErro] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  function handleConfirmar() {
-    // Alçada de segurança: PIN gerencial cadastrado para a loja
+  React.useEffect(() => {
+    if (open) {
+      setSenha('');
+      setErro(null);
+      setIsLoading(false);
+    }
+  }, [open]);
+
+  async function handleConfirmar() {
+    if (isLoading) return;
+
     const pin = senha.trim();
 
     if (!pin) {
@@ -39,12 +70,33 @@ export function AutorizacaoDescontoModal({
       return;
     }
 
-    if (pin === '1234' || pin === 'admin' || pin === '123456') {
-      setErro(null);
-      setSenha('');
-      onAutorizado(supervisor);
-    } else {
-      setErro('Senha de autorização incorreta.');
+    setErro(null);
+    setIsLoading(true);
+    try {
+      const resp = await apiPost<AutorizacaoDescontoResponse>('/v1/autorizacoes-desconto', {
+        descontoPercentual: Number(percentualDesconto.toFixed(2)),
+        senha: pin,
+      });
+
+      if (resp.autorizado) {
+        const autorizadoPor = resp.autorizadoPorNome ?? 'Gerente';
+        setSenha('');
+        onAutorizado(autorizadoPor);
+      } else {
+        // 200 com autorizado=false: PIN inválido — mensagem genérica vem do backend
+        setErro(resp.mensagem || 'Autorização negada.');
+      }
+    } catch (err) {
+      const apiErr = err as ApiError;
+      if (!apiErr.status) {
+        // sem rede: alçada NÃO é validada offline (exigiria PIN local — proibido, D-010)
+        setErro('Sem conexão com o servidor. A autorização de desconto exige validação online (PIN gerencial).');
+      } else {
+        // 429 (rate-limit) e 400 de validação vêm como ProblemDetail (RFC 7807)
+        setErro(apiErr.problem?.detail || apiErr.message || 'Falha ao processar a autorização.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -64,6 +116,9 @@ export function AutorizacaoDescontoModal({
               Subtotal: <b>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b> •
               Desconto: <b className="text-[var(--color-danger-dark)]">{valorDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
             </p>
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
+              A autorização é validada no servidor e registrada em auditoria (quem autorizou, quando e %).
+            </p>
           </div>
         </div>
 
@@ -74,49 +129,39 @@ export function AutorizacaoDescontoModal({
           </div>
         )}
 
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--color-text-primary)]">Supervisor / Gerente</label>
-            <select
-              value={supervisor}
-              onChange={(e) => setSupervisor(e.target.value)}
-              className="mt-1 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-            >
-              <option value="Gerente Geral">Gerente Geral (Loja Matriz)</option>
-              <option value="Supervisor Comercial">Supervisor Comercial</option>
-              <option value="Diretoria Ótica">Diretoria Ótica</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-[var(--color-text-primary)]">Senha de Autorização</label>
-            <div className="relative mt-1">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
-              <Input
-                type="password"
-                value={senha}
-                onChange={(e) => {
-                  setSenha(e.target.value);
-                  setErro(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmar();
-                }}
-                placeholder="Digite o PIN gerencial"
-                className="pl-9"
-                autoFocus
-              />
-            </div>
+        <div>
+          <label className="text-xs font-semibold text-[var(--color-text-primary)]">Senha de Autorização (Gerente/Admin)</label>
+          <div className="relative mt-1">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+            <Input
+              type="password"
+              value={senha}
+              onChange={(e) => {
+                setSenha(e.target.value);
+                setErro(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmar();
+              }}
+              placeholder="Digite o PIN gerencial"
+              className="pl-9"
+              autoFocus
+              disabled={isLoading}
+            />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar Desconto
           </Button>
-          <Button variant="primary" onClick={handleConfirmar}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Autorizar e Concluir
+          <Button variant="primary" onClick={handleConfirmar} disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            )}
+            {isLoading ? 'Validando...' : 'Autorizar e Concluir'}
           </Button>
         </div>
       </div>

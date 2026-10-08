@@ -17,10 +17,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * ContaPagar — financeiro a pagar (fornecedor, descricao, valor, vencimento, status).
  * Multi-tenant por loja_id (ADR-001), ativo soft-delete, RLS fail-closed.
+ * ordemServicoId opcional (V29) — custo direto de OS para DRE por OS.
  */
 @Entity
 @Table(name = "conta_pagar")
@@ -32,6 +34,10 @@ public class ContaPagar extends EntidadeBase {
 
     @Column(name = "fornecedor", length = 200, nullable = false)
     private String fornecedor;
+
+    /** Vínculo opcional com OS (custo direto da OS) — V29 / DRE por OS. */
+    @Column(name = "ordem_servico_id")
+    private UUID ordemServicoId;
 
     @Column(name = "descricao", length = 500)
     private String descricao;

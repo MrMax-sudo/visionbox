@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -23,4 +24,13 @@ public interface ContaReceberRepository extends JpaRepository<ContaReceber, UUID
     List<ContaReceber> findByLojaIdAndVencimentoBetween(UUID lojaId, LocalDate inicio, LocalDate fim);
 
     List<ContaReceber> findByLojaIdAndStatusAndVencimentoBefore(UUID lojaId, ContaReceber.StatusConta status, LocalDate data);
+
+    /** US13 — conciliação OFX: candidatas pelo mesmo valor (status != CANCELADO). */
+    List<ContaReceber> findByLojaIdAndValorAndStatusNot(UUID lojaId, BigDecimal valor, ContaReceber.StatusConta status);
+
+    /** US13 — DRE por OS: receita da OS, opcionalmente no período. */
+    List<ContaReceber> findByLojaIdAndOrdemServicoId(UUID lojaId, UUID ordemServicoId);
+
+    List<ContaReceber> findByLojaIdAndOrdemServicoIdAndVencimentoBetween(
+            UUID lojaId, UUID ordemServicoId, LocalDate inicio, LocalDate fim);
 }

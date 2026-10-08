@@ -15,6 +15,7 @@ public interface ContaPagarMapper {
                 .fornecedor(e.getFornecedor())
                 .descricao(e.getDescricao())
                 .numeroDocumento(e.getNumeroDocumento())
+                .ordemServicoId(e.getOrdemServicoId())
                 .valor(e.getValor())
                 .valorPago(e.getValorPago())
                 .saldo(e.getSaldo())
