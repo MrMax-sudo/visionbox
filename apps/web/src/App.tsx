@@ -15,6 +15,7 @@ const OSDetail = React.lazy(() => import('@/pages/OSDetail'));
 const Financeiro = React.lazy(() => import('@/pages/Financeiro'));
 const UserManagement = React.lazy(() => import('@/pages/UserManagement'));
 const LabPortal = React.lazy(() => import('@/pages/LabPortal'));
+const PainelDesenvolvedor = React.lazy(() => import('@/pages/PainelDesenvolvedor'));
 
 function PageLoading() {
   return (
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="os/:id" element={<LazyPage><OSDetail /></LazyPage>} />
           <Route path="financeiro" element={<LazyPage><Financeiro /></LazyPage>} />
           <Route path="usuarios" element={<LazyPage><UserManagement /></LazyPage>} />
+          <Route path="desenvolvedor" element={<LazyPage><PainelDesenvolvedor /></LazyPage>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

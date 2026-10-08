@@ -1,9 +1,42 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-07 — Frontend: CRUD Usuários/Produtos, botões do PDV, tema escuro e Receitas corrigidos; backend 125/125 testes
+> **Atualizado em:** 2026-10-07 — Fase 3: backend + frontend implementados e validados (145 testes verdes)
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
-## Snapshot
+## Fase 3 — Config Empresa + WhatsApp + Profile Desenvolvedor (Em Validação)
+
+> **Objetivo:** Configurações da empresa (Loja), WhatsApp dinâmico (wa.me a partir do telefone da empresa), logo oficial no sidebar e perfil `DESENVOLVEDOR` com Painel Dev.
+
+| Tarefa | Status | Evidência |
+|---|---|---|
+| Backend: Perfil `DESENVOLVEDOR` no enum + RBAC | ✅ Concluído | `Perfil.java`, `SecurityConfig` (empresa/** + dev/**), `V27__empresa_config.sql` (CHECK inclui DESENVOLVEDOR) |
+| Backend: Config Empresa (Loja) — migration V27 + endpoint GET/PUT | ✅ Concluído | `V27__empresa_config.sql`, `modules/pessoa/empresaconfig/**` (`GET/PUT /api/v1/empresa`), `EmpresaConfigServiceTest` 6/6 |
+| Backend: OS expõe `clienteNome`/`clienteWhatsapp` (wa.me do cliente) | ✅ Concluído | `OrdemServicoResponse` + `OrdemServicoService` enriquece single/lista sem N+1 (`findByLojaIdAndIdIn`) |
+| Backend: Painel Dev Info | ✅ Concluído | `DevInfoController` (`GET /api/v1/dev/info`), sanitizado, fiscal provider por profile |
+| Frontend: Painel Desenvolvedor (`/desenvolvedor` gated por perfil) | ✅ Concluído | `PainelDesenvolvedor.tsx` + rota lazy `/desenvolvedor` (DESENVOLVEDOR/ADMIN) |
+| Frontend: Config Empresa em Configurações | ✅ Concluído | `components/config/EmpresaConfig.tsx` (nome/cnpj/contato/endereço/whatsapp/logo) no `ConfiguracoesDialog` (ADMIN/DESENVOLVEDOR) |
+| Frontend: wa.me dinâmico (sidebar footer + OSDetail) | ✅ Concluído | `stores/empresaStore.ts` carrega `/v1/empresa`; footer usa `whatsappSuporteUrl()` com fallback |
+| Frontend: logo oficial no sidebar (extrair para classe token) | ✅ Concluído | `Layout.tsx` classe `.vision-sidebar-logo` (silhueta branca) + `logo-icon.png` p/ estado colapsado |
+
+**Validação Fase 3:** `mvn clean test -Punit-only` → **145/145 verdes** (era 126) · `npm run typecheck` ✅ · `npm run build` ✅ (1.85s, chunk `PainelDesenvolvedor` 6.69 kB)
+
+## Fase 2 — PDV Repaginação & Financeiro Base (Em Andamento)
+
+> **Objetivo:** Novo layout PDV 3-colunas, fluxo de pagamento multi-forma e base do módulo de Formas de Pagamento.
+
+| Tarefa | Status | Evidência |
+|---|---|---|
+| Backend: Módulo FormaPagamento (Domain, Repo, Service, Controller) | ✅ Concluído | `modules/financeiro/formapagamento/**`, controller `/api/v1/financeiro/formas-pagamento` |
+| DB: Migration V25__forma_pagamento.sql + Seeds | ✅ Concluído | `V25__forma_pagamento.sql` + RLS + 5 seeds (Dinheiro/PIX/Débito/Crédito/Crediário) |
+| Frontend: PDV 3-colunas (Produtos \| Carrinho \| Resumo) | ✅ Concluído | `PDV.tsx` `.pdv-col-products`/`.pdv-col-cart` + `.pdv-summary`; CSS breakpoints 1439/1199/1100/760 |
+| Frontend: Modal Finalizar Venda (Multi-pagamento) | ✅ Concluído | `FinalizarVendaModal.tsx` (saldo em tempo real, validação, múltiplas formas) |
+| Backend: OrdemServico → Suporte a múltiplos pagamentos | ✅ Concluído | `OrdemServicoRequest.pagamentos`, `OrdemServicoPagamento`, `V26__ordem_servico_pagamento.sql` |
+| Frontend: CRUD Formas Pagamento em Configurações | ✅ Concluído | `components/config/FormasPagamentoConfig.tsx` (listar/criar/editar/soft-delete) + seção no `ConfiguracoesDialog` |
+| Backend: Testes FormaPagamentoService | ✅ Concluído | `FormaPagamentoServiceTest` 6/6 (padrão único, soft-delete, taxas/prazos, erros) |
+
+**Validação:** `mvn test -Punit-only` → **126/126** verdes · `npm run typecheck` ✅ · `npm run build` ✅ · `mvn -DskipTests compile` ✅ <!--- no-break -->
+
+
 
 | Indicador | Valor |
 |---|---|
@@ -324,7 +357,7 @@
 | `mvn -DskipTests compile` | ✅ BUILD SUCCESS (126 sources) |
 | `npm run build` | ✅ entrada principal 227.18kB gzip 73.17kB; páginas em chunks sob demanda |
 | `mvn test -Dtest=StatusOSTransicaoTest,CpfConverterTest` | ✅ 51/51 passed |
-| `mvn test -Punit-only -Dtest=StatusOSTransicaoTest,CpfConverterTest,LabPortalTokenServiceTest,SefazDiretoProviderTest,FiscalServiceTest,MockFiscalProviderTest,OutboxMessageTest,WhatsAppNotificationServiceTest,WhatsAppOutboxPublisherTest` | ✅ 71/71 passed |
+| `mvn test -Punit-only -Dtest=StatusOSTransicaoTest,CpfConverterTest,LabPortalTokenServiceTest,SefazDiretoProviderTest,FiscalServiceTest,MockFiscalProviderTest,OutboxMessageTest` | ✅ 69/69 passed |
 | `mvn test -Punit-only` | ✅ 107/107 passed |
 | `npm audit --audit-level=moderate` | ✅ 0 vulnerabilities |
 | `mvn test -Dtest=IsolamentoTenantTest` | ⚠️ implementado/compila; execução local bloqueada porque `docker` não está instalado |

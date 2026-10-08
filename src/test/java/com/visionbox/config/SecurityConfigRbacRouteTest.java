@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(classes = SecurityConfigRbacRouteTest.TestApplication.class)
@@ -56,7 +57,11 @@ class SecurityConfigRbacRouteTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions request(String method, String path, String perfil) throws Exception {
-        var builder = "POST".equals(method) ? post(path) : get(path);
+        var builder = switch (method) {
+            case "POST" -> post(path);
+            case "PUT" -> put(path);
+            default -> get(path);
+        };
         return mockMvc.perform(builder.with(jwt()
                 .jwt(jwt -> jwt
                         .subject(UUID.randomUUID().toString())
@@ -88,7 +93,15 @@ class SecurityConfigRbacRouteTest {
 
                 Arguments.of("VENDEDOR", "POST", "/api/v1/laboratorios/portal-tokens"),
                 Arguments.of("OTICO", "POST", "/api/v1/laboratorios/portal-tokens"),
-                Arguments.of("FINANCEIRO", "POST", "/api/v1/laboratorios/portal-tokens")
+                Arguments.of("FINANCEIRO", "POST", "/api/v1/laboratorios/portal-tokens"),
+                Arguments.of("VENDEDOR", "PUT", "/api/v1/empresa"),
+                Arguments.of("OTICO", "PUT", "/api/v1/empresa"),
+                Arguments.of("FINANCEIRO", "PUT", "/api/v1/empresa"),
+                Arguments.of("LABORATORIO", "PUT", "/api/v1/empresa"),
+                Arguments.of("TECNICO", "GET", "/api/v1/dev/info"),
+                Arguments.of("VENDEDOR", "GET", "/api/v1/dev/info"),
+                Arguments.of("GERENTE", "GET", "/api/v1/dev/info"),
+                Arguments.of("FINANCEIRO", "GET", "/api/v1/dev/info")
         );
     }
 
@@ -98,7 +111,13 @@ class SecurityConfigRbacRouteTest {
                 Arguments.of("FINANCEIRO", "GET", "/api/v1/financeiro/contas-receber"),
                 Arguments.of("GERENTE", "POST", "/api/v1/fiscal/nfce/emitir"),
                 Arguments.of("OTICO", "GET", "/api/v1/receitas"),
-                Arguments.of("LABORATORIO", "POST", "/api/v1/laboratorios/portal-tokens")
+                Arguments.of("LABORATORIO", "POST", "/api/v1/laboratorios/portal-tokens"),
+                Arguments.of("VENDEDOR", "GET", "/api/v1/empresa"),
+                Arguments.of("GERENTE", "PUT", "/api/v1/empresa"),
+                Arguments.of("ADMIN", "PUT", "/api/v1/empresa"),
+                Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/dev/info"),
+                Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/empresa"),
+                Arguments.of("ADMIN", "GET", "/api/v1/dev/info")
         );
     }
 
@@ -149,6 +168,16 @@ class SecurityConfigRbacRouteTest {
 
         @PostMapping("/api/v1/laboratorios/portal-tokens")
         ResponseEntity<Void> labPortalTokens() {
+            return ResponseEntity.noContent().build();
+        }
+
+        @RequestMapping("/api/v1/empresa")
+        ResponseEntity<Void> empresa() {
+            return ResponseEntity.noContent().build();
+        }
+
+        @GetMapping("/api/v1/dev/info")
+        ResponseEntity<Void> devInfo() {
             return ResponseEntity.noContent().build();
         }
     }

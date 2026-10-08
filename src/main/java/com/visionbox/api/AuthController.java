@@ -83,7 +83,7 @@ public class AuthController {
             try {
                 perfil = Perfil.valueOf(req.getPerfil().trim().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("perfil inválido: " + req.getPerfil() + ". Use ADMIN, GERENTE, VENDEDOR, OTICO, FINANCEIRO");
+                throw new IllegalArgumentException("perfil inválido: " + req.getPerfil() + ". Use ADMIN, GERENTE, VENDEDOR, OTICO, FINANCEIRO, DESENVOLVEDOR");
             }
         }
 

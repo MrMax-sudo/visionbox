@@ -12,6 +12,7 @@ import { OfflineBanner } from '@/components/ui/offline-banner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient, type ApiError } from '@/lib/apiClient';
 import { statusClass, statusLabel, type StatusOS } from '@/lib/osStatus';
+import { sanitizeWhatsApp } from '@/stores/empresaStore';
 import type { OrdemServicoDTO } from '@/lib/types';
 
 const nextStatusByCurrent: Record<string, string[]> = {
@@ -210,8 +211,12 @@ export default function OSDetail() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="text-[var(--color-text-secondary)]">ID</span>
-                <span className="font-mono text-xs text-[var(--color-text-primary)]">{shortId(os.clienteId)}</span>
+                <span className="text-[var(--color-text-secondary)]">Cliente</span>
+                <span className="truncate text-[var(--color-text-primary)]">{os.clienteNome ?? shortId(os.clienteId)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-[var(--color-text-secondary)]">WhatsApp</span>
+                <span className="font-mono text-xs text-[var(--color-text-primary)]">{os.clienteWhatsapp ?? '-'}</span>
               </div>
               {os.receitaId && (
                 <div className="flex justify-between gap-3">
@@ -321,13 +326,17 @@ export default function OSDetail() {
                 variant="primary"
                 onClick={() => {
                   if (labLink) {
-                    const texto = encodeURIComponent(`Olá, segue a ficha técnica da OS ${displayNumber} para produção no laboratório:\n${labLink}`);
-                    window.open(`https://api.whatsapp.com/send?text=${texto}`, '_blank');
+                    const destinatario = sanitizeWhatsApp(os.clienteWhatsapp ?? '');
+                    const texto = encodeURIComponent(`Olá, segue o link de acompanhamento da sua OS ${displayNumber}:\n${labLink}`);
+                    const url = destinatario ? `https://wa.me/${destinatario}?text=${texto}` : `https://api.whatsapp.com/send?text=${texto}`;
+                    window.open(url, '_blank');
                   }
                 }}
+                disabled={!os.clienteWhatsapp}
+                title={os.clienteWhatsapp ? 'Abrir WhatsApp do cliente' : 'Cliente sem WhatsApp cadastrado'}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                <Share2 className="mr-2 h-4 w-4" /> Enviar no WhatsApp
+                <Share2 className="mr-2 h-4 w-4" /> Enviar no WhatsApp do cliente
               </Button>
             </div>
           </div>

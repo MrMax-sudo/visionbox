@@ -24,11 +24,18 @@ public class OrdemServicoRequest {
     private List<ItemRequest> itens;
     private java.math.BigDecimal desconto;
     private String formaPagamento;
+    private List<PagamentoRequest> pagamentos;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ItemRequest {
         private String sku;
         private Integer quantidade;
         private UUID produtoId; // opcional quando frontend já tem id
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class PagamentoRequest {
+        private UUID formaPagamentoId;
+        private java.math.BigDecimal valor;
     }
 }

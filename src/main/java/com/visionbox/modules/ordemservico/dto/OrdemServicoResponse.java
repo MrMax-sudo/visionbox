@@ -15,6 +15,8 @@ public class OrdemServicoResponse {
     private UUID lojaId;
     private String numero;
     private UUID clienteId;
+    private String clienteNome;
+    private String clienteWhatsapp;
     private UUID receitaId;
     private UUID armacaoId;
     private UUID lenteId;

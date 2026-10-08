@@ -187,7 +187,7 @@ function LatestOrdersTable({ ordens }: { ordens: OrdemServicoDTO[] }) {
                 return (
                   <tr key={os.id} className="border-b border-[var(--color-border)] last:border-b-0">
                     <td className="px-6 py-3 font-mono font-semibold">{os.numero ?? os.id.slice(0, 8)}</td>
-                    <td className="px-6 py-3">{os.cliente ?? 'Cliente não identificado'}</td>
+                    <td className="px-6 py-3">{os.clienteNome ?? os.cliente ?? 'Cliente não identificado'}</td>
                     <td className="px-6 py-3 text-[var(--color-text-secondary)]">{produto}</td>
                     <td className="px-6 py-3">
                       <span className={`badge ${statusClass[status] ?? 'status-orcamento'}`}>{statusLabel[status] ?? os.status}</span>
@@ -221,7 +221,7 @@ function OSCardView({ os }: { os: OrdemServicoDTO }) {
   const previsao = os.previsao ?? os.previsaoEntrega;
   const valor = os.valor ?? os.total ?? 0;
   const titulo = os.numero ?? os.id;
-  const cliente = os.cliente ?? (os.clienteId ? `Cliente ${os.clienteId.slice(0, 8)}` : 'Cliente não identificado');
+  const cliente = os.clienteNome ?? os.cliente ?? (os.clienteId ? `Cliente ${os.clienteId.slice(0, 8)}` : 'Cliente não identificado');
   const produto = os.produto ?? ([os.armacaoId ? 'armação vinculada' : null, os.lenteId ? 'lente vinculada' : null].filter(Boolean).join(' + ') || 'Itens da OS');
   return (
     <Link
@@ -452,7 +452,7 @@ export default function DashboardKanban() {
     if (!debouncedQ) return base;
     const l = debouncedQ.toLowerCase();
     return base.filter((o) => {
-      const haystack = [o.id, o.numero, o.cliente, o.clienteId, o.produto, o.armacaoId, o.lenteId]
+      const haystack = [o.id, o.numero, o.clienteNome, o.cliente, o.clienteId, o.produto, o.armacaoId, o.lenteId]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();

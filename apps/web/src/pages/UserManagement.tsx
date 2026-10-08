@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { unwrapPage } from '@/lib/types';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 
-const PERFIS_USUARIO = ['ADMIN', 'GERENTE', 'VENDEDOR', 'OTICO', 'TECNICO', 'FINANCEIRO', 'LABORATORIO'] as const;
+const PERFIS_USUARIO = ['ADMIN', 'GERENTE', 'VENDEDOR', 'OTICO', 'TECNICO', 'FINANCEIRO', 'LABORATORIO', 'DESENVOLVEDOR'] as const;
 const perfilSchema = z.enum(PERFIS_USUARIO);
 const usuarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),

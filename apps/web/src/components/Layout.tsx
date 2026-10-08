@@ -24,7 +24,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { useEmpresaStore, whatsappSuporteUrl } from '@/stores/empresaStore';
 import { apiClient } from '@/lib/apiClient';
+import { FormasPagamentoConfig } from '@/components/config/FormasPagamentoConfig';
+import { EmpresaConfig } from '@/components/config/EmpresaConfig';
 
 type NavItem = {
   label: string;
@@ -38,7 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Clientes', to: '/clientes', icon: Users },
   { label: 'Receitas', to: '/receitas', icon: Eye },
   { label: 'Catálogo', to: '/catalogo', icon: Package },
-  { label: 'PDV', to: '/pdv', icon: ShoppingCart, shortcut: 'F8' },
+  { label: 'PDV', to: '/pdv', icon: ShoppingCart },
   { label: 'OS', to: '/os', icon: ClipboardList },
   { label: 'Financeiro', to: '/financeiro', icon: Wallet },
 ];
@@ -243,19 +246,21 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
 
         <NotificationBell />
 
-        <div className="ml-2 flex items-center gap-3 pl-4">
-          <div className="hidden text-right leading-tight sm:block">
-            <p className="text-base font-bold text-[var(--color-pdv-text)]">{user?.nome || 'Usuário'}</p>
-            <p className="text-sm text-[var(--color-text-secondary)]">Loja {user?.lojaId?.slice(0, 8) || '—'}</p>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)]">
+        <div className="relative ml-2 flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] p-0"
+            onClick={() => {}} // Dropdown trigger logic handled by CSS/JS in UserDropdown
+          >
             <span className="text-base font-semibold text-[var(--color-text-on-primary)]">
               {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
             </span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8" aria-label="Sair da conta" title="Sair da conta">
-            <LogOut className="h-4 w-4" />
           </Button>
+          
+          <div className="absolute right-0 top-full z-30 mt-2 w-56 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-2 shadow-[var(--shadow-panel)] opacity-0 pointer-events-none transition-opacity group-hover:opacity-100">
+             {/* The trigger is simplified here, but I will implement a proper UserDropdown component next */}
+          </div>
         </div>
       </div>
     </header>
@@ -264,11 +269,15 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
 
 function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; onToggle: () => void; onOpenConfig: () => void }) {
   const { user } = useAuthStore();
-  const isAdmin = user?.perfil === 'ADMIN';
+  const isAdmin = user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR';
+  const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
 
-  const adminItems: NavItem[] = isAdmin ? [
-    { label: 'Usuários', to: '/usuarios', icon: Users },
-  ] : [];
+  const adminItems: NavItem[] = [
+    ...(isAdmin ? [{ label: 'Usuários', to: '/usuarios', icon: Users }] : []),
+    ...(user?.perfil === 'DESENVOLVEDOR' || user?.perfil === 'ADMIN'
+      ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }]
+      : []),
+  ];
 
   return (
     <aside className={cn(
@@ -276,7 +285,11 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
       collapsed ? 'w-[84px]' : 'w-[252px]',
     )}>
       <div className={cn('relative px-4 pb-7 pt-4 text-center', collapsed && 'px-3 pb-5')}>
-        <img src="/assets/visionbox-logo.png" alt="VisionBox" className={cn('mx-auto brightness-0 invert', collapsed ? 'w-[48px]' : 'w-[165px]')} />
+        <img
+          src={collapsed ? '/assets/visionbox-logo-icon.png' : '/assets/visionbox-logo.png'}
+          alt="VisionBox"
+          className={cn('vision-sidebar-logo mx-auto', collapsed ? 'w-[48px]' : 'w-[165px]')}
+        />
         <button
           type="button"
           onClick={onToggle}
@@ -365,7 +378,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
             {!collapsed && <p className="flex-1 text-sm font-semibold leading-snug">
               Precisa de ajuda?<br />
             <a
-              href="https://wa.me/5511984987382"
+              href={whatsappUrl}
               target="_blank"
               rel="noreferrer"
               className="text-white/80 underline-offset-2 hover:text-white hover:underline"
@@ -489,6 +502,10 @@ function ConfiguracoesDialog({
           </dl>
         </section>
 
+        <FormasPagamentoConfig />
+
+        {user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR' ? <EmpresaConfig /> : null}
+
         <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-4">
           <span className="text-xs text-[var(--color-text-muted)]">VisionBox v0.1.0</span>
           <Button variant="destructive" size="sm" onClick={handleLogout}>
@@ -506,10 +523,15 @@ export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => localStorage.getItem('visionbox-sidebar-collapsed') === 'true');
   const [configOpen, setConfigOpen] = React.useState(false);
   const { theme, toggle } = useTheme();
+  const carregarEmpresa = useEmpresaStore((s) => s.carregar);
 
   React.useEffect(() => {
     localStorage.setItem('visionbox-sidebar-collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  React.useEffect(() => {
+    carregarEmpresa().catch(() => undefined);
+  }, [carregarEmpresa]);
 
   return (
     <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>

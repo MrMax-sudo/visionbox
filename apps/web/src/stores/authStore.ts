@@ -6,7 +6,7 @@ type User = {
   id: string;
   nome: string;
   email: string;
-  perfil: 'ADMIN' | 'GERENTE' | 'VENDEDOR' | 'LABORATORIO';
+  perfil: 'ADMIN' | 'GERENTE' | 'VENDEDOR' | 'OTICO' | 'TECNICO' | 'FINANCEIRO' | 'LABORATORIO' | 'DESENVOLVEDOR';
   lojaId: string;
 };
 

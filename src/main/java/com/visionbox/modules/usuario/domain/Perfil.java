@@ -3,6 +3,7 @@ package com.visionbox.modules.usuario.domain;
 /**
  * Perfil RBAC VisionBox (spec §3, ADR-003).
  * ADMIN = acesso total, GERENTE = loja, VENDEDOR = PDV/cliente, OTICO = grau/receita, FINANCEIRO = contas.
+ * DESENVOLVEDOR = manutenção técnica (Painel Dev / diagnóstico), sem exposição de dados sensíveis além do necessário.
  */
 public enum Perfil {
     ADMIN,
@@ -11,5 +12,6 @@ public enum Perfil {
     OTICO,
     TECNICO,
     FINANCEIRO,
-    LABORATORIO
+    LABORATORIO,
+    DESENVOLVEDOR
 }

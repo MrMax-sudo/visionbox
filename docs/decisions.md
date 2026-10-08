@@ -141,6 +141,14 @@ pareciam clicáveis e não faziam nada.
 **Consequência:** nenhum `<button>` focável resta sem `onClick`/`<Link>` nas páginas auditadas
 (`DashboardKanban`, `Clientes`, `Receitas`, `PDV`, `Financeiro`, `Layout`).
 
+## D-009 — WhatsApp via link manual `wa.me` (postergando Cloud API para escala)
+
+**Contexto:** avaliação de custos e complexidade da WhatsApp Cloud API / provedores de mensageria para o estágio atual do produto.
+
+**Decisão:** manter o canal de comunicação exclusivamente via botão manual com link `wa.me/55...` e mensagem pré-formatada. Nenhuma integração de API automática externa de WhatsApp será ativada no MVP e fase inicial de piloto; a transição para Cloud API oficial só ocorrerá após validação de tração e volume relevante de clientes ativos.
+
+**Consequência:** custo zero operacional para a ótica e para a plataforma, sem risco de bloqueio de chips, sem necessidade de onboarding no Meta Business Manager e sem dependência de terceiros.
+
 ## Sinalizações para outros agentes
 
 - **security-auditor:** remoção de `@SQLRestriction` em `Usuario` depende do check `isAtivo()`
@@ -152,3 +160,4 @@ pareciam clicáveis e não faziam nada.
   (+5 casos: default de datas, normalização MONOFOCAL, data inválida, tipo inválido, `clienteNome`
   sem N+1). E2E HTTP e `flyway validate` pendentes de ambiente com Postgres.
 - **db-admin / devops-infra:** D-005 (1) e (2).
+

@@ -140,6 +140,8 @@ export type OrdemServicoDTO = {
   numero?: string;
   cliente?: string;
   clienteId?: string;
+  clienteNome?: string;
+  clienteWhatsapp?: string | null;
   cpfMasked?: string;
   produto?: string;
   receitaId?: string | null;
@@ -184,6 +186,7 @@ export type CriarOrdemServicoPayload = {
   itens: Array<{ sku: string; quantidade: number; produtoId?: string }>;
   desconto?: number;
   formaPagamento?: string;
+  pagamentos?: Array<{ formaPagamentoId: string; valor: number }>;
   observacao?: string;
   receitaId?: string | null;
   armacaoId?: string | null;

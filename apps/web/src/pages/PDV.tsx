@@ -30,6 +30,7 @@ import { AutorizacaoDescontoModal } from '@/components/pdv/AutorizacaoDescontoMo
 import { NovoClienteModal } from '@/components/pdv/NovoClienteModal';
 import { DadosClienteModal } from '@/components/pdv/DadosClienteModal';
 import { MaisAcoesModal } from '@/components/pdv/MaisAcoesModal';
+import { FinalizarVendaModal, type FormaPagamentoDTO } from '@/components/pdv/FinalizarVendaModal';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import type { ClienteDTO, CriarOrdemServicoPayload, PageResponse, ProdutoDTO } from '@/lib/types';
 import { normalizeProduto, unwrapPage } from '@/lib/types';
@@ -123,6 +124,7 @@ export default function PDV() {
   const [valorRecebido, setValorRecebido] = React.useState(0);
   const [formaPagamento, setFormaPagamento] = React.useState('Dinheiro');
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
+  const [finalizarOpen, setFinalizarOpen] = React.useState(false);
 
   // Modais
   const [caixaModalOpen, setCaixaModalOpen] = React.useState(false);
@@ -400,13 +402,19 @@ export default function PDV() {
       return;
     }
 
+    setFinalizarOpen(true);
+  }
+
+  function confirmarVenda(pagamentos: Array<{ formaId: string; formaNome: string; valor: number }>) {
+    if (!cliente) return;
     const armacao = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('arma'));
     const lente = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('lente'));
     const payload: CriarOrdemServicoPayload = {
       clienteId: cliente.id,
       itens: cart.map((item) => ({ sku: item.sku, quantidade: item.qtd, produtoId: item.produtoId })),
       desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
-      formaPagamento,
+      formaPagamento: pagamentos.length === 1 ? pagamentos[0].formaNome : 'Múltiplo',
+      pagamentos: pagamentos.map((p) => ({ formaPagamentoId: p.formaId, valor: p.valor })),
       armacaoId: armacao?.produtoId ?? cart[0]?.produtoId ?? null,
       lenteId: lente?.produtoId ?? (cart.length > 1 ? cart[1]?.produtoId : null),
     };
@@ -414,6 +422,7 @@ export default function PDV() {
       delete payload.armacaoId;
       delete payload.lenteId;
     }
+    setFinalizarOpen(false);
     setFeedback(null);
     criarOrdem.mutate(payload);
   }
@@ -490,7 +499,7 @@ export default function PDV() {
       )}
 
       <div className="pdv-grid">
-        <section className="pdv-operational">
+        <section className="pdv-col-products">
           <section className="pdv-card pdv-client-card">
             <header className="pdv-card-header">
               <h2><UserRound strokeWidth={1.8} /> Cliente</h2>
@@ -653,7 +662,9 @@ export default function PDV() {
               </div>
             )}
           </section>
+        </section>
 
+        <section className="pdv-col-cart">
           <section className="pdv-card pdv-cart-card">
             <header className="pdv-card-header pdv-cart-header">
               <h2><ShoppingCart strokeWidth={1.8} /> Carrinho — {cart.length} itens</h2>
@@ -963,6 +974,18 @@ export default function PDV() {
           setFeedback({ tone: 'success', msg: 'Cliente removido da venda.' });
         }}
         onCopiarResumo={copiarResumo}
+      />
+
+      <FinalizarVendaModal
+        open={finalizarOpen}
+        onClose={() => setFinalizarOpen(false)}
+        onConfirmar={confirmarVenda}
+        itens={cart}
+        subtotal={subtotal}
+        desconto={descontoAplicado}
+        total={total}
+        clienteNome={cliente?.nome ?? 'Consumidor'}
+        isPending={criarOrdem.isPending}
       />
     </div>
   );

@@ -12,6 +12,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
   }
   body {
     background: var(--color-bg-page);
@@ -346,6 +347,11 @@
     overflow: hidden;
   }
 
+  .vision-sidebar-logo {
+    /* Logo oficial café sobre sidebar marrom — renderizado branco (asset oficial, sem reconstrução HTML) */
+    filter: brightness(0) invert(1);
+  }
+
   .vision-sidebar-link,
   .vision-sidebar-link:visited,
   .vision-sidebar-link:hover,
@@ -381,7 +387,7 @@
 
   .pdv-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 500px;
+    grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.15fr) 420px;
     gap: 16px;
     height: 100%;
     min-height: 0;
@@ -391,6 +397,21 @@
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
     gap: 16px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .pdv-col-products {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .pdv-col-cart {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
   }
@@ -1023,7 +1044,7 @@
 
   @media (max-width: 1439px) {
     .pdv-grid {
-      grid-template-columns: minmax(0, 1fr) 430px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 380px;
     }
 
     .pdv-cart-row {
@@ -1044,6 +1065,28 @@
     }
   }
 
+  @media (max-width: 1199px) {
+    .pdv-grid {
+      grid-template-columns: minmax(0, 1fr) 420px;
+    }
+
+    .pdv-col-products {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .pdv-col-cart {
+      grid-column: 1;
+      grid-row: 2;
+      min-height: 320px;
+    }
+
+    .pdv-summary {
+      grid-column: 2;
+      grid-row: 1 / -1;
+    }
+  }
+
   @media (max-width: 1100px) {
     .pdv-main-shell {
       overflow: auto;
@@ -1055,6 +1098,13 @@
 
     .pdv-grid {
       grid-template-columns: 1fr;
+    }
+
+    .pdv-col-products,
+    .pdv-col-cart,
+    .pdv-summary {
+      grid-column: 1;
+      grid-row: auto;
     }
 
     .pdv-summary {

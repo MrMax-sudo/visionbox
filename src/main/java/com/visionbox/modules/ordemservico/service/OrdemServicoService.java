@@ -2,16 +2,21 @@ package com.visionbox.modules.ordemservico.service;
 
 import com.visionbox.modules.catalogo.repository.ProdutoRepository;
 import com.visionbox.modules.estoque.service.EstoqueService;
+import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
 import com.visionbox.modules.financeiro.service.ContaReceberService;
 import com.visionbox.modules.ordemservico.domain.EventoOS;
 import com.visionbox.modules.ordemservico.domain.OrdemServico;
+import com.visionbox.modules.ordemservico.domain.OrdemServicoPagamento;
 import com.visionbox.modules.ordemservico.domain.StatusOS;
 import com.visionbox.modules.ordemservico.domain.TransicaoOSRegistry;
 import com.visionbox.modules.ordemservico.dto.AlterarStatusRequest;
 import com.visionbox.modules.ordemservico.dto.OrdemServicoRequest;
 import com.visionbox.modules.ordemservico.dto.OrdemServicoResponse;
 import com.visionbox.modules.ordemservico.mapper.OrdemServicoMapper;
+import com.visionbox.modules.ordemservico.repository.OrdemServicoPagamentoRepository;
 import com.visionbox.modules.ordemservico.repository.OrdemServicoRepository;
+import com.visionbox.modules.pessoa.domain.Cliente;
+import com.visionbox.modules.pessoa.repository.ClienteRepository;
 import com.visionbox.shared.tenant.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -26,8 +31,9 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,6 +46,9 @@ public class OrdemServicoService {
     private final EstoqueService estoqueService;
     private final ContaReceberService contaReceberService;
     private final ProdutoRepository produtoRepository;
+    private final OrdemServicoPagamentoRepository pagamentoRepository;
+    private final FormaPagamentoRepository formaPagamentoRepository;
+    private final ClienteRepository clienteRepository;
 
     public OrdemServicoMapper getMapper() {
         return mapper;
@@ -53,7 +62,10 @@ public class OrdemServicoService {
                                Clock clock,
                                @Autowired(required = false) EstoqueService estoqueService,
                                @Autowired(required = false) ContaReceberService contaReceberService,
-                               @Autowired(required = false) ProdutoRepository produtoRepository) {
+                               @Autowired(required = false) ProdutoRepository produtoRepository,
+                               @Autowired(required = false) OrdemServicoPagamentoRepository pagamentoRepository,
+                               @Autowired(required = false) FormaPagamentoRepository formaPagamentoRepository,
+                               @Autowired(required = false) ClienteRepository clienteRepository) {
         this.registry = registry;
         this.repository = repository;
         this.mapper = mapper;
@@ -61,6 +73,9 @@ public class OrdemServicoService {
         this.estoqueService = estoqueService;
         this.contaReceberService = contaReceberService;
         this.produtoRepository = produtoRepository;
+        this.pagamentoRepository = pagamentoRepository;
+        this.formaPagamentoRepository = formaPagamentoRepository;
+        this.clienteRepository = clienteRepository;
     }
 
     // Construtor legado para testes unitarios (4 args) — mantem compatibilidade
@@ -68,7 +83,7 @@ public class OrdemServicoService {
                                OrdemServicoRepository repository,
                                OrdemServicoMapper mapper,
                                Clock clock) {
-        this(registry, repository, mapper, clock, null, null, null);
+        this(registry, repository, mapper, clock, null, null, null, null, null, null);
     }
 
     @Transactional
@@ -191,6 +206,32 @@ public class OrdemServicoService {
             }
         }
 
+        // --- Pagamentos multi-forma (PDV novo fluxo: FinalizarVendaModal) ---
+        if (pagamentoRepository != null && req.getPagamentos() != null && !req.getPagamentos().isEmpty()) {
+            for (OrdemServicoRequest.PagamentoRequest pg : req.getPagamentos()) {
+                if (pg.getFormaPagamentoId() == null || pg.getValor() == null) continue;
+                String formaNome = null;
+                if (formaPagamentoRepository != null) {
+                    try {
+                        formaNome = formaPagamentoRepository.findByIdAndLojaId(pg.getFormaPagamentoId(), lojaId)
+                                .map(com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento::getNome)
+                                .orElse(null);
+                    } catch (Exception e) {
+                        log.warn("Forma de pagamento {} não resolvida loja={} erro={}", pg.getFormaPagamentoId(), lojaId, e.getMessage());
+                    }
+                }
+                OrdemServicoPagamento osp = OrdemServicoPagamento.builder()
+                        .lojaId(lojaId)
+                        .ordemServicoId(os.getId())
+                        .formaPagamentoId(pg.getFormaPagamentoId())
+                        .valor(pg.getValor().setScale(2, RoundingMode.HALF_EVEN))
+                        .formaPagamentoNome(formaNome)
+                        .build();
+                pagamentoRepository.save(osp);
+                log.info("Pagamento OS {} forma={} valor={}", os.getNumero(), formaNome != null ? formaNome : pg.getFormaPagamentoId(), pg.getValor());
+            }
+        }
+
         // --- Integracao financeiro: gerar ContaReceber ao criar OS com valor total ---
         if (contaReceberService != null) {
             try {
@@ -215,7 +256,7 @@ public class OrdemServicoService {
             }
         }
 
-        return mapper.toResponse(os);
+        return enriquecer(mapper.toResponse(os), lojaId);
     }
 
     private BigDecimal calcularValorTotal(UUID lojaId, UUID armacaoId, UUID lenteId, java.util.List<OrdemServicoRequest.ItemRequest> itens) {
@@ -279,7 +320,7 @@ public class OrdemServicoService {
         } else {
             page = repository.findAllByLojaId(lojaId, pageable);
         }
-        return page.map(mapper::toResponse);
+        return enriquecerPagina(page.map(mapper::toResponse), lojaId);
     }
 
     @Transactional(readOnly = true)
@@ -287,7 +328,7 @@ public class OrdemServicoService {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         OrdemServico os = repository.findByIdAndLojaId(id, lojaId)
                 .orElseThrow(() -> new EntityNotFoundException("OS não encontrada"));
-        return mapper.toResponse(os);
+        return enriquecer(mapper.toResponse(os), lojaId);
     }
 
     @Transactional
@@ -295,7 +336,43 @@ public class OrdemServicoService {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         StatusOS novo = StatusOS.valueOf(req.getNovoStatus().trim().toUpperCase());
         OrdemServico os = avancarInternal(lojaId, id, novo, req.getResponsavel(), req.getObservacao());
-        return mapper.toResponse(os);
+        return enriquecer(mapper.toResponse(os), lojaId);
+    }
+
+    private OrdemServicoResponse enriquecer(OrdemServicoResponse resp, UUID lojaId) {
+        if (resp == null || resp.getClienteId() == null || clienteRepository == null) return resp;
+        try {
+            clienteRepository.findByIdAndLojaId(resp.getClienteId(), lojaId).ifPresent(c -> {
+                resp.setClienteNome(c.getNome());
+                resp.setClienteWhatsapp(c.getWhatsapp());
+            });
+        } catch (Exception e) {
+            log.warn("Falha ao enriquecer cliente da OS {}: {}", resp.getNumero(), e.getMessage());
+        }
+        return resp;
+    }
+
+    private Page<OrdemServicoResponse> enriquecerPagina(Page<OrdemServicoResponse> page, UUID lojaId) {
+        if (clienteRepository == null || page.getContent().isEmpty()) return page;
+        try {
+            Set<UUID> ids = page.getContent().stream()
+                    .map(OrdemServicoResponse::getClienteId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            if (ids.isEmpty()) return page;
+            Map<UUID, Cliente> clientes = clienteRepository.findByLojaIdAndIdIn(lojaId, ids).stream()
+                    .collect(Collectors.toMap(Cliente::getId, c -> c));
+            page.getContent().forEach(resp -> {
+                Cliente c = resp.getClienteId() != null ? clientes.get(resp.getClienteId()) : null;
+                if (c != null) {
+                    resp.setClienteNome(c.getNome());
+                    resp.setClienteWhatsapp(c.getWhatsapp());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Falha ao enriquecer clientes da listagem de OS: {}", e.getMessage());
+        }
+        return page;
     }
 
     // método legado usado por testes unitários: avancar(lojaId, id, novo, responsavel, obs)

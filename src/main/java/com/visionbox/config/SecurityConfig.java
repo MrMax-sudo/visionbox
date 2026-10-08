@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -71,6 +72,9 @@ public class SecurityConfig {
                                 "/api/v1/laboratorios/portal/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/empresa/**").authenticated()
+                        .requestMatchers("/api/v1/empresa/**").hasAnyRole("ADMIN", "GERENTE", "DESENVOLVEDOR")
+                        .requestMatchers("/api/v1/dev/**").hasAnyRole("ADMIN", "DESENVOLVEDOR")
                         .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/caixa/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "FINANCEIRO")
                         .requestMatchers("/api/v1/financeiro/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
