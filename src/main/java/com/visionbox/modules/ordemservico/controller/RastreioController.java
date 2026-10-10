@@ -5,33 +5,19 @@ import com.visionbox.modules.ordemservico.dto.RastreioResponse;
 import com.visionbox.modules.ordemservico.service.RastreioService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.util.Optional;
-
-import static org.springframework.http.HttpStatus.NOT_FOUND;
-
 @RestController
 @RequestMapping("/api/v1/ordens-servico/rastreio")
-@RequiredArgsConstructor
 public class RastreioController {
 
     private final RastreioService service;
+    private final Counter rastreioBuscaTotal;
 
-    private Counter rastreioBuscaTotal;
-
-    @PostConstruct
-    public void init(MeterRegistry registry) {
-        this.rastreioBuscaTotal = registry.counter("visionbox_rastreio_busca_total");
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        this.rastreioBuscaTotal = null;
+    public RastreioController(RastreioService service, MeterRegistry registry) {
+        this.service = service;
+        this.rastreioBuscaTotal = registry != null ? registry.counter("visionbox_rastreio_busca_total") : null;
     }
 
     /**
