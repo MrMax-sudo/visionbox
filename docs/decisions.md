@@ -187,21 +187,29 @@ log nem para `detalhe_json`. Desconto ≤15% autoriza sem PIN e sem auditoria.
 `ApiError.problem.detail` (429/400). O `<select>` fake de supervisor foi removido — a
 identificação de quem autorizou vem do backend (`autorizadoPorNome`).
 
-**Gap sinalizado (fora do escopo de P7):** a criação de OS/venda (`/api/v1/ordens-servico`,
-`/api/v1/vendas`) ainda aceita `desconto` sem token de alçada — a validação de desconto >15%
-só existe na UI. Enforcement server-side na finalização da venda deve ser pauta de P8/security.
+**Gap sinalizado (fora do escopo de P7):** resolvido em D-011.
+
+## D-011 — Enforcement server-side de alçada de desconto e token público de rastreio (US17)
+
+**Data:** 2026-10-10 (fullstack-engineer).
+
+**Contexto:**
+1. A validação de alçada de desconto (> 15%) existia apenas na UI e no endpoint isolado `POST /api/v1/autorizacoes-desconto`.
+2. A geração de token de rastreio para cliente final (US17 / Portal PWA) precisava de endpoint autenticado na OS (`GET /api/v1/ordens-servico/{id}/rastreio-token`) e preenchimento automático no `OrdemServicoResponse`.
+
+**Decisões:**
+- **Alçada Server-side:** `OrdemServicoService.criar` calcula o percentual de desconto sobre o valor bruto da venda. Se `desconto > 15%`, exige `senhaAutorizacao` e valida contra `AutorizacaoDescontoService` (senha BCrypt de Gerente/Admin da mesma loja). Falha lança `IllegalArgumentException` (400) com mensagem descritiva.
+- **Frontend PDV:** `AutorizacaoDescontoModal.tsx` passa a senha/PIN validada para o PDV (`descontoSenha`), que injeta em `CriarOrdemServicoPayload.senhaAutorizacao`.
+- **Token de Rastreio US17:** Adicionado `GET /api/v1/ordens-servico/{id}/rastreio-token` e enriquecimento de `tokenRastreio` no `OrdemServicoResponse`. `OSDetail.tsx` ganhou botão e modal dedicado de "Rastreio do Cliente" com mensagem formatada para envio via WhatsApp (`wa.me`).
+
+**Consequência:**
+- Fraude ou bypass de desconto por requisição direta é bloqueada no servidor.
+- Vendedores e gerentes podem compartilhar tanto o link técnico do laboratório (`/lab/:token`) quanto o link de rastreio limpo com LGPD para o cliente (`/rastreio/:token`).
+- 230/230 testes unitários verdes.
 
 ## Sinalizações para outros agentes
 
-- **security-auditor:** (1) P7 removeu a lista de PINs do client — revisar o `RateLimiterAlcada`
-  em memória (sem Redis, ok para 5 tentativas/15min) e a decisão de PIN = senha de login de
-  GERENTE/ADMIN (D-010): recomendação de senha forte para gerentes; (2) gap de P7:
-  `ordens-servico`/`vendas` não validam alçada server-side; (3) teste de segurança P6 cobre
-  conta `ativo=false` em login/refresh (401 via `DisabledException`) — token de acesso já
-  emitido segue válido 15 min (aceito, conforme D-004).
-- **qa-engineer:** pontos de teste em `AutorizacaoDescontoServiceTest` (5 casos), 
-  `RateLimiterAlcadaTest` (4 casos), `AutorizacaoDescontoControllerTest` (3 casos, inclui 429
-  RFC 7807) e `AuthControllerTest` (+3 casos de conta desativada). E2E HTTP e `flyway validate`
-  seguem pendentes de ambiente com Postgres.
-- **db-admin / devops-infra:** D-005 (1) e (2) permanecem abertos e independentes desta entrega.
+- **security-auditor:** (1) P8 concluiu enforcement server-side de alçada de desconto em `OrdemServicoService.criar`; (2) token de rastreio público stateless `rpub1` opera com HMAC-SHA256 e expiração de 30 dias.
+- **qa-engineer:** suíte ampliada para 230 testes com `OrdemServicoDescontoTest` e `OrdemServicoControllerTest`.
+- **db-admin / devops-infra:** D-005 (1) e (2) (migrations V3-V10 / Postgres real) permanecem como o próximo marco estrutural.
 

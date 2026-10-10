@@ -1,26 +1,37 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-08 — Wave paralela (8 frentes): segurança alçada, OFX/DRE, produção+CQ, BI, Portal PWA, observabilidade/CI. **225 testes verdes**
+> **Atualizado em:** 2026-10-10 — Enforcement server-side de alçada de desconto (P8 / D-011) + Token e modal de rastreio do cliente US17 PWA. **230 testes verdes**
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
-## Fase 3.5 — Wave Paralela de Especialistas (2026-10-08)
-
-> **Objetivo:** fechar pendências em 8 frentes paralelas sob decisões D-009 (WhatsApp manual) e D-010 (alçada no backend). Máquina sem Docker (permanente): apenas testes unitários rodam localmente.
+## Fase 3.6 — Enforcement Alçada Server-Side & Rastreio US17 (2026-10-10)
 
 | Frente | Status | Evidência |
 |---|---|---|
+| P8 — Enforcement server-side de desconto | ✅ Concluído | `OrdemServicoService.criar` valida `desconto > 15%` com `AutorizacaoDescontoService` (BCrypt Gerente/Admin), `OrdemServicoDescontoTest` (3/3), `PDV.tsx` injeta `senhaAutorizacao` (D-011) |
+| US17 — Token e Modal de Rastreio do Cliente | ✅ Concluído | `GET /api/v1/ordens-servico/{id}/rastreio-token`, `OrdemServicoResponse.tokenRastreio`, `OSDetail.tsx` (botão/modal Rastreio do Cliente PWA + envio WhatsApp `wa.me`), `OrdemServicoControllerTest` (2/2) |
 | P6/P7 — Alçada de desconto no backend | ✅ Concluído | `POST /api/v1/autorizacoes-desconto`, `modules/seguranca/desconto/**`, PIN = senha BCrypt de GERENTE/ADMIN ativos da loja, `RateLimiterAlcada` em memória (15min/5), auditoria `log_auditoria`. **Sem migration** (D-010) |
 | US13 — Conciliação OFX + DRE por loja/OS | ✅ Concluído | `V29__conciliacao_ofx.sql`, `OfxParser` (SGML/XML), `OfxConciliacaoService`, `OfxController`, `DREService`; ~46 testes |
-| US11 — Fila de produção + CQ com foto | ✅ Concluído | `V28__producao_cq.sql`, `modules/producao/**`; `ProducaoService` reescrito pela orquestração (veio truncado) |
+| US11 — Fila de produção + CQ com foto | ✅ Concluído | `V28__producao_cq.sql`, `modules/producao/**`; `ProducaoService` reescrito pela orquestração |
 | US16 — BI giro/margem/ABC | ✅ Concluído | `V30__relatorios_bi.sql` (índices), `modules/relatorios/**`, `ADR-006` (sem view materializada), `SecurityConfig` +`/api/v1/relatorios/**` |
 | US17 — Portal do cliente PWA | ✅ Concluído | `RastreioPortal.tsx`, `lib/rastreioApi.ts`, `lib/pwa.ts`, `manifest.webmanifest`, `sw.js`, ícones; rotas `/rastreio[/:token]` |
 | Observabilidade + CI | ✅ Concluído | `shared/metrics/SlaMetrics`, `LojaObservationConvention`, `ops/prometheus`, `ops/grafana`, `.github/workflows/ci.yml` (flyway-validate + web-build), `docker-compose.dev.yml`, `pom.xml` flyway-database-postgresql |
 | US12/US14/US15 — Reescopo sob D-009 | ✅ Concluído (docs) | `docs/BACKLOG.md`, `docs/RISK_REGISTER.md` R3 — WhatsApp só link manual `wa.me` no MVP; auto (Cloud API) adiado pós-piloto |
-| P1 — Migrations `V3–V10` ausentes | ⛔ **Bloqueado** | Não há `CREATE TABLE produto/marca/categoria/pedido_venda/item_pedido` em nenhum lugar; **V2 também referencia** `perfil`/`usuario`/`usuario_loja`/`sequencia_numeracao`/`fn_next_sequencia`/`fn_set_atualizado_em` inexistentes. Requer db-admin + Postgres real (sem Docker aqui) |
+| P1 — Migrations `V3–V10` ausentes | ⛔ **Bloqueado (draft pronto p/ db-admin)** | Não há `CREATE TABLE produto/marca/categoria/pedido_venda/item_pedido` em nenhum lugar; **V2 também referencia** `perfil`/`usuario`/`usuario_loja`/`sequencia_numeracao`/`fn_next_sequencia`/`fn_set_atualizado_em` inexistentes. **Draft de reconstrução em `docs/p1-migrations-draft/`** (`V1_1` fundação antes da V2 + `V3` catálogo + `V4` pedido_venda + `V5` colunas OS). Requer db-admin + Postgres real (sem Docker aqui) para validar |
 
-**Correções de integração feitas pela orquestração:** `ProducaoService` reescrito; import `OutboxMessage` em `SlaMetrics`; `import Collection` em `OutboxRepository`; `ProblemDetail.getStatus()` (int) em 2 testes; `ProducaoServiceTest` (clock `lenient`, sem `toBuilder`); `RelatorioBiServiceTest` (helpers de mock fora do `thenReturn`); `CurvaAbcClassifier` (1º item = classe A) + dado de teste corrigido; `OfxParser` (regex para tags SGML sem fechamento).
+**Validação:** `mvn clean test -Punit-only` → **230/230 verdes** · `npm run typecheck` ✅ · `npm run build` ✅ (15.05s) · `mvn -q -DskipTests compile` ✅
 
-**Validação:** `mvn clean test -Punit-only` → **225/225 verdes** · `npm run typecheck` ✅ · `npm run build` ✅ · `mvn -q -DskipTests compile` ✅
+### P1 — Draft de reconstrução das migrations ausentes (2026-10-08)
+
+> **NÃO são migrations prontas** — são especificação revisável para o **db-admin** validar em Postgres real. Ficam em `docs/p1-migrations-draft/` (fora de `db/migration/`).
+
+| Arquivo | Versão | Conteúdo | Resolve |
+|---|---|---|---|
+| `V1_1__legacy_foundation.sql` | **1.1** | `fn_set_atualizado_em`, `sequencia_numeracao`+`fn_next_sequencia`, `perfil`, `usuario`, `usuario_loja` | quebra da **V2** num banco limpo (roda `1 < 1.1 < 2`, sem tocar na V2) |
+| `V3__catalogo.sql` | 3 | `produto`, `marca`, `categoria` (SKU único parcial via `uq_produto_loja_sku_ativo`) | 3 das 5 tabelas sem `CREATE TABLE` |
+| `V4__pedido_venda.sql` | 4 | `pedido_venda`, `item_pedido` | 2 tabelas restantes |
+| `V5__ordem_servico_colunas.sql` | 5 | `ALTER ordem_servico ADD cliente_id/receita_id/armacao_id/lente_id/laboratorio_id` | colunas exigidas por `OrdemServico` e pelo BI |
+
+**Decisões pendentes p/ db-admin** (ver `docs/p1-migrations-draft/README.md`): numeração final; `item_pedido` **sem `loja_id`** (viola R1); tabelas legadas `perfil`/`usuario_loja`; CHECK de `usuario.perfil` sem `DESENVOLVEDOR` na V13 (**bug latente** já corrigido no draft); aplicação em banco existente exige `flyway repair`. **Zero SQL executado** (máquina sem Docker).
 
 ## Fase 3 — Config Empresa + WhatsApp + Profile Desenvolvedor (Em Validação)
 

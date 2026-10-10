@@ -4,6 +4,7 @@ import com.visionbox.modules.ordemservico.dto.AlterarStatusRequest;
 import com.visionbox.modules.ordemservico.dto.OrdemServicoRequest;
 import com.visionbox.modules.ordemservico.dto.OrdemServicoResponse;
 import com.visionbox.modules.ordemservico.service.OrdemServicoService;
+import com.visionbox.modules.ordemservico.service.RastreioTokenService;
 import com.visionbox.modules.ordemservico.service.SlaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -23,6 +25,7 @@ public class OrdemServicoController {
 
     private final OrdemServicoService service;
     private final SlaService slaService;
+    private final RastreioTokenService rastreioTokenService;
 
     @PostMapping
     public ResponseEntity<OrdemServicoResponse> criar(@Valid @RequestBody OrdemServicoRequest req) {
@@ -57,5 +60,20 @@ public class OrdemServicoController {
         UUID lojaId = com.visionbox.shared.tenant.TenantContext.requireCurrentLojaId();
         return slaService.buscarAtrasadasPorLoja(lojaId, pageable)
                 .map(service.getMapper()::toResponse);
+    }
+
+    /**
+     * GET /api/v1/ordens-servico/{id}/rastreio-token
+     * Retorna token assinado e URL do portal público de rastreio para o cliente (US17).
+     */
+    @GetMapping("/{id}/rastreio-token")
+    public ResponseEntity<Map<String, String>> obterTokenRastreio(@PathVariable UUID id) {
+        UUID lojaId = com.visionbox.shared.tenant.TenantContext.requireCurrentLojaId();
+        String token = rastreioTokenService.gerar(lojaId, id);
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "url", "/rastreio/" + token,
+                "fullUrl", "/rastreio/" + token
+        ));
     }
 }

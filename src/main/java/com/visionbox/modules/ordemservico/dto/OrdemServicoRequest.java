@@ -23,6 +23,7 @@ public class OrdemServicoRequest {
     // PDV teclado-first: carrinho por SKU (compat com frontend)
     private List<ItemRequest> itens;
     private java.math.BigDecimal desconto;
+    private String senhaAutorizacao;
     private String formaPagamento;
     private List<PagamentoRequest> pagamentos;
 

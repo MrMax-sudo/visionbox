@@ -165,6 +165,7 @@ export type OrdemServicoDTO = {
   dataEntregaReal?: string | null;
   criadoEm?: string;
   atualizadoEm?: string;
+  tokenRastreio?: string;
   sla?: 'ok' | 'atencao' | 'atrasado';
   slaStatus?: 'OK' | 'ATENCAO' | 'ATRASADO';
   vendedor?: string;
@@ -185,6 +186,7 @@ export type CriarOrdemServicoPayload = {
   clienteId: string;
   itens: Array<{ sku: string; quantidade: number; produtoId?: string }>;
   desconto?: number;
+  senhaAutorizacao?: string;
   formaPagamento?: string;
   pagamentos?: Array<{ formaPagamentoId: string; valor: number }>;
   observacao?: string;

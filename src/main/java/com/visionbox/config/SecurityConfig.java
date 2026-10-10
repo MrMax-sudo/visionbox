@@ -69,6 +69,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/api/auth/**",
                                 "/api/v1/auth/**",
+                                "/api/v1/ordens-servico/rastreio",
+                                "/api/v1/ordens-servico/rastreio/**",
                                 "/api/v1/laboratorios/portal/**",
                                 "/error"
                         ).permitAll()

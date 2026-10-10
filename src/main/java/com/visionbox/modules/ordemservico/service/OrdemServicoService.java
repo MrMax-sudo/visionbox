@@ -52,6 +52,8 @@ public class OrdemServicoService {
     private final FormaPagamentoRepository formaPagamentoRepository;
     private final ClienteRepository clienteRepository;
     private final SlaMetrics slaMetrics;
+    private final RastreioTokenService rastreioTokenService;
+    private final com.visionbox.modules.seguranca.desconto.service.AutorizacaoDescontoService autorizacaoDescontoService;
 
     public OrdemServicoMapper getMapper() {
         return mapper;
@@ -69,7 +71,9 @@ public class OrdemServicoService {
                                @Autowired(required = false) OrdemServicoPagamentoRepository pagamentoRepository,
                                @Autowired(required = false) FormaPagamentoRepository formaPagamentoRepository,
                                @Autowired(required = false) ClienteRepository clienteRepository,
-                               @Autowired(required = false) SlaMetrics slaMetrics) {
+                               @Autowired(required = false) SlaMetrics slaMetrics,
+                               @Autowired(required = false) RastreioTokenService rastreioTokenService,
+                               @Autowired(required = false) com.visionbox.modules.seguranca.desconto.service.AutorizacaoDescontoService autorizacaoDescontoService) {
         this.registry = registry;
         this.repository = repository;
         this.mapper = mapper;
@@ -81,6 +85,8 @@ public class OrdemServicoService {
         this.formaPagamentoRepository = formaPagamentoRepository;
         this.clienteRepository = clienteRepository;
         this.slaMetrics = slaMetrics;
+        this.rastreioTokenService = rastreioTokenService;
+        this.autorizacaoDescontoService = autorizacaoDescontoService;
     }
 
     // Construtor legado para testes unitarios (4 args) — mantem compatibilidade
@@ -88,7 +94,7 @@ public class OrdemServicoService {
                                OrdemServicoRepository repository,
                                OrdemServicoMapper mapper,
                                Clock clock) {
-        this(registry, repository, mapper, clock, null, null, null, null, null, null, null);
+        this(registry, repository, mapper, clock, null, null, null, null, null, null, null, null, null);
     }
 
     @Transactional
@@ -237,10 +243,32 @@ public class OrdemServicoService {
             }
         }
 
+        // --- Validacao de alcada de desconto server-side (D-010 / P8) ---
+        BigDecimal valorBruto = calcularValorTotal(lojaId, efetivaArmacaoId, efetivaLenteId, itens);
+        if (req.getDesconto() != null && req.getDesconto().compareTo(BigDecimal.ZERO) > 0) {
+            if (valorBruto.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal percentual = req.getDesconto().multiply(BigDecimal.valueOf(100))
+                        .divide(valorBruto, 2, RoundingMode.HALF_EVEN);
+                if (com.visionbox.modules.seguranca.desconto.domain.AlcadaDesconto.exigePin(percentual) && autorizacaoDescontoService != null) {
+                    UUID solicitanteId = null;
+                    var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                    if (auth != null && auth.getPrincipal() instanceof com.visionbox.modules.usuario.domain.Usuario u) {
+                        solicitanteId = u.getId();
+                    }
+                    var authReq = new com.visionbox.modules.seguranca.desconto.dto.AutorizacaoDescontoRequest(percentual, req.getSenhaAutorizacao());
+                    var authResp = autorizacaoDescontoService.autorizar(authReq, lojaId, solicitanteId, null, null);
+                    if (!authResp.autorizado()) {
+                        throw new IllegalArgumentException("Desconto de " + percentual + "% exige autorização gerencial. " +
+                                (authResp.mensagem() != null ? authResp.mensagem() : "Senha não autorizada."));
+                    }
+                }
+            }
+        }
+
         // --- Integracao financeiro: gerar ContaReceber ao criar OS com valor total ---
         if (contaReceberService != null) {
             try {
-                BigDecimal valorTotal = calcularValorTotal(lojaId, efetivaArmacaoId, efetivaLenteId, itens);
+                BigDecimal valorTotal = valorBruto;
                 // aplica desconto PDV se houver (BigDecimal HALF_EVEN)
                 if (req.getDesconto()!=null && req.getDesconto().compareTo(BigDecimal.ZERO)>0) {
                     valorTotal = valorTotal.subtract(req.getDesconto()).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_EVEN);
@@ -345,7 +373,15 @@ public class OrdemServicoService {
     }
 
     private OrdemServicoResponse enriquecer(OrdemServicoResponse resp, UUID lojaId) {
-        if (resp == null || resp.getClienteId() == null || clienteRepository == null) return resp;
+        if (resp == null) return null;
+        if (rastreioTokenService != null && resp.getId() != null && lojaId != null) {
+            try {
+                resp.setTokenRastreio(rastreioTokenService.gerar(lojaId, resp.getId()));
+            } catch (Exception e) {
+                log.warn("Falha ao gerar token de rastreio para OS {}: {}", resp.getNumero(), e.getMessage());
+            }
+        }
+        if (resp.getClienteId() == null || clienteRepository == null) return resp;
         try {
             clienteRepository.findByIdAndLojaId(resp.getClienteId(), lojaId).ifPresent(c -> {
                 resp.setClienteNome(c.getNome());

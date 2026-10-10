@@ -50,7 +50,12 @@ export default function OSDetail() {
   // Lab Portal state
   const [labModalOpen, setLabModalOpen] = React.useState(false);
   const [labLink, setLabLink] = React.useState<string | null>(null);
-  const [copied, setCopied] = React.useState(false);
+  const [labCopied, setLabCopied] = React.useState(false);
+
+  // Client Tracking Portal state (US17)
+  const [rastreioModalOpen, setRastreioModalOpen] = React.useState(false);
+  const [rastreioLink, setRastreioLink] = React.useState<string | null>(null);
+  const [rastreioCopied, setRastreioCopied] = React.useState(false);
 
   const gerarLabTokenMutation = useMutation({
     mutationFn: async () => {
@@ -64,6 +69,18 @@ export default function OSDetail() {
       const link = `${window.location.origin}/lab/${data.token}`;
       setLabLink(link);
       setLabModalOpen(true);
+    },
+  });
+
+  const gerarRastreioTokenMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.get<{ token: string; url: string }>(`/v1/ordens-servico/${id}/rastreio-token`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      const link = `${window.location.origin}/rastreio/${data.token}`;
+      setRastreioLink(link);
+      setRastreioModalOpen(true);
     },
   });
 
@@ -133,6 +150,15 @@ export default function OSDetail() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => gerarRastreioTokenMutation.mutate()}
+            disabled={gerarRastreioTokenMutation.isPending}
+            className="text-[var(--color-primary)] border-[var(--color-primary)]/40 hover:bg-[var(--color-primary-light)]/40"
+          >
+            <Share2 className="mr-2 h-4 w-4" /> Rastreio do Cliente
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -279,18 +305,18 @@ export default function OSDetail() {
         open={labModalOpen}
         onClose={() => setLabModalOpen(false)}
         title="Link de Acesso do Laboratório Ótico"
-        description="Envie este link seguro para o laboratório acompanhar graus, armação, tratamentos e atualizar a produção."
+        description="Envie este link seguro para o laboratório terceirizado acompanhar graus, armação, tratamentos e atualizar a produção."
       >
         <div className="space-y-4">
           <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary-light)]/60 p-3 text-xs space-y-1 text-[var(--color-text-primary)]">
-            <p className="font-semibold">Acesso sem necessidade de login:</p>
+            <p className="font-semibold">Acesso técnico para o laboratório:</p>
             <p className="text-[11px] text-[var(--color-text-secondary)]">
               O técnico do laboratório poderá visualizar a receita completa (OD/OE) e alterar o status para <b>Em Produção</b>, <b>Lente Pronta</b> ou <b>Retrabalho</b> com 1 toque.
             </p>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-[var(--color-text-primary)]">URL do Portal (Válido por 24 horas)</label>
+            <label className="text-xs font-semibold text-[var(--color-text-primary)]">URL do Portal do Laboratório (Válido por 24 horas)</label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -304,12 +330,12 @@ export default function OSDetail() {
                 onClick={() => {
                   if (labLink) {
                     navigator.clipboard.writeText(labLink);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    setLabCopied(true);
+                    setTimeout(() => setLabCopied(false), 2000);
                   }
                 }}
               >
-                {copied ? <Check className="h-4 w-4 text-[var(--color-success)]" /> : <Copy className="h-4 w-4" />}
+                {labCopied ? <Check className="h-4 w-4 text-[var(--color-success)]" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -326,8 +352,75 @@ export default function OSDetail() {
                 variant="primary"
                 onClick={() => {
                   if (labLink) {
+                    const texto = encodeURIComponent(`Olá, segue a OS ${displayNumber} para produção:\n${labLink}`);
+                    const url = `https://api.whatsapp.com/send?text=${texto}`;
+                    window.open(url, '_blank');
+                  }
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Share2 className="mr-2 h-4 w-4" /> Enviar para o Laboratório
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Modal de Compartilhamento de Rastreio do Cliente (US17) */}
+      <Dialog
+        open={rastreioModalOpen}
+        onClose={() => setRastreioModalOpen(false)}
+        title="Link de Rastreio do Cliente (PWA)"
+        description="Envie este link para o cliente acompanhar as etapas da confecção dos óculos, previsão e garantia."
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-primary-light)]/40 p-3 text-xs space-y-1 text-[var(--color-text-primary)]">
+            <p className="font-semibold">Portal do Cliente com Proteção LGPD:</p>
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
+              O cliente visualiza o semáforo de status em tempo real, etapas concluídas, previsão de entrega, dados da ótica e 2ª via da garantia.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-[var(--color-text-primary)]">Link de Rastreio Público</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={rastreioLink ?? ''}
+                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-2 text-xs font-mono text-[var(--color-text-primary)]"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (rastreioLink) {
+                    navigator.clipboard.writeText(rastreioLink);
+                    setRastreioCopied(true);
+                    setTimeout(() => setRastreioCopied(false), 2000);
+                  }
+                }}
+              >
+                {rastreioCopied ? <Check className="h-4 w-4 text-[var(--color-success)]" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-[var(--color-border)]">
+            <Button
+              variant="outline"
+              onClick={() => setRastreioModalOpen(false)}
+            >
+              Fechar
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (rastreioLink) {
                     const destinatario = sanitizeWhatsApp(os.clienteWhatsapp ?? '');
-                    const texto = encodeURIComponent(`Olá, segue o link de acompanhamento da sua OS ${displayNumber}:\n${labLink}`);
+                    const saudacao = os.clienteNome ? `Olá ${os.clienteNome.split(' ')[0]}` : 'Olá';
+                    const texto = encodeURIComponent(`${saudacao}, acompanhe o andamento da confecção dos seus óculos (OS ${displayNumber}) em tempo real pelo nosso portal:\n${rastreioLink}`);
                     const url = destinatario ? `https://wa.me/${destinatario}?text=${texto}` : `https://api.whatsapp.com/send?text=${texto}`;
                     window.open(url, '_blank');
                   }

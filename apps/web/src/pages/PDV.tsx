@@ -121,6 +121,7 @@ export default function PDV() {
   const [desconto, setDesconto] = React.useState(0);
   const [descontoTipo, setDescontoTipo] = React.useState<DescontoTipo>('valor');
   const [descontoAutorizadoPor, setDescontoAutorizadoPor] = React.useState<string | null>(null);
+  const [descontoSenha, setDescontoSenha] = React.useState<string | null>(null);
   const [valorRecebido, setValorRecebido] = React.useState(0);
   const [formaPagamento, setFormaPagamento] = React.useState('Dinheiro');
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
@@ -344,6 +345,8 @@ export default function PDV() {
 
       setCart([]);
       setDesconto(0);
+      setDescontoAutorizadoPor(null);
+      setDescontoSenha(null);
       setValorRecebido(0);
       queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
       queryClient.invalidateQueries({ queryKey: ['pdv-produtos'] });
@@ -356,6 +359,7 @@ export default function PDV() {
           clienteId: cliente?.id ?? 'offline-cliente',
           itens: cart.map((item) => ({ sku: item.sku, quantidade: item.qtd, produtoId: item.produtoId })),
           desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
+          senhaAutorizacao: descontoSenha || undefined,
           formaPagamento,
         };
         const armacao = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('arma'));
@@ -413,6 +417,7 @@ export default function PDV() {
       clienteId: cliente.id,
       itens: cart.map((item) => ({ sku: item.sku, quantidade: item.qtd, produtoId: item.produtoId })),
       desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
+      senhaAutorizacao: descontoSenha || undefined,
       formaPagamento: pagamentos.length === 1 ? pagamentos[0].formaNome : 'Múltiplo',
       pagamentos: pagamentos.map((p) => ({ formaPagamentoId: p.formaId, valor: p.valor })),
       armacaoId: armacao?.produtoId ?? cart[0]?.produtoId ?? null,
@@ -933,10 +938,12 @@ export default function PDV() {
         percentualDesconto={descontoPctCalculado}
         valorDesconto={descontoAplicado}
         subtotal={subtotal}
-        onAutorizado={(supervisor) => {
+        onAutorizado={(supervisor, pin) => {
           setDescontoAutorizadoPor(supervisor);
+          setDescontoSenha(pin);
           setDescontoModalOpen(false);
           setFeedback({ tone: 'success', msg: `Desconto de ${descontoPctCalculado.toFixed(1)}% autorizado por ${supervisor}.` });
+          setFinalizarOpen(true);
         }}
       />
 

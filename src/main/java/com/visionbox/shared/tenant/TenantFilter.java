@@ -111,6 +111,7 @@ public class TenantFilter extends OncePerRequestFilter {
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/api/auth/")
                 || path.startsWith("/api/v1/auth/")
+                || path.startsWith("/api/v1/ordens-servico/rastreio")
                 || path.equals("/error");
     }
 

@@ -25,6 +25,7 @@ public class OrdemServicoResponse {
     private OffsetDateTime previsaoEntrega;
     private OffsetDateTime dataEntregaReal;
     private boolean alertaAtrasoDisparado;
+    private String tokenRastreio;
     private List<EventoOSResponse> historico;
     private OffsetDateTime criadoEm;
     private OffsetDateTime atualizadoEm;

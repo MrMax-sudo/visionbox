@@ -11,7 +11,7 @@ interface AutorizacaoDescontoModalProps {
   percentualDesconto: number;
   valorDesconto: number;
   subtotal: number;
-  onAutorizado: (supervisorNome: string) => void;
+  onAutorizado: (supervisorNome: string, pin: string) => void;
 }
 
 /**
@@ -81,7 +81,7 @@ export function AutorizacaoDescontoModal({
       if (resp.autorizado) {
         const autorizadoPor = resp.autorizadoPorNome ?? 'Gerente';
         setSenha('');
-        onAutorizado(autorizadoPor);
+        onAutorizado(autorizadoPor, pin);
       } else {
         // 200 com autorizado=false: PIN inválido — mensagem genérica vem do backend
         setErro(resp.mensagem || 'Autorização negada.');
