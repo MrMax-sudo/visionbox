@@ -13,8 +13,6 @@ import com.visionbox.modules.pessoa.repository.ClienteRepository;
 import com.visionbox.modules.pessoa.repository.LojaRepository;
 import com.visionbox.modules.ordemservico.domain.EventoOS;
 import com.visionbox.modules.ordemservico.domain.OrdemServico;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,18 +33,7 @@ public class RastreioService {
     private final LojaRepository lojaRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
-
-    private RastreioTokenService tokenService;
-
-    @PostConstruct
-    public void init(RastreioTokenService tokenService) {
-        this.tokenService = tokenService;
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        this.tokenService = null;
-    }
+    private final RastreioTokenService tokenService;
 
     /**
      * Busca OS pelo número em todas as lojas ativas (endpoint público /numero=X).
