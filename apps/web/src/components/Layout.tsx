@@ -279,7 +279,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
 
   return (
     <aside className={cn(
-      'hidden min-h-screen shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex',
+      'hidden shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex h-full min-h-screen',
       collapsed ? 'w-[72px]' : 'w-[220px]',
     )}>
       <div className={cn('relative px-3 py-3 text-center', collapsed && 'px-1.5 py-2.5')}>
@@ -535,19 +535,19 @@ export default function Layout() {
 
   return (
     <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
-      <div className={cn('flex', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
+      <div className={cn('flex', isPdv ? 'h-full overflow-hidden' : 'min-h-screen')}>
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((value) => !value)}
           onOpenConfig={() => setConfigOpen(true)}
         />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', isPdv && 'h-full')}>
           <Header theme={theme} onToggleTheme={toggle} />
-          <main className={cn('flex-1', isPdv ? 'pdv-main-shell' : 'p-4 sm:p-6')}>
+          <main className={cn('flex-1 min-h-0', isPdv ? 'pdv-main-shell' : 'overflow-y-auto p-4 sm:p-6')}>
             <Outlet />
           </main>
           <MobileNav />
-          <footer className="flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
+          <footer className="shrink-0 flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
             <span>VisionBox • Um novo olhar em gestão.</span>
             <span>Desenvolvido por TechboxBR 2026</span>
           </footer>

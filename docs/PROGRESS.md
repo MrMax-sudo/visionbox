@@ -7,7 +7,7 @@
 
 | Frente | Status | Evidência |
 |---|---|---|
-| Ajustes UI: Escala 80%, Sidebar Óculos & Carrinho PDV | ✅ Concluído | Sidebar colapsa no logo de óculos (botão feio removido); zoom calibrado (82%) + Header h-14 + Footer h-9; Carrinho enxuto e centralizado (Item, Cliente, caixa de input Qtd com botões +/-, Preço total); bloco 'Próximo passo' removido |
+| Ajustes UI: Layout 100% Altura, Sidebar Óculos & Carrinho PDV | ✅ Concluído | Remoção do zoom forçado que causava lacuna inferior; containers html/body/#root e layout ajustados para 100% da viewport (zero espaço em branco); Header h-14 + Footer h-9; Sidebar colapsa no logo de óculos; Carrinho enxuto e centralizado (Item, Cliente, input Qtd com botões +/-, Preço total); bloco 'Próximo passo' removido |
 | Fix crítico inicialização Spring Boot | ✅ Concluído | `RastreioController` injeta `MeterRegistry` no construtor (removido `@PostConstruct` com parâmetro que impedia startup da API em prod), `RastreioControllerTest` (2/2) |
 | P8 — Enforcement server-side de desconto | ✅ Concluído | `OrdemServicoService.criar` valida `desconto > 15%` com `AutorizacaoDescontoService` (BCrypt Gerente/Admin), `OrdemServicoDescontoTest` (3/3), `PDV.tsx` injeta `senhaAutorizacao` (D-011) |
 | US17 — Token e Modal de Rastreio do Cliente | ✅ Concluído | `GET /api/v1/ordens-servico/{id}/rastreio-token`, `OrdemServicoResponse.tokenRastreio`, `OSDetail.tsx` (botão/modal Rastreio do Cliente PWA + envio WhatsApp `wa.me`), `OrdemServicoControllerTest` (2/2) |
