@@ -16,8 +16,6 @@ import {
   Headphones,
   Settings,
   ChevronDown,
-  PanelLeftClose,
-  PanelLeftOpen,
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -220,10 +218,10 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-7 backdrop-blur">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-5 backdrop-blur">
       <div className="flex min-w-0 flex-1 items-center" />
       {title && (
-        <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-[var(--font-sans)] text-[28px] font-bold tracking-normal text-[var(--color-pdv-text)]">
+        <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-[var(--font-sans)] text-[20px] font-bold tracking-normal text-[var(--color-pdv-text)]">
           {title}
         </h1>
       )}
@@ -237,7 +235,7 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
           variant="ghost"
           size="icon"
           onClick={onToggleTheme}
-          className="h-9 w-9"
+          className="h-8 w-8"
           aria-label={`Alternar para tema ${theme === 'light' ? 'escuro' : 'claro'}`}
           title="Alternar tema"
         >
@@ -246,14 +244,14 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
 
         <NotificationBell />
 
-        <div className="relative ml-2 flex items-center">
+        <div className="relative ml-1 flex items-center">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] p-0"
-            onClick={() => {}} // Dropdown trigger logic handled by CSS/JS in UserDropdown
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] p-0"
+            onClick={() => {}}
           >
-            <span className="text-base font-semibold text-[var(--color-text-on-primary)]">
+            <span className="text-sm font-semibold text-[var(--color-text-on-primary)]">
               {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
             </span>
           </Button>
@@ -282,25 +280,27 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
   return (
     <aside className={cn(
       'hidden min-h-screen shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex',
-      collapsed ? 'w-[84px]' : 'w-[252px]',
+      collapsed ? 'w-[72px]' : 'w-[220px]',
     )}>
-      <div className={cn('relative px-4 pb-7 pt-4 text-center', collapsed && 'px-3 pb-5')}>
-        <img
-          src={collapsed ? '/assets/visionbox-logo-icon.png' : '/assets/visionbox-logo.png'}
-          alt="VisionBox"
-          className={cn('vision-sidebar-logo mx-auto', collapsed ? 'w-[48px]' : 'w-[165px]')}
-        />
+      <div className={cn('relative px-3 py-3 text-center', collapsed && 'px-1.5 py-2.5')}>
         <button
           type="button"
           onClick={onToggle}
-          className="vision-sidebar-collapse absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-[8px] bg-white/10 text-white hover:bg-white/16"
-          aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-          title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+          className="group mx-auto flex items-center justify-center rounded-xl p-1 transition-all duration-200 hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
+          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          title={collapsed ? 'Clique no logo para expandir o menu' : 'Clique no logo para recolher o menu'}
         >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.8} /> : <PanelLeftClose className="h-4 w-4" strokeWidth={1.8} />}
+          <img
+            src={collapsed ? '/assets/visionbox-logo-icon.png' : '/assets/visionbox-logo.png'}
+            alt="VisionBox"
+            className={cn(
+              'vision-sidebar-logo transition-transform duration-200 group-hover:scale-105',
+              collapsed ? 'w-[38px]' : 'w-[145px]',
+            )}
+          />
         </button>
       </div>
-      <nav className={cn('flex-1 space-y-1.5', collapsed ? 'px-3' : 'px-4')} aria-label="Navegação principal">
+      <nav className={cn('flex-1 space-y-1', collapsed ? 'px-2' : 'px-3')} aria-label="Navegação principal">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -308,8 +308,8 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
             end={item.to === '/'}
             className={({ isActive }) =>
               cn(
-                'vision-sidebar-link flex h-[50px] items-center gap-4 rounded-[10px] text-[16px] font-medium transition-colors',
-                collapsed ? 'justify-center px-0' : 'px-4',
+                'vision-sidebar-link flex h-[40px] items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors',
+                collapsed ? 'justify-center px-0' : 'px-3',
                 isActive
                   ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
                   : 'hover:bg-white/10',
@@ -317,10 +317,10 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
             }
             title={collapsed ? item.label : undefined}
           >
-            <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden />
+            <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
             {!collapsed && <span className="flex-1">{item.label}</span>}
             {item.shortcut && !collapsed && (
-              <span className="vision-sidebar-shortcut rounded-[8px] bg-[var(--color-bg-panel)] px-2.5 py-1.5 text-sm font-semibold">
+              <span className="vision-sidebar-shortcut rounded-[6px] bg-[var(--color-bg-panel)] px-2 py-1 text-xs font-semibold">
                 {item.shortcut}
               </span>
             )}
@@ -329,8 +329,8 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
 
         {isAdmin && (
           <>
-            <hr className={cn('my-6 border-white/20', collapsed ? 'mx-1' : 'mx-3')} />
-            {!collapsed && <h4 className="px-3 pb-2 text-sm font-semibold uppercase tracking-normal text-white/88">Administrativo</h4>}
+            <hr className={cn('my-4 border-white/20', collapsed ? 'mx-1' : 'mx-2')} />
+            {!collapsed && <h4 className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-white/80">Administrativo</h4>}
             {adminItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -338,8 +338,8 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   cn(
-                    'vision-sidebar-link flex h-[50px] items-center gap-4 rounded-[10px] text-[16px] font-medium transition-colors',
-                    collapsed ? 'justify-center px-0' : 'px-4',
+                    'vision-sidebar-link flex h-[40px] items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors',
+                    collapsed ? 'justify-center px-0' : 'px-3',
                     isActive
                       ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
                       : 'hover:bg-white/10',
@@ -347,7 +347,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
                 }
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden />
+                <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
                 {!collapsed && <span className="flex-1">{item.label}</span>}
               </NavLink>
             ))}
@@ -355,8 +355,8 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
               type="button"
               onClick={onOpenConfig}
               className={cn(
-                'vision-sidebar-link flex h-[50px] w-full items-center gap-4 rounded-[10px] text-[16px] font-medium transition-colors hover:bg-white/10',
-                collapsed ? 'justify-center px-0' : 'px-4',
+                'vision-sidebar-link flex h-[40px] w-full items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors hover:bg-white/10',
+                collapsed ? 'justify-center px-0' : 'px-3',
               )}
               title="Configurações"
               aria-label="Configurações"
@@ -547,7 +547,7 @@ export default function Layout() {
             <Outlet />
           </main>
           <MobileNav />
-          <footer className="flex h-[55px] items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-7 text-sm text-[var(--color-pdv-footer)]">
+          <footer className="flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
             <span>VisionBox • Um novo olhar em gestão.</span>
             <span>Desenvolvido por TechboxBR 2026</span>
           </footer>

@@ -7,6 +7,7 @@
 
 | Frente | Status | Evidência |
 |---|---|---|
+| Ajustes UI: Escala 80%, Sidebar Óculos & Carrinho PDV | ✅ Concluído | Sidebar colapsa no logo de óculos (botão feio removido); zoom calibrado (82%) + Header h-14 + Footer h-9; Carrinho enxuto e centralizado (Item, Cliente, caixa de input Qtd com botões +/-, Preço total); bloco 'Próximo passo' removido |
 | Fix crítico inicialização Spring Boot | ✅ Concluído | `RastreioController` injeta `MeterRegistry` no construtor (removido `@PostConstruct` com parâmetro que impedia startup da API em prod), `RastreioControllerTest` (2/2) |
 | P8 — Enforcement server-side de desconto | ✅ Concluído | `OrdemServicoService.criar` valida `desconto > 15%` com `AutorizacaoDescontoService` (BCrypt Gerente/Admin), `OrdemServicoDescontoTest` (3/3), `PDV.tsx` injeta `senhaAutorizacao` (D-011) |
 | US17 — Token e Modal de Rastreio do Cliente | ✅ Concluído | `GET /api/v1/ordens-servico/{id}/rastreio-token`, `OrdemServicoResponse.tokenRastreio`, `OSDetail.tsx` (botão/modal Rastreio do Cliente PWA + envio WhatsApp `wa.me`), `OrdemServicoControllerTest` (2/2) |
@@ -19,7 +20,7 @@
 | US12/US14/US15 — Reescopo sob D-009 | ✅ Concluído (docs) | `docs/BACKLOG.md`, `docs/RISK_REGISTER.md` R3 — WhatsApp só link manual `wa.me` no MVP; auto (Cloud API) adiado pós-piloto |
 | P1 — Migrations `V3–V10` ausentes | ⛔ **Bloqueado (draft pronto p/ db-admin)** | Não há `CREATE TABLE produto/marca/categoria/pedido_venda/item_pedido` em nenhum lugar; **V2 também referencia** `perfil`/`usuario`/`usuario_loja`/`sequencia_numeracao`/`fn_next_sequencia`/`fn_set_atualizado_em` inexistentes. **Draft de reconstrução em `docs/p1-migrations-draft/`** (`V1_1` fundação antes da V2 + `V3` catálogo + `V4` pedido_venda + `V5` colunas OS). Requer db-admin + Postgres real (sem Docker aqui) para validar |
 
-**Validação:** `mvn clean test -Punit-only` → **232/232 verdes** · `npm run typecheck` ✅ · `npm run build` ✅ (15.05s) · `mvn -q -DskipTests compile` ✅
+**Validação:** `mvn clean test -Punit-only` → **232/232 verdes** · `npm run build` ✅ (22.8s) · `mvn -q -DskipTests compile` ✅
 
 ### P1 — Draft de reconstrução das migrations ausentes (2026-10-08)
 

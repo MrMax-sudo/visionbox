@@ -678,42 +678,100 @@ export default function PDV() {
               </Button>
             </header>
 
-            <div className="pdv-cart-table">
-              <div className="pdv-cart-row pdv-cart-head">
-                <span>#</span>
-                <span>Produto</span>
-                <span>Qtd</span>
-                <span>Unitário</span>
-                <span>Desconto</span>
-                <span>Subtotal</span>
-                <span>Ações</span>
+            <div className="pdv-cart-table-clean">
+              <div className="pdv-cart-head-clean">
+                <span>Item</span>
+                <span>Cliente</span>
+                <span className="text-center">Quantidade</span>
+                <span className="text-right">Preço</span>
+                <span className="text-center"></span>
               </div>
 
               {cart.length === 0 ? (
                 <div className="pdv-empty-cart">
                   <ShoppingCart strokeWidth={1.8} />
                   <strong>Carrinho vazio</strong>
-                  <span>Busque um produto acima para adicionar ao carrinho.</span>
+                  <span>Busque um produto ao lado para adicionar ao carrinho.</span>
                 </div>
               ) : (
-                cart.map((item, index) => (
-                  <div className="pdv-cart-row pdv-cart-item" key={item.sku}>
-                    <span>{index + 1}</span>
-                    <span>
-                      <strong>{item.nome}</strong>
-                      <small>{item.sku}</small>
-                    </span>
-                    <span className="pdv-qty">
-                      <button type="button" onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: Math.max(1, row.qtd - 1) } : row)))}>-</button>
-                      <b>{item.qtd}</b>
-                      <button type="button" onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: row.qtd + 1 } : row)))}>+</button>
-                    </span>
-                    <span>{currency(item.preco)}</span>
-                    <span>{currency(descontoRateio.get(item.sku) ?? 0)}</span>
-                    <span>{currency(item.preco * item.qtd)}</span>
-                    <button type="button" onClick={() => setCart((prev) => prev.filter((row) => row.sku !== item.sku))} aria-label={`Remover ${item.nome}`}>
-                      <Trash2 strokeWidth={1.8} />
-                    </button>
+                cart.map((item) => (
+                  <div className="pdv-cart-row-clean" key={item.sku}>
+                    <div className="min-w-0 pr-2">
+                      <strong className="block font-semibold text-sm text-[var(--color-pdv-text)] truncate" title={item.nome}>
+                        {item.nome}
+                      </strong>
+                      <small className="block text-xs text-[var(--color-pdv-muted)] truncate">
+                        {item.sku}{item.categoria ? ` • ${item.categoria}` : ''}
+                      </small>
+                    </div>
+
+                    <div className="min-w-0">
+                      {cliente ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pdv-text)] bg-[var(--color-pdv-soft)] px-2.5 py-1 rounded-md border border-[var(--color-pdv-border-soft)] truncate max-w-full" title={cliente.nome}>
+                          <UserRound className="h-3 w-3 text-[var(--color-primary)] shrink-0" />
+                          <span className="truncate">{cliente.nome}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--color-pdv-muted)] italic">
+                          Consumidor
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                      <div className="pdv-qty-input-box">
+                        <button
+                          type="button"
+                          onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: Math.max(1, row.qtd - 1) } : row)))}
+                          title="Diminuir quantidade"
+                          aria-label="Diminuir quantidade"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={999}
+                          value={item.qtd}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: isNaN(val) || val < 1 ? 1 : val } : row)));
+                          }}
+                          aria-label="Quantidade"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: row.qtd + 1 } : row)))}
+                          title="Aumentar quantidade"
+                          aria-label="Aumentar quantidade"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <strong className="block text-sm font-bold text-[var(--color-pdv-text)]">
+                        {currency(item.preco * item.qtd)}
+                      </strong>
+                      {item.qtd > 1 && (
+                        <small className="block text-[11px] text-[var(--color-pdv-muted)]">
+                          {item.qtd}x {currency(item.preco)}
+                        </small>
+                      )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setCart((prev) => prev.filter((row) => row.sku !== item.sku))}
+                        aria-label={`Remover ${item.nome}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger-light)] hover:text-[var(--color-danger)] transition"
+                        title="Remover item"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.8} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -820,14 +878,6 @@ export default function PDV() {
           >
             <LockKeyhole strokeWidth={1.8} /> {criarOrdem.isPending ? 'Enviando...' : 'Finalizar'}
           </Button>
-
-          <div className="pdv-next-step">
-            <span />
-            <div>
-              <strong>Próximo passo</strong>
-              <p>Ao finalizar, a OS nasce em <mark>ORÇAMENTO</mark> e aparece na fila.</p>
-            </div>
-          </div>
 
           <div className="pdv-summary-actions">
             <Button variant="outline" className="gap-2" onClick={gerarPrevia}>
