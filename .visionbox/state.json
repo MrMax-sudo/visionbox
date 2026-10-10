@@ -1,7 +1,7 @@
 {
   "project": "VisionBox",
-  "version": "1.0.31-fix-full-viewport-height",
-  "updated_at": "2026-10-10T12:02:00-03:00",
+  "version": "1.0.32-prod-web-rebuilt",
+  "updated_at": "2026-10-10T12:12:00-03:00",
   "wave_in_progress": [
     "P1 BLOQUEADO (draft pronto p/ db-admin): migrations V3-V10 ausentes + V2 referencia perfil/usuario_loja/sequencia_numeracao/fn_next_sequencia inexistentes — draft em docs/p1-migrations-draft/ (V1_1 fundacao + V3 catalogo + V4 pedido_venda + V5 colunas OS); requer db-admin + Postgres real para validar flyway migrate/validate"
   ],
