@@ -214,3 +214,35 @@ h3 {
 /* Nota de acessibilidade:
    Os tons derivados foram ajustados para preservar contraste em textos e estados.
    Validar com ferramenta de contraste ao trocar qualquer cor. */
+
+
+/* ==========================================================================
+   ONDA 1 - Helpers de texto sobre cor (garantia light + dark)
+   Bloco ADICIONADO ao final; nao altera nenhuma regra legada acima.
+   Os hexos vivem somente no arquivo de tokens (R5).
+   Contraste: AA para texto de corpo sobre os fundos correspondentes.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+
+  --color-text-on-primary: #FFFFFF;    /* sobre --color-primary #6B4A32 */
+  --color-text-on-secondary: #FFFFFF;  /* sobre --color-secondary #5B7480 */
+  --color-text-on-action: #FFFFFF;     /* sobre --color-login-button (fixo nos 2 temas) */
+  --color-text-on-danger: #FFFFFF;     /* sobre --color-danger #D9564A */
+  --color-text-on-warning: #2F2114;    /* sobre --color-warning #B98534 (branco falharia no AA) */
+  --color-text-on-success: #FFFFFF;    /* sobre --color-success #6E7F6B */
+  --color-scrim: rgba(62, 44, 34, 0.45); /* véu de modal/sidebar (sobre superfícies claras) */
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* No dark os fundos de status ficam claros: texto escuro mantem o contraste */
+  --color-text-on-primary: #2A1C14;
+  --color-text-on-secondary: #1E2A30;
+  --color-text-on-action: #FFFFFF;     /* --color-login-button continua escuro */
+  --color-text-on-danger: #2A1C14;
+  --color-text-on-warning: #2A1C14;
+  --color-text-on-success: #1E2A16;
+  --color-scrim: rgba(0, 0, 0, 0.55);  /* véu de modal/sidebar (sobre superfícies escuras) */
+}

@@ -1,7 +1,19 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-10 — Fix crítico BeanCreationException no RastreioController (MeterRegistry via construtor) + Enforcement server-side alçada (P8) + Token rastreio US17. **232 testes verdes**
+> **Atualizado em:** 2026-10-11 — **Refator total do frontend concluído** (tema+UI kit+AppShell+14 telas+limpeza). `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
+
+## Fase 4 — Refator Total do Frontend (2026-10-11, em andamento)
+
+> **Objetivo:** eliminar `index.css` legado (1.038 linhas de hacks: zoom/altura fixa/`!important`), páginas monolíticas e 131 hex hard-coded. Nova base: Tailwind 1:1 nos tokens de `theme-visionbox.css`, UI kit shadcn/ui, AppShell com `h-dvh`. **Preservar** `lib/`, `stores/`, `App.tsx`, logo oficial e `login-optica.png`; demais assets antigos removidos na limpeza.
+
+| Onda | Escopo | Status | Evidência |
+|---|---|---|---|
+| Onda 1 | Tema + UI kit shadcn + AppShell | ✅ Concluída | `tailwind.config.ts` 1:1 nos tokens (darkMode selector), 20 componentes em `components/ui/`, `AppShell.tsx` (grid `h-dvh`, sidebar colapsável persistida, Toaster); typecheck+build verdes |
+| Onda 2 | 14 telas reescritas (5 agentes paralelos) | ✅ Concluída | Login (module.css 57/43), PDV (977→~400 + 8 componentes `components/pdv/`), Dashboard (595→277) + OSDetail (413→356 + 14 comp. `components/os/`), Clientes (765→355)/Receitas (907→201)/Catálogo (752→303 + `components/pessoas/` e `catalogo/`), Financeiro/Usuários/Config (`ConfiguracoesDialog` único plugado no AppShell + `components/financeiro/`), LabPortal/RastreioPortal/PainelDev (`components/portal/`); lógica de negócio e contratos API 1:1 |
+| Onda 3 | Limpeza e verificação | ✅ Concluída | `index.css` reduzido para base reset (1.226→48 linhas, zero classes legadas); assets: mantidos logos + `logo_.png` + `login-optica.png` + ícones PWA; removidos banners/referências antigas/produtos demo (referências substituídas por placeholder token); **grep hex = 0** fora do tema (R5); `typecheck` ✅ + `build` ✅ (1.65s, entry 238.47 kB / gzip 74.78 kB) |
+
+**Pendências sinalizadas:** `components/Layout.tsx` (antigo, não roteado) permanece no repo — não removido sem ordem explícita; `nextStatusByCurrent` do front diverge de `TransicaoOSRegistry` (backend) — requer alinhamento; impressão do DANFE sem isolamento `@media print` (fiscal-engineer).
 
 ## Fase 3.6 — Enforcement Alçada Server-Side & Rastreio US17 (2026-10-10)
 

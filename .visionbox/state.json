@@ -1,7 +1,14 @@
 {
   "project": "VisionBox",
-  "version": "1.0.32-prod-web-rebuilt",
-  "updated_at": "2026-10-10T12:12:00-03:00",
+  "version": "1.1.0-web-refactor",
+  "updated_at": "2026-10-11T00:00:00-03:00",
+  "web_refactor": {
+    "status": "waves_done_pending_visual_review",
+    "wave": 3,
+    "scope": "Reescrita total UI concluída: tema tokens + shadcn/ui kit + AppShell h-dvh + 14 telas; preserva lib/stores/App.tsx; index.css legado deletado (1226→48 linhas), hex=0 (R5), assets: só logos+login-optica+PWA icons",
+    "evidence": "typecheck EXIT 0 + npm run build 1.65s entry 238.47kB gzip 74.78kB; 5 agentes paralelos Onda 2; ConfiguracoesDialog plugado no AppShell",
+    "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE; validacao visual humana 100% zoom light/dark"
+  },
   "wave_in_progress": [
     "P1 BLOQUEADO (draft pronto p/ db-admin): migrations V3-V10 ausentes + V2 referencia perfil/usuario_loja/sequencia_numeracao/fn_next_sequencia inexistentes — draft em docs/p1-migrations-draft/ (V1_1 fundacao + V3 catalogo + V4 pedido_venda + V5 colunas OS); requer db-admin + Postgres real para validar flyway migrate/validate"
   ],

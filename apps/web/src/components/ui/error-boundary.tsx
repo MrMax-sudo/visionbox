@@ -22,10 +22,10 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
     return (
       <div className="flex min-h-[320px] items-center justify-center">
-        <div className="w-full max-w-lg rounded-[var(--radius-card)] border border-[var(--color-danger-light)] bg-[var(--color-bg-card)] p-6 text-center shadow-sm">
-          <AlertTriangle className="mx-auto h-8 w-8 text-[var(--color-danger)]" />
-          <h2 className="mt-3 text-base font-semibold text-[var(--color-text-primary)]">Não foi possível abrir esta tela</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{this.state.error.message || 'Erro inesperado na interface.'}</p>
+        <div className="w-full max-w-lg rounded-card border border-danger-light bg-card p-6 text-center shadow-sm">
+          <AlertTriangle className="mx-auto h-8 w-8 text-danger" />
+          <h2 className="mt-3 text-base font-semibold text-primary">Não foi possível abrir esta tela</h2>
+          <p className="mt-1 text-sm text-secondary">{this.state.error.message || 'Erro inesperado na interface.'}</p>
           <Button className="mt-4 gap-2" variant="outline" onClick={() => this.setState({ error: null })}>
             <RefreshCw className="h-4 w-4" /> Tentar novamente
           </Button>

@@ -1,0 +1,238 @@
+import * as React from 'react';
+import {
+  Banknote,
+  CreditCard,
+  FileText,
+  LockKeyhole,
+  MoreHorizontal,
+  Printer,
+  ReceiptText,
+  Wallet,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { currency, type DescontoTipo } from '@/components/pdv/pdvHelpers';
+
+function PixIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M12 3.4 8.7 6.7a2.6 2.6 0 0 0 0 3.7L12 13.7l3.3-3.3a2.6 2.6 0 0 0 0-3.7L12 3.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m5.6 9.8-2.2 2.2 2.2 2.2a2.6 2.6 0 0 0 3.7 0l2.7-2.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m18.4 9.8 2.2 2.2-2.2 2.2a2.6 2.6 0 0 1-3.7 0L12 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m12 13.7-3.3 3.3a2.6 2.6 0 0 0 0 3.7L12 23.6l3.3-2.9a2.6 2.6 0 0 0 0-3.7L12 13.7Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+type ResumoVendaPanelProps = {
+  subtotal: number;
+  desconto: number;
+  descontoTipo: DescontoTipo;
+  onDescontoTipo: (tipo: DescontoTipo) => void;
+  onDesconto: (valor: number) => void;
+  total: number;
+  troco: number;
+  valorRecebido: number;
+  onValorRecebido: (valor: number) => void;
+  formaPagamento: string;
+  onFormaPagamento: (forma: string) => void;
+  onFinalizar: () => void;
+  finalizando: boolean;
+  temItens: boolean;
+  onAbrirCaixa: () => void;
+  onOrcamento: () => void;
+  onMaisAcoes: () => void;
+  className?: string;
+};
+
+const METODOS: Array<{ label: string; icon: React.ElementType }> = [
+  { label: 'Dinheiro', icon: Banknote },
+  { label: 'Cartão', icon: CreditCard },
+  { label: 'PIX', icon: PixIcon },
+  { label: 'Outros', icon: MoreHorizontal },
+];
+
+/**
+ * Coluna 3 — resumo, desconto, forma de pagamento e o botão Finalizar (F8).
+ * Offline-first: o Finalizar só desabilita com carrinho vazio ou envio em curso;
+ * NUNCA por falta de rede (a venda cai no outbox local).
+ */
+export function ResumoVendaPanel({
+  subtotal,
+  desconto,
+  descontoTipo,
+  onDescontoTipo,
+  onDesconto,
+  total,
+  troco,
+  valorRecebido,
+  onValorRecebido,
+  formaPagamento,
+  onFormaPagamento,
+  onFinalizar,
+  finalizando,
+  temItens,
+  onAbrirCaixa,
+  onOrcamento,
+  onMaisAcoes,
+  className,
+}: ResumoVendaPanelProps) {
+  return (
+    <aside
+      className={cn(
+        'flex h-full min-h-0 flex-col overflow-y-auto rounded-card border border-[var(--color-pdv-border)] bg-card-soft p-4 shadow-soft',
+        className,
+      )}
+      aria-label="Resumo da venda"
+    >
+      <header className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-[var(--color-pdv-text)]">
+          <ReceiptText className="h-[18px] w-[18px] text-brand" strokeWidth={1.8} aria-hidden />
+          Resumo da venda
+        </h2>
+        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onAbrirCaixa}>
+          <Banknote className="h-3.5 w-3.5" /> Caixa
+        </Button>
+      </header>
+
+      {/* Totais */}
+      <div className="grid gap-2.5">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+          <span className="text-sm text-[var(--color-pdv-text)]">Subtotal</span>
+          <strong className="text-sm font-semibold text-[var(--color-pdv-text)]">{currency(subtotal)}</strong>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto_84px_auto_1fr] items-center gap-2">
+          <span className="text-sm text-[var(--color-pdv-text)]">Desconto</span>
+          <button
+            type="button"
+            aria-pressed={descontoTipo === 'percentual'}
+            onClick={() => onDescontoTipo('percentual')}
+            className={cn(
+              'h-8 rounded-md border px-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              descontoTipo === 'percentual'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)]',
+            )}
+            title="Desconto em percentual"
+          >
+            %
+          </button>
+          <Input
+            type="number"
+            min={0}
+            value={desconto}
+            onChange={(e) => onDesconto(Number(e.target.value) || 0)}
+            aria-label={descontoTipo === 'percentual' ? 'Desconto em percentual' : 'Desconto em reais'}
+            className="h-9 text-right text-sm"
+          />
+          <button
+            type="button"
+            aria-pressed={descontoTipo === 'valor'}
+            onClick={() => onDescontoTipo('valor')}
+            className={cn(
+              'h-8 rounded-md border px-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              descontoTipo === 'valor'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)]',
+            )}
+            title="Desconto em reais"
+          >
+            R$
+          </button>
+          <span aria-hidden />
+        </div>
+
+        <div className="mt-1 grid grid-cols-[1fr_auto] items-center gap-3 border-t border-[var(--color-pdv-border-soft)] pt-3">
+          <span className="text-lg font-bold text-[var(--color-pdv-text)]">Total</span>
+          <strong className="text-2xl font-bold text-[var(--color-pdv-text)]">{currency(total)}</strong>
+        </div>
+      </div>
+
+      {/* Pagamento */}
+      <section className="mt-4 border-t border-[var(--color-pdv-border-soft)] pt-3.5">
+        <h3 className="flex items-center gap-2 font-display text-sm font-bold text-[var(--color-pdv-text)]">
+          <Wallet className="h-4 w-4 text-brand" strokeWidth={1.8} aria-hidden />
+          Pagamento
+        </h3>
+
+        <div className="mt-2.5 grid grid-cols-4 gap-1" role="group" aria-label="Forma de pagamento">
+          {METODOS.map((method) => {
+            const ativa = formaPagamento === method.label;
+            return (
+              <button
+                key={method.label}
+                type="button"
+                aria-pressed={ativa}
+                onClick={() => onFormaPagamento(method.label)}
+                className={cn(
+                  'flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-[9px] border px-1 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                  ativa
+                    ? 'border-transparent bg-[var(--color-login-button)] text-[var(--color-text-on-action)]'
+                    : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
+                )}
+              >
+                <method.icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+                <span className="text-[11px] font-semibold leading-tight">{method.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <label htmlFor="pdv-valor-recebido" className="text-sm text-[var(--color-pdv-text)]">
+            Valor recebido
+          </label>
+          <Input
+            id="pdv-valor-recebido"
+            type="number"
+            min={0}
+            value={valorRecebido}
+            onChange={(e) => onValorRecebido(Number(e.target.value) || 0)}
+            aria-label="Valor recebido"
+            className="h-9 w-[140px] text-right text-sm"
+          />
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <span className="text-sm text-[var(--color-pdv-text)]">Troco</span>
+          <strong className="text-xl font-bold text-[var(--color-pdv-success)]">{currency(troco)}</strong>
+        </div>
+      </section>
+
+      {/* Finalizar — sempre disponível (F8 / offline-first) */}
+      <Button
+        id="pdv-finalizar"
+        onClick={onFinalizar}
+        disabled={!temItens || finalizando}
+        aria-busy={finalizando}
+        className={cn(
+          'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
+          'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
+          // mantém o visual "sempre ativo" mesmo com o carrinho vazio (aviso vem do banner)
+          'disabled:opacity-100',
+        )}
+      >
+        <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+        {finalizando ? 'Enviando...' : 'Finalizar'}
+      </Button>
+      <p className="mt-1.5 text-center text-[11px] text-muted">
+        Atalho <kbd className="rounded border border-border bg-page px-1 font-mono">F8</kbd> — funciona offline
+        (venda entra na fila).
+      </p>
+
+      <div className="mt-auto grid grid-cols-[1fr_1fr_44px] gap-2 pt-3">
+        <Button variant="outline" className="gap-1.5" onClick={onOrcamento}>
+          <FileText className="h-4 w-4" /> Orçamento
+        </Button>
+        <Button variant="outline" className="gap-1.5" onClick={onOrcamento}>
+          <Printer className="h-4 w-4" /> Imprimir
+        </Button>
+        <Button variant="outline" size="icon" aria-label="Mais ações" onClick={onMaisAcoes}>
+          <MoreHorizontal />
+        </Button>
+      </div>
+    </aside>
+  );
+}

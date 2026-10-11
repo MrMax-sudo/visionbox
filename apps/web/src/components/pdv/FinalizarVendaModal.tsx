@@ -4,6 +4,8 @@ import { CheckCircle2, AlertCircle, Plus, Trash2, Wallet } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { LoadingState } from '@/components/ui/loading-state';
 import { apiClient } from '@/lib/apiClient';
 
 export type FormaPagamentoDTO = {
@@ -43,6 +45,10 @@ function currency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/**
+ * Finalizar Venda (PDV) — ONDA 2A: só camada visual.
+ * Rateio de pagamentos, validação de saldo e contrato `onConfirmar` inalterados.
+ */
 export function FinalizarVendaModal({
   open,
   onClose,
@@ -112,7 +118,9 @@ export function FinalizarVendaModal({
 
   function trocarForma(index: number, formaId: string) {
     const forma = (formasQuery.data ?? []).find((f) => f.id === formaId);
-    setPagamentos((prev) => prev.map((p, i) => (i === index ? { ...p, formaId, formaNome: forma?.nome ?? p.formaNome } : p)));
+    setPagamentos((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, formaId, formaNome: forma?.nome ?? p.formaNome } : p)),
+    );
     setErro(null);
   }
 
@@ -143,36 +151,37 @@ export function FinalizarVendaModal({
       onClose={onClose}
       title="Finalizar Venda"
       description={`Cliente: ${clienteNome} — confirme as formas de pagamento antes de concluir.`}
+      className="max-w-[620px]"
     >
       <div className="space-y-4">
         {/* Resumo da venda */}
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-3 text-sm">
+        <div className="rounded-card border border-border bg-page p-3 text-sm">
           <div className="mb-2 flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-[var(--color-primary)]" />
-            <span className="font-semibold text-[var(--color-text-primary)]">Resumo</span>
+            <Wallet className="h-4 w-4 text-brand" aria-hidden />
+            <span className="font-semibold text-primary">Resumo</span>
           </div>
-          <div className="max-h-32 space-y-1 overflow-y-auto text-xs text-[var(--color-text-secondary)]">
+          <div className="max-h-32 space-y-1 overflow-y-auto text-xs text-secondary">
             {itens.map((item) => (
-              <div key={item.sku} className="flex justify-between">
+              <div key={item.sku} className="flex justify-between gap-2">
                 <span className="truncate">
                   {item.nome} × {item.qtd}
                 </span>
-                <span className="ml-2 shrink-0">{currency(item.preco * item.qtd)}</span>
+                <span className="shrink-0">{currency(item.preco * item.qtd)}</span>
               </div>
             ))}
           </div>
-          <div className="mt-2 space-y-1 border-t border-[var(--color-border)] pt-2 text-xs">
+          <div className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
             <div className="flex justify-between">
               <span>Subtotal</span>
               <span>{currency(subtotal)}</span>
             </div>
             {desconto > 0 && (
-              <div className="flex justify-between text-[var(--color-danger-dark)]">
+              <div className="flex justify-between text-danger-dark">
                 <span>Desconto</span>
                 <span>-{currency(desconto)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-bold text-[var(--color-text-primary)]">
+            <div className="flex justify-between text-sm font-bold text-primary">
               <span>Total</span>
               <span>{currency(total)}</span>
             </div>
@@ -182,30 +191,36 @@ export function FinalizarVendaModal({
         {/* Formas de pagamento */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-[var(--color-text-primary)]">
+            <span id="pdv-pagamentos-label" className="text-xs font-semibold text-primary">
               Formas de pagamento
-            </label>
-            <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={adicionarForma}>
-              <Plus className="h-3.5 w-3.5" /> Adicionar
+            </span>
+            <Button variant="outline" size="sm" className="gap-1" onClick={adicionarForma}>
+              <Plus className="h-3.5 w-3.5" aria-hidden /> Adicionar
             </Button>
           </div>
 
           {formasQuery.isLoading ? (
-            <div className="rounded-md bg-[var(--color-bg-page)] p-3 text-xs text-[var(--color-text-muted)]">
-              Carregando formas de pagamento...
+            <LoadingState compact title="Carregando formas de pagamento…" />
+          ) : formasQuery.isError ? (
+            <div
+              role="alert"
+              className="rounded-card border border-danger-light bg-danger-light px-3 py-2 text-xs text-danger-dark"
+            >
+              Não foi possível carregar as formas de pagamento. Verifique a conexão e reabra o
+              diálogo.
             </div>
           ) : pagamentos.length === 0 ? (
-            <div className="rounded-md bg-[var(--color-bg-page)] p-3 text-xs text-[var(--color-text-muted)]">
-              Nenhuma forma de pagamento selecionada.
-            </div>
+            <p className="rounded-card border border-dashed border-border px-3 py-3 text-center text-xs text-muted">
+              Nenhuma forma de pagamento selecionada. Clique em “Adicionar”.
+            </p>
           ) : (
             <div className="space-y-2">
               {pagamentos.map((pag, index) => (
                 <div key={`${pag.formaId}-${index}`} className="flex items-center gap-2">
-                  <select
+                  <Select
                     value={pag.formaId}
                     onChange={(e) => trocarForma(index, e.target.value)}
-                    className="min-w-0 flex-1 truncate rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    className="min-w-0 flex-1"
                     aria-label={`Forma de pagamento ${index + 1}`}
                   >
                     {(formasQuery.data ?? []).map((forma) => (
@@ -213,7 +228,7 @@ export function FinalizarVendaModal({
                         {forma.nome}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <Input
                     type="number"
                     min={0}
@@ -226,10 +241,10 @@ export function FinalizarVendaModal({
                   <button
                     type="button"
                     onClick={() => removerForma(index)}
-                    className="rounded-md p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-danger-light)] hover:text-[var(--color-danger-dark)]"
+                    className="rounded p-1.5 text-muted transition-colors hover:bg-danger-light hover:text-danger-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label={`Remover ${pag.formaNome}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden />
                   </button>
                 </div>
               ))}
@@ -239,13 +254,19 @@ export function FinalizarVendaModal({
           {/* Indicador de saldo */}
           {pagamentos.length > 0 && (
             <div
-              className={`flex items-center justify-between rounded-md px-3 py-2 text-xs font-semibold ${
-                saldoOk
-                  ? 'bg-[var(--color-success-light)] text-[var(--color-success-dark)]'
-                  : 'bg-[var(--color-warning-light)] text-[var(--color-warning-dark)]'
+              role="status"
+              aria-live="polite"
+              className={`flex items-center justify-between rounded px-3 py-2 text-xs font-semibold ${
+                saldoOk ? 'bg-success-light text-success-dark' : 'bg-warning-light text-warning-dark'
               }`}
             >
-              <span>{saldoOk ? 'Pagamento completo' : restante > 0 ? 'Restante a distribuir' : 'Excedente'}</span>
+              <span>
+                {saldoOk
+                  ? 'Pagamento completo'
+                  : restante > 0
+                    ? 'Restante a distribuir'
+                    : 'Excedente'}
+              </span>
               <span>{currency(Math.abs(restante))}</span>
             </div>
           )}
@@ -253,19 +274,22 @@ export function FinalizarVendaModal({
 
         {/* Erro */}
         {erro && (
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--color-danger-light)] p-2.5 text-xs text-[var(--color-danger-dark)]">
-            <AlertCircle className="h-4 w-4 shrink-0" />
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-card border border-danger-light bg-danger-light p-2.5 text-xs text-danger-dark"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             <span>{erro}</span>
           </div>
         )}
 
         {/* Ações */}
-        <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-3">
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
           <Button variant="outline" onClick={onClose} disabled={isPending}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleConfirmar} disabled={isPending} aria-busy={isPending}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
+          <Button onClick={handleConfirmar} disabled={isPending} aria-busy={isPending}>
+            <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden />
             {isPending ? 'Concluindo...' : 'Confirmar e Concluir'}
           </Button>
         </div>

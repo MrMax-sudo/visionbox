@@ -1,8 +1,9 @@
 import * as React from 'react';
-import { ShieldAlert, Lock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ShieldAlert, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Field } from '@/components/ui/field';
 import { apiPost, ApiError } from '@/lib/apiClient';
 
 interface AutorizacaoDescontoModalProps {
@@ -30,7 +31,7 @@ type AutorizacaoDescontoResponse = {
 };
 
 /**
- * Alçada de Desconto — P7.
+ * Alçada de Desconto — P7 (ONDA 2A: só camada visual).
  * A validação do PIN agora é feita NO BACKEND (endpoint autenticado com rate-limit),
  * nunca mais contra lista local hardcoded (D-007). O backend identifica o
  * GERENTE/ADMIN que autorizou e devolve o nome para o comprovante.
@@ -90,7 +91,9 @@ export function AutorizacaoDescontoModal({
       const apiErr = err as ApiError;
       if (!apiErr.status) {
         // sem rede: alçada NÃO é validada offline (exigiria PIN local — proibido, D-010)
-        setErro('Sem conexão com o servidor. A autorização de desconto exige validação online (PIN gerencial).');
+        setErro(
+          'Sem conexão com o servidor. A autorização de desconto exige validação online (PIN gerencial).',
+        );
       } else {
         // 429 (rate-limit) e 400 de validação vêm como ProblemDetail (RFC 7807)
         setErro(apiErr.problem?.detail || apiErr.message || 'Falha ao processar a autorização.');
@@ -106,60 +109,73 @@ export function AutorizacaoDescontoModal({
       onClose={onClose}
       title="Alçada de Desconto Excedida"
       description="Descontos acima de 15% exigem autorização expressa do gerente ou supervisor de loja."
+      className="max-w-[480px]"
     >
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-lg bg-[var(--color-warning-light)] p-3 text-xs text-[var(--color-warning-dark)] border border-[var(--color-warning)]">
-          <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-card border border-warning bg-warning-light p-3 text-xs text-warning-dark">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div className="space-y-1">
-            <p className="font-semibold">Solicitação de Desconto Especial ({percentualDesconto.toFixed(1)}%)</p>
-            <p className="text-[11px] text-[var(--color-text-secondary)]">
-              Subtotal: <b>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b> •
-              Desconto: <b className="text-[var(--color-danger-dark)]">{valorDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</b>
+            <p className="font-semibold">
+              Solicitação de Desconto Especial ({percentualDesconto.toFixed(1)}%)
             </p>
-            <p className="text-[11px] text-[var(--color-text-secondary)]">
-              A autorização é validada no servidor e registrada em auditoria (quem autorizou, quando e %).
+            <p className="text-[11px] text-secondary">
+              Subtotal:{' '}
+              <b>
+                {subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </b>{' '}
+              • Desconto:{' '}
+              <b className="text-danger-dark">
+                {valorDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </b>
+            </p>
+            <p className="text-[11px] text-secondary">
+              A autorização é validada no servidor e registrada em auditoria (quem autorizou,
+              quando e %).
             </p>
           </div>
         </div>
 
-        {erro && (
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--color-danger-light)] p-2.5 text-xs text-[var(--color-danger-dark)]">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{erro}</span>
-          </div>
-        )}
+        <Field
+          label="Senha de Autorização (Gerente/Admin)"
+          id="pdv-autorizacao-pin"
+          error={erro}
+          hint="Digite e pressione Enter para validar."
+        >
+          {(ctrl) => (
+            <div className="relative">
+              <Lock
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                aria-hidden
+              />
+              <Input
+                {...ctrl}
+                type="password"
+                value={senha}
+                onChange={(e) => {
+                  setSenha(e.target.value);
+                  setErro(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConfirmar();
+                }}
+                placeholder="Digite o PIN gerencial"
+                className="pl-9"
+                autoFocus
+                disabled={isLoading}
+              />
+            </div>
+          )}
+        </Field>
 
-        <div>
-          <label className="text-xs font-semibold text-[var(--color-text-primary)]">Senha de Autorização (Gerente/Admin)</label>
-          <div className="relative mt-1">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
-            <Input
-              type="password"
-              value={senha}
-              onChange={(e) => {
-                setSenha(e.target.value);
-                setErro(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleConfirmar();
-              }}
-              placeholder="Digite o PIN gerencial"
-              className="pl-9"
-              autoFocus
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar Desconto
           </Button>
-          <Button variant="primary" onClick={handleConfirmar} disabled={isLoading}>
+          <Button onClick={handleConfirmar} disabled={isLoading} aria-busy={isLoading}>
             {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
             ) : (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
+              <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden />
             )}
             {isLoading ? 'Validando...' : 'Autorizar e Concluir'}
           </Button>

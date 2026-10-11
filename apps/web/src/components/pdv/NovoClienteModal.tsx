@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Field } from '@/components/ui/field';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { isValidCPF, maskCPF, maskTelefone, unmask } from '@/lib/masks';
 import type { ClienteDTO } from '@/lib/types';
@@ -19,11 +20,17 @@ type NovoClienteModalProps = {
 
 function apiErrorMessage(err: unknown): string {
   const apiErr = err as ApiError;
-  const detail = apiErr.problem?.detail || apiErr.problem?.title || apiErr.message || 'Falha ao cadastrar cliente.';
+  const detail =
+    apiErr.problem?.detail || apiErr.problem?.title || apiErr.message || 'Falha ao cadastrar cliente.';
   const fieldErrors = apiErr.problem?.errors?.map((e) => `${e.field}: ${e.message}`).join(' • ');
   return fieldErrors ? `${detail} — ${fieldErrors}` : detail;
 }
 
+/**
+ * Novo Cliente (PDV) — ONDA 2A: só camada visual (Field + tokens).
+ * Validação client-side, mascaramento e mutação inalterados (R2: CPF só chega
+ * cifrado ao backend; aqui apenas máscara de digitação).
+ */
 export function NovoClienteModal({ open, onClose, onSelecionado, onFeedback }: NovoClienteModalProps) {
   const queryClient = useQueryClient();
   const [nome, setNome] = React.useState('');
@@ -59,7 +66,10 @@ export function NovoClienteModal({ open, onClose, onSelecionado, onFeedback }: N
     onSuccess: async (cliente) => {
       await queryClient.invalidateQueries({ queryKey: ['pdv-clientes'] });
       onSelecionado(cliente);
-      onFeedback({ tone: 'success', msg: `Cliente ${cliente.nome} cadastrado e selecionado na venda.` });
+      onFeedback({
+        tone: 'success',
+        msg: `Cliente ${cliente.nome} cadastrado e selecionado na venda.`,
+      });
       onClose();
     },
     onError: (err: unknown) => {
@@ -87,6 +97,7 @@ export function NovoClienteModal({ open, onClose, onSelecionado, onFeedback }: N
       onClose={onClose}
       title="Novo cliente"
       description="Cadastro rápido para esta venda. CPF e telefone são opcionais, mas ajudam na emissão da NFC-e."
+      className="max-w-[560px]"
     >
       <form
         className="space-y-4"
@@ -102,69 +113,68 @@ export function NovoClienteModal({ open, onClose, onSelecionado, onFeedback }: N
         }}
       >
         {erro && (
-          <div role="alert" className="rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
-            {erro}
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-card border border-danger-light bg-danger-light px-3 py-2 text-sm text-danger-dark"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span className="min-w-0">{erro}</span>
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="pdv-cliente-nome">
-              Nome <span className="text-[var(--color-danger)]">*</span>
-            </Label>
+          <Field
+            label="Nome"
+            id="pdv-cliente-nome"
+            required
+            className="md:col-span-2"
+            error={!!erro && nome.trim().length < 2 ? 'Nome é obrigatório.' : undefined}
+          >
             <Input
-              id="pdv-cliente-nome"
               autoFocus
               autoComplete="off"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Nome completo"
-              aria-invalid={!!erro && nome.trim().length < 2}
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="pdv-cliente-cpf">CPF</Label>
+          <Field label="CPF" id="pdv-cliente-cpf" hint="Opcional">
             <Input
-              id="pdv-cliente-cpf"
               inputMode="numeric"
               autoComplete="off"
               value={cpf}
               onChange={(e) => setCpf(maskCPF(e.target.value))}
               placeholder="000.000.000-00"
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="pdv-cliente-telefone">Telefone / WhatsApp</Label>
+          <Field label="Telefone / WhatsApp" id="pdv-cliente-telefone" hint="Opcional">
             <Input
-              id="pdv-cliente-telefone"
               inputMode="tel"
               autoComplete="off"
               value={telefone}
               onChange={(e) => setTelefone(maskTelefone(e.target.value))}
               placeholder="(00) 00000-0000"
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="pdv-cliente-email">E-mail</Label>
+          <Field label="E-mail" id="pdv-cliente-email" className="md:col-span-2" hint="Opcional">
             <Input
-              id="pdv-cliente-email"
               type="email"
               autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="cliente@exemplo.com"
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-2">
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
           <Button type="button" variant="outline" onClick={onClose} disabled={criarCliente.isPending}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={criarCliente.isPending}>
+          <Button type="submit" disabled={criarCliente.isPending} aria-busy={criarCliente.isPending}>
             {criarCliente.isPending ? 'Salvando...' : 'Salvar e usar na venda'}
           </Button>
         </div>

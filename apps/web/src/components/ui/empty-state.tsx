@@ -14,12 +14,12 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] px-6 py-12 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)]">
+    <div className="rounded-card border border-dashed border-border bg-card px-6 py-12 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-brand">
         <Icon className="h-6 w-6" aria-hidden />
       </div>
-      <h3 className="mt-4 text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
-      <p className="mx-auto mt-1 max-w-sm text-sm text-[var(--color-text-secondary)]">{description}</p>
+      <h3 className="mt-4 text-sm font-semibold text-primary">{title}</h3>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-secondary">{description}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );

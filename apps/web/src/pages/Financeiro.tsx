@@ -1,95 +1,84 @@
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, RefreshCw, Wallet, TrendingUp, ReceiptText, Banknote, XCircle, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import {
+  AlertTriangle,
+  Banknote,
+  CreditCard,
+  ReceiptText,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+import { ControleCaixaModal } from '@/components/caixa/ControleCaixaModal';
+import { ContasTable } from '@/components/financeiro/ContasTable';
+import { DrePanel } from '@/components/financeiro/DrePanel';
+import { FinanceiroFilters } from '@/components/financeiro/FinanceiroFilters';
+import { MetricCard } from '@/components/financeiro/MetricCard';
+import {
+  actionErrorMessage,
+  dataBR,
+  isVencida,
+  money,
+  noPeriodo,
+  somarSaldo,
+  type AbaFinanceiro,
+  type AcaoConta,
+  type ContaPagarDTO,
+  type ContaReceberDTO,
+  type DreDTO,
+  type TipoConta,
+} from '@/components/financeiro/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
-import { Skeleton } from '@/components/ui/skeleton';
-import { apiClient, ApiError } from '@/lib/apiClient';
-import type { PageResponse } from '@/lib/types';
-import { unwrapPage } from '@/lib/types';
-import { ControleCaixaModal } from '@/components/caixa/ControleCaixaModal';
+import { InlineLoading } from '@/components/ui/loading-state';
 import { OfflineBanner } from '@/components/ui/offline-banner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
+import { apiClient } from '@/lib/apiClient';
+import { unwrapPage, type PageResponse } from '@/lib/types';
 
-type ContaReceberDTO = {
-  id: string;
-  descricao?: string;
-  numeroDocumento?: string;
-  valor?: number;
-  valorPago?: number;
-  saldo?: number;
-  vencimento?: string;
-  status?: string;
-  vencida?: boolean;
-  parcela?: number;
-  totalParcelas?: number;
-};
+/** Pageable do backend: página única ampla para totais e filtro de período. */
+const PAGE_SIZE = 100;
 
-type ContaPagarDTO = ContaReceberDTO & {
-  fornecedor?: string;
-};
-
-type DreDTO = {
-  receita?: number;
-  custo?: number;
-  comissao?: number;
-  dre?: number;
-  margemPercentual?: number;
-  totalContasReceber?: number;
-  totalContasPagar?: number;
-};
-
-function money(value?: number) {
-  return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-/** Mensagem da falha de baixar/cancelar — prioriza problem.detail (RFC 7807). */
-function actionErrorMessage(err: unknown): string {
-  if (err instanceof ApiError) {
-    const p = err.problem;
-    const fieldErrors =
-      p?.errors && p.errors.length > 0 ? p.errors.map((fe) => `${fe.field}: ${fe.message}`).join(' • ') : '';
-    return p?.detail || p?.message || fieldErrors || err.message || 'Falha na operação financeira.';
-  }
-  if (err instanceof Error && err.message) return err.message;
-  return 'Falha na operação financeira.';
-}
-
-function MetricCard({ label, value, sub, icon: Icon, tone }: { label: string; value: string; sub: string; icon: React.ElementType; tone: 'info' | 'success' | 'warning' | 'danger' }) {
-  const toneClass = {
-    info: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
-    success: 'bg-[var(--color-success-light)] text-[var(--color-success-dark)]',
-    warning: 'bg-[var(--color-warning-light)] text-[var(--color-warning-dark)]',
-    danger: 'bg-[var(--color-danger-light)] text-[var(--color-danger-dark)]',
-  }[tone];
-
+function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-4">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-[var(--radius)] ${toneClass}`}>
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs text-[var(--color-text-secondary)]">{label}</p>
-          <p className="text-xl font-semibold text-[var(--color-text-primary)]">{value}</p>
-          <p className="text-xs text-[var(--color-text-muted)]">{sub}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <span className="ml-1.5 rounded-full bg-page px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-secondary">
+      {children}
+    </span>
   );
 }
 
+/**
+ * Financeiro — ONDA 2D.
+ *
+ * Mesma lógica da tela legada (contas a receber/pagar, DRE, crediário, baixa e
+ * cancelamento), reescrita com o UI kit + tokens. Endpoints inalterados:
+ *   GET  /v1/financeiro/contas-{receber|pagar}  (page/size/status)
+ *   GET  /v1/financeiro/dre/mes-atual           (métricas)
+ *   GET  /v1/financeiro/dre?inicio&fim          (aba DRE por período)
+ *   POST /v1/financeiro/contas-{receber|pagar}/{id}/{baixar|cancelar}
+ */
 export default function Financeiro() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = React.useState<'receber' | 'pagar'>('receber');
+  const { toast } = useToast();
+
+  const [tab, setTab] = React.useState<AbaFinanceiro>('receber');
   const [caixaOpen, setCaixaOpen] = React.useState(false);
+  const [status, setStatus] = React.useState('');
+  const [de, setDe] = React.useState('');
+  const [ate, setAte] = React.useState('');
+
+  /* ----------------------------- Queries ----------------------------- */
+
   const contasQuery = useQuery({
-    queryKey: ['financeiro-contas-receber'],
+    queryKey: ['financeiro', 'contas-receber', status],
     queryFn: async () => {
-      const res = await apiClient.get<PageResponse<ContaReceberDTO> | ContaReceberDTO[]>('/v1/financeiro/contas-receber', {
-        params: { page: 0, size: 10 },
-      });
+      const res = await apiClient.get<PageResponse<ContaReceberDTO> | ContaReceberDTO[]>(
+        '/v1/financeiro/contas-receber',
+        { params: { page: 0, size: PAGE_SIZE, ...(status ? { status } : {}) } },
+      );
       return res.data;
     },
     staleTime: 30_000,
@@ -97,11 +86,12 @@ export default function Financeiro() {
   });
 
   const contasPagarQuery = useQuery({
-    queryKey: ['financeiro-contas-pagar'],
+    queryKey: ['financeiro', 'contas-pagar', status],
     queryFn: async () => {
-      const res = await apiClient.get<PageResponse<ContaPagarDTO> | ContaPagarDTO[]>('/v1/financeiro/contas-pagar', {
-        params: { page: 0, size: 10 },
-      });
+      const res = await apiClient.get<PageResponse<ContaPagarDTO> | ContaPagarDTO[]>(
+        '/v1/financeiro/contas-pagar',
+        { params: { page: 0, size: PAGE_SIZE, ...(status ? { status } : {}) } },
+      );
       return res.data;
     },
     staleTime: 30_000,
@@ -109,7 +99,7 @@ export default function Financeiro() {
   });
 
   const dreQuery = useQuery({
-    queryKey: ['financeiro-dre-mes-atual'],
+    queryKey: ['financeiro', 'dre', 'mes-atual'],
     queryFn: async () => {
       const res = await apiClient.get<DreDTO>('/v1/financeiro/dre/mes-atual');
       return res.data;
@@ -118,247 +108,298 @@ export default function Financeiro() {
     retry: 1,
   });
 
+  const periodoOk = Boolean(de && ate && ate >= de);
+  const periodoInvalido = Boolean(de && ate && ate < de);
+
+  // DRE por período do filtro superior (contrato GET /dre?inicio=&fim=)
+  const drePeriodoQuery = useQuery({
+    queryKey: ['financeiro', 'dre', 'periodo', de, ate],
+    queryFn: async () => {
+      const res = await apiClient.get<DreDTO>('/v1/financeiro/dre', {
+        params: { inicio: de, fim: ate },
+      });
+      return res.data;
+    },
+    enabled: tab === 'dre' && periodoOk,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  /* --------------------------- Derivados ----------------------------- */
+
   const contas = React.useMemo(() => unwrapPage(contasQuery.data), [contasQuery.data]);
   const contasPagar = React.useMemo(() => unwrapPage(contasPagarQuery.data), [contasPagarQuery.data]);
+
+  const receberVisiveis = React.useMemo(
+    () => contas.filter((c) => noPeriodo(c.vencimento, de, ate)),
+    [contas, de, ate],
+  );
+  const pagarVisiveis = React.useMemo(
+    () => contasPagar.filter((c) => noPeriodo(c.vencimento, de, ate)),
+    [contasPagar, de, ate],
+  );
+
+  const vencidas = receberVisiveis.filter(isVencida);
+  const pagarVencidas = pagarVisiveis.filter(isVencida);
+  const crediarioVisiveis = receberVisiveis.filter((c) => (c.totalParcelas ?? 1) > 1);
+
+  const aberto = somarSaldo(receberVisiveis);
+  const pagarAberto = somarSaldo(pagarVisiveis);
   const dre = dreQuery.data;
-  const vencidas = contas.filter((c) => c.vencida || c.status === 'VENCIDA');
-  const pagarVencidas = contasPagar.filter((c) => c.vencida || c.status === 'VENCIDA');
-  const aberto = contas.reduce((sum, c) => sum + (c.saldo ?? c.valor ?? 0), 0);
-  const pagarAberto = contasPagar.reduce((sum, c) => sum + (c.saldo ?? c.valor ?? 0), 0);
-  const crediario = contas.filter((c) => (c.totalParcelas ?? 1) > 1);
+
   const loading = contasQuery.isLoading || contasPagarQuery.isLoading || dreQuery.isLoading;
   const error = contasQuery.error ?? contasPagarQuery.error ?? dreQuery.error;
 
-  const [actionError, setActionError] = React.useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
+  const buscando =
+    contasQuery.isFetching ||
+    contasPagarQuery.isFetching ||
+    dreQuery.isFetching ||
+    drePeriodoQuery.isFetching;
 
-  React.useEffect(() => {
-    if (!actionSuccess) return;
-    const id = window.setTimeout(() => setActionSuccess(null), 5000);
-    return () => window.clearTimeout(id);
-  }, [actionSuccess]);
+  const periodoLabel = periodoOk ? `${dataBR(de)} a ${dataBR(ate)}` : 'Mês atual';
+  const dreEfetivo = periodoOk ? (drePeriodoQuery.data ?? undefined) : dre;
+
+  /* ---------------------------- Ações -------------------------------- */
+
+  const atualizar = () => {
+    contasQuery.refetch();
+    contasPagarQuery.refetch();
+    dreQuery.refetch();
+    if (periodoOk) drePeriodoQuery.refetch();
+  };
 
   const financeiroMutation = useMutation({
-    mutationFn: async ({ tipo, id, action }: { tipo: 'receber' | 'pagar'; id: string; action: 'baixar' | 'cancelar' }) => {
+    mutationFn: async ({
+      tipo,
+      id,
+      action,
+    }: {
+      tipo: TipoConta;
+      id: string;
+      action: AcaoConta;
+    }) => {
+      // POST /v1/financeiro/contas-{receber|pagar}/{id}/{baixar|cancelar}
       const base = tipo === 'receber' ? 'contas-receber' : 'contas-pagar';
-      // POST /v1/financeiro/contas-{receber|pagar}/{id}/{baixar|cancelar} — ContaReceber/ContaPagarController
       await apiClient.post(`/v1/financeiro/${base}/${id}/${action}`);
     },
-    onMutate: () => {
-      setActionError(null);
-      setActionSuccess(null);
-    },
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['financeiro-contas-receber'] });
-      queryClient.invalidateQueries({ queryKey: ['financeiro-contas-pagar'] });
-      queryClient.invalidateQueries({ queryKey: ['financeiro-dre-mes-atual'] });
-      setActionSuccess(vars.action === 'baixar' ? 'Título baixado com sucesso.' : 'Título cancelado com sucesso.');
+      queryClient.invalidateQueries({ queryKey: ['financeiro'] });
+      toast({
+        variant: 'success',
+        title: vars.action === 'baixar' ? 'Título baixado' : 'Título cancelado',
+        description:
+          vars.action === 'baixar'
+            ? 'A baixa foi registrada e os totais foram atualizados.'
+            : 'O título foi cancelado e saiu dos totais em aberto.',
+      });
     },
     onError: (err) => {
-      setActionError(actionErrorMessage(err));
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível concluir',
+        description: actionErrorMessage(err),
+      });
     },
   });
 
-  const tableRows = tab === 'receber' ? contas : contasPagar;
+  const executarAcao = (tipo: TipoConta) => (id: string, action: AcaoConta) =>
+    financeiroMutation.mutate({ tipo, id, action });
+
+  const limparFiltros = () => {
+    setStatus('');
+    setDe('');
+    setAte('');
+  };
+
+  /* ---------------------------- Render ------------------------------- */
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Financeiro</h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">Contas a receber, vencidos e resultado do mês.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCaixaOpen(true)}
-            className="gap-2"
-          >
-            <Banknote className="h-4 w-4 text-[var(--color-success)]" />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-sm text-secondary">
+          Contas a receber e a pagar, crediário e DRE da loja — com baixa e cancelamento de
+          título direto na linha.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {buscando && <InlineLoading label="Atualizando…" />}
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setCaixaOpen(true)}>
+            <Banknote className="h-4 w-4 text-success" aria-hidden />
             Controle de Caixa
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              contasQuery.refetch();
-              contasPagarQuery.refetch();
-              dreQuery.refetch();
-            }}
-            disabled={contasQuery.isFetching || contasPagarQuery.isFetching || dreQuery.isFetching}
+            className="gap-2"
+            onClick={atualizar}
+            disabled={buscando}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${contasQuery.isFetching || contasPagarQuery.isFetching || dreQuery.isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${buscando ? 'animate-spin' : ''}`} aria-hidden />
             Atualizar
           </Button>
         </div>
       </div>
 
+      <FinanceiroFilters
+        status={status}
+        onStatus={setStatus}
+        de={de}
+        ate={ate}
+        onDe={setDe}
+        onAte={setAte}
+        onLimpar={limparFiltros}
+      />
+
       <OfflineBanner />
 
       {financeiroMutation.isPending && (
-        <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Processando título…
-        </p>
-      )}
-
-      {actionError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            aria-label="Fechar aviso de erro"
-            className="shrink-0 rounded p-0.5 hover:bg-[var(--color-bg-card)]"
-          >
-            <XCircle className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {actionSuccess && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--color-success-light)] bg-[var(--color-success-light)] px-3 py-2 text-sm text-[var(--color-success-dark)]"
-        >
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{actionSuccess}</span>
-          <button
-            type="button"
-            onClick={() => setActionSuccess(null)}
-            aria-label="Fechar aviso de sucesso"
-            className="shrink-0 rounded p-0.5 hover:bg-[var(--color-bg-card)]"
-          >
-            <XCircle className="h-4 w-4" />
-          </button>
-        </div>
+        <InlineLoading label="Processando título…" />
       )}
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <Skeleton className="h-72 w-full" />
         </div>
       ) : error ? (
-        <ErrorState error={error as ApiError} onRetry={() => { contasQuery.refetch(); contasPagarQuery.refetch(); dreQuery.refetch(); }} />
+        <ErrorState error={error} onRetry={atualizar} />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
-            <MetricCard label="A receber" value={money(aberto)} sub={`${contas.length} títulos recentes`} icon={Wallet} tone="info" />
-            <MetricCard label="Vencidos" value={money(vencidas.reduce((sum, c) => sum + (c.saldo ?? c.valor ?? 0), 0))} sub={`${vencidas.length} títulos`} icon={AlertTriangle} tone={vencidas.length > 0 ? 'danger' : 'success'} />
-            <MetricCard label="A pagar" value={money(pagarAberto)} sub={`${contasPagar.length} títulos • ${pagarVencidas.length} vencidos`} icon={Banknote} tone={pagarVencidas.length > 0 ? 'warning' : 'info'} />
-            <MetricCard label="Resultado do mês" value={money(dre?.dre)} sub={`Margem ${(dre?.margemPercentual ?? 0).toFixed(1)}%`} icon={TrendingUp} tone={(dre?.dre ?? 0) >= 0 ? 'success' : 'warning'} />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-[var(--color-text-secondary)]">Crediário</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{money(crediario.reduce((sum, c) => sum + (c.saldo ?? c.valor ?? 0), 0))}</p>
-                <p className="text-xs text-[var(--color-text-muted)]">{crediario.length} parcelas em carteira</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-[var(--color-text-secondary)]">Receita bruta</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{money(dre?.receita)}</p>
-                <p className="text-xs text-[var(--color-text-muted)]">{dre?.totalContasReceber ?? contas.length} contas consideradas</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-[var(--color-text-secondary)]">Custos + comissão</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{money((dre?.custo ?? 0) + (dre?.comissao ?? 0))}</p>
-                <p className="text-xs text-[var(--color-text-muted)]">{dre?.totalContasPagar ?? contasPagar.length} contas a pagar no DRE</p>
-              </CardContent>
-            </Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="A receber"
+              value={money(aberto)}
+              sub={`${receberVisiveis.length} títulos em aberto`}
+              icon={Wallet}
+              tone="info"
+            />
+            <MetricCard
+              label="Vencidos"
+              value={money(somarSaldo(vencidas))}
+              sub={`${vencidas.length} título${vencidas.length === 1 ? '' : 's'}`}
+              icon={AlertTriangle}
+              tone={vencidas.length > 0 ? 'danger' : 'success'}
+            />
+            <MetricCard
+              label="A pagar"
+              value={money(pagarAberto)}
+              sub={`${pagarVisiveis.length} títulos • ${pagarVencidas.length} vencidos`}
+              icon={Banknote}
+              tone={pagarVencidas.length > 0 ? 'warning' : 'info'}
+            />
+            <MetricCard
+              label="Resultado do mês"
+              value={money(dre?.dre)}
+              sub={`Margem ${(dre?.margemPercentual ?? 0).toFixed(1)}%`}
+              icon={TrendingUp}
+              tone={(dre?.dre ?? 0) >= 0 ? 'success' : 'warning'}
+            />
           </div>
 
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <ReceiptText className="h-4 w-4" /> Financeiro operacional
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+              <CardTitle className="flex items-center gap-2">
+                <ReceiptText className="h-4 w-4" aria-hidden />
+                Títulos e resultado
               </CardTitle>
-              <div className="flex gap-1 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] p-1">
-                <button className={`rounded px-3 py-1 text-xs font-medium ${tab === 'receber' ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]' : 'text-[var(--color-text-secondary)]'}`} onClick={() => setTab('receber')}>Receber</button>
-                <button className={`rounded px-3 py-1 text-xs font-medium ${tab === 'pagar' ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]' : 'text-[var(--color-text-secondary)]'}`} onClick={() => setTab('pagar')}>Pagar</button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {tableRows.length === 0 ? (
-                <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
-                  Nenhum título {tab === 'receber' ? 'a receber' : 'a pagar'} para esta loja.
+              {periodoInvalido && (
+                <p role="alert" className="text-xs font-medium text-danger-dark">
+                  Período inválido: “até” anterior a “de”.
                 </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="border-y border-[var(--color-border)] bg-[var(--color-bg-page)] text-xs text-[var(--color-text-secondary)]">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">Descrição</th>
-                        <th className="px-3 py-2 text-left font-medium">Vencimento</th>
-                        <th className="px-3 py-2 text-right font-medium">Saldo</th>
-                        <th className="px-3 py-2 text-left font-medium">Status</th>
-                        <th className="px-3 py-2 text-right font-medium">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--color-border)]">
-                      {tableRows.map((conta) => (
-                        <tr key={conta.id}>
-                          <td className="px-3 py-2.5 text-[var(--color-text-primary)]">
-                            {(conta as ContaPagarDTO).fornecedor ? `${(conta as ContaPagarDTO).fornecedor} • ` : ''}{conta.descricao ?? conta.numeroDocumento ?? conta.id}
-                            {(conta.totalParcelas ?? 1) > 1 && <span className="ml-2 text-xs text-[var(--color-text-muted)]">Parc. {conta.parcela}/{conta.totalParcelas}</span>}
-                          </td>
-                          <td className="px-3 py-2.5 text-[var(--color-text-secondary)]">{conta.vencimento ? new Date(conta.vencimento).toLocaleDateString('pt-BR') : '-'}</td>
-                          <td className="px-3 py-2.5 text-right font-medium text-[var(--color-text-primary)]">{money(conta.saldo ?? conta.valor)}</td>
-                          <td className="px-3 py-2.5">
-                            <Badge variant={conta.vencida || conta.status === 'VENCIDA' ? 'danger' : 'outline'}>{conta.status ?? 'ABERTO'}</Badge>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-[var(--color-success-dark)]"
-                                aria-label="Baixar título"
-                                disabled={financeiroMutation.isPending || conta.status === 'PAGO'}
-                                onClick={() => financeiroMutation.mutate({ tipo: tab, id: conta.id, action: 'baixar' })}
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-[var(--color-danger)]"
-                                aria-label="Cancelar título"
-                                disabled={financeiroMutation.isPending || conta.status === 'CANCELADO'}
-                                onClick={() => financeiroMutation.mutate({ tipo: tab, id: conta.id, action: 'cancelar' })}
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               )}
+            </CardHeader>
+
+            <CardContent>
+              <Tabs value={tab} onValueChange={(v) => setTab(v as AbaFinanceiro)}>
+                <TabsList className="mb-3 flex-wrap">
+                  <TabsTrigger value="receber">
+                    Receber<Chip>{receberVisiveis.length}</Chip>
+                  </TabsTrigger>
+                  <TabsTrigger value="pagar">
+                    Pagar<Chip>{pagarVisiveis.length}</Chip>
+                  </TabsTrigger>
+                  <TabsTrigger value="crediario">
+                    Crediário<Chip>{crediarioVisiveis.length}</Chip>
+                  </TabsTrigger>
+                  <TabsTrigger value="dre">DRE</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="receber" className="mt-0">
+                  <ContasTable
+                    contas={receberVisiveis}
+                    tipo="receber"
+                    ocupado={financeiroMutation.isPending}
+                    onAcao={executarAcao('receber')}
+                    emptyDescription="Nenhum título a receber com os filtros atuais. Ajuste o período ou o status."
+                  />
+                </TabsContent>
+
+                <TabsContent value="pagar" className="mt-0">
+                  <ContasTable
+                    contas={pagarVisiveis}
+                    tipo="pagar"
+                    ocupado={financeiroMutation.isPending}
+                    onAcao={executarAcao('pagar')}
+                    emptyDescription="Nenhum título a pagar com os filtros atuais. Ajuste o período ou o status."
+                  />
+                </TabsContent>
+
+                <TabsContent value="crediario" className="mt-0">
+                  <div className="mb-3 grid gap-3 sm:grid-cols-3">
+                    <MetricCard
+                      label="Em carteira"
+                      value={money(somarSaldo(crediarioVisiveis))}
+                      sub={`${crediarioVisiveis.length} parcelas`}
+                      icon={CreditCard}
+                      tone="info"
+                    />
+                    <MetricCard
+                      label="Parcelas vencidas"
+                      value={String(crediarioVisiveis.filter(isVencida).length)}
+                      sub="Vencidas no período filtrado"
+                      icon={AlertTriangle}
+                      tone={
+                        crediarioVisiveis.some(isVencida) ? 'danger' : 'success'
+                      }
+                    />
+                    <MetricCard
+                      label="Títulos parcelados"
+                      value={String(receberVisiveis.filter((c) => (c.totalParcelas ?? 1) > 1).length)}
+                      sub="Considerando todos os títulos do filtro"
+                      icon={ReceiptText}
+                      tone="warning"
+                    />
+                  </div>
+                  <ContasTable
+                    contas={crediarioVisiveis}
+                    tipo="receber"
+                    ocupado={financeiroMutation.isPending}
+                    onAcao={executarAcao('receber')}
+                    emptyDescription="Nenhuma parcela de crediário em carteira com os filtros atuais."
+                  />
+                </TabsContent>
+
+                <TabsContent value="dre" className="mt-0">
+                  <DrePanel
+                    dre={dreEfetivo}
+                    periodoLabel={periodoLabel}
+                    carregando={periodoOk ? drePeriodoQuery.isFetching : dreQuery.isLoading}
+                    erro={periodoOk ? drePeriodoQuery.error : undefined}
+                    onRetry={() => drePeriodoQuery.refetch()}
+                  />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </>
       )}
 
-      {/* Modal de Controle de Caixa */}
-      <ControleCaixaModal
-        open={caixaOpen}
-        onClose={() => setCaixaOpen(false)}
-      />
+      <ControleCaixaModal open={caixaOpen} onClose={() => setCaixaOpen(false)} />
     </div>
   );
 }

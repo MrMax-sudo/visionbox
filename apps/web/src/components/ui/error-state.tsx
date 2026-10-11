@@ -32,7 +32,7 @@ export function ErrorState({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]">
+      <div className="flex items-center gap-3 rounded border border-danger-light bg-danger-light px-3 py-2 text-sm text-danger-dark">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate">{detail}</span>
         {onRetry && (
@@ -45,14 +45,14 @@ export function ErrorState({
   }
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] p-6 text-center">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-card)] text-[var(--color-danger)]">
+    <div className="rounded-card border border-danger-light bg-danger-light p-6 text-center">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-card text-danger">
         <AlertTriangle className="h-5 w-5" aria-hidden />
       </div>
-      <p className="mt-3 text-sm font-semibold text-[var(--color-danger-dark)]">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-danger-dark)]/80">{detail}</p>
+      <p className="mt-3 text-sm font-semibold text-danger-dark">{title}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-danger-dark">{detail}</p>
       {problem?.errors && problem.errors.length > 0 && (
-        <ul className="mx-auto mt-3 max-w-md list-disc pl-5 text-left text-xs text-[var(--color-danger-dark)]/80">
+        <ul className="mx-auto mt-3 max-w-md list-disc pl-5 text-left text-xs text-danger-dark">
           {problem.errors.map((e, i) => (
             <li key={i}>
               <span className="font-medium">{e.field}:</span> {e.message}

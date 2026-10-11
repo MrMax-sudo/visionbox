@@ -6,7 +6,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        'rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-[var(--shadow-soft)]',
+        'rounded-card border border-border bg-card shadow-soft',
         className,
       )}
       {...props}
@@ -26,7 +26,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-sm font-semibold leading-none tracking-tight text-[var(--color-text-primary)]', className)}
+      className={cn('text-sm font-semibold leading-none tracking-tight text-primary', className)}
       {...props}
     />
   ),
@@ -35,7 +35,7 @@ CardTitle.displayName = 'CardTitle';
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-xs text-[var(--color-text-secondary)]', className)} {...props} />
+    <p ref={ref} className={cn('text-xs text-secondary', className)} {...props} />
   ),
 );
 CardDescription.displayName = 'CardDescription';

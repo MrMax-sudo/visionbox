@@ -1,10 +1,22 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Server, Database, Cpu, RefreshCw, ExternalLink } from 'lucide-react';
-import { useAuthStore } from '@/stores/authStore';
-import { apiClient, ApiError } from '@/lib/apiClient';
-import { cn } from '@/lib/utils';
+import { Code2, Cpu, Database, ExternalLink, RefreshCw, Server } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingRows } from '@/components/ui/loading-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { apiClient, ApiError } from '@/lib/apiClient';
+import { useAuthStore } from '@/stores/authStore';
+
+/**
+ * Painel do Desenvolvedor (/desenvolvedor, dentro do AppShell).
+ * ONDA 2E: UI com kit + tokens; contratos intocados:
+ *  - GET /v1/dev/info
+ *  - GET /v1/empresa
+ * Acesso gated por perfil DESENVOLVEDOR/ADMIN (redireciona caso contrário).
+ */
 
 type DevInfo = {
   app: string;
@@ -24,37 +36,44 @@ type EmpresaInfo = {
   logoUrl?: string;
 };
 
-function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function InfoCard({
+  title,
+  icon,
+  loading,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  loading?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-5">
-      <div className="mb-3 flex items-center gap-2">
-        {icon}
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
-      </div>
-      {children}
-    </section>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{loading ? <LoadingRows rows={4} /> : children}</CardContent>
+    </Card>
   );
 }
 
 function Linha({ label, valor }: { label: string; valor: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] py-2 text-sm last:border-0">
-      <dt className="text-xs text-[var(--color-text-secondary)]">{label}</dt>
-      <dd className="truncate font-mono text-[var(--color-text-primary)]">{valor || '—'}</dd>
+    <div className="flex items-center justify-between gap-3 border-b border-border py-2 text-sm last:border-0">
+      <dt className="text-xs text-secondary">{label}</dt>
+      <dd className="truncate font-mono text-primary">{valor || '—'}</dd>
     </div>
   );
 }
 
 function Chip({ children, ok }: { children: React.ReactNode; ok?: boolean }) {
   return (
-    <span
-      className={cn(
-        'rounded-full px-2.5 py-1 text-xs font-semibold',
-        ok ? 'bg-[var(--color-pdv-success-bg)] text-[var(--color-success-dark)]' : 'bg-[var(--color-warning-light)] text-[var(--color-warning-dark)]',
-      )}
-    >
+    <Badge variant={ok ? 'success' : 'warning'} className="font-semibold">
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -99,30 +118,31 @@ export default function PainelDesenvolvedor() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 font-[var(--font-sans)] text-xl font-bold text-[var(--color-text-primary)]">
-            <Code2 className="h-5 w-5" aria-hidden /> Painel do Desenvolvedor
+          <h1 className="flex items-center gap-2 text-xl font-bold text-primary">
+            <Code2 className="h-5 w-5 text-brand" aria-hidden /> Painel do Desenvolvedor
           </h1>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+          <p className="mt-1 text-sm text-secondary">
             Diagnóstico técnico e configurações da empresa. Acesso exclusivo para{' '}
-            <span className="font-semibold text-[var(--color-text-primary)]">DESENVOLVEDOR</span> e{' '}
-            <span className="font-semibold text-[var(--color-text-primary)]">ADMIN</span>.
+            <span className="font-semibold text-primary">DESENVOLVEDOR</span> e{' '}
+            <span className="font-semibold text-primary">ADMIN</span>.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
-          <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} aria-hidden /> Recarregar
+          <RefreshCw className={loading ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} aria-hidden />{' '}
+          Recarregar
         </Button>
       </div>
 
-      {erro && (
-        <div className="rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-4 py-3 text-sm text-[var(--color-danger-dark)]">
-          {erro}
-        </div>
-      )}
+      {erro && <ErrorState error={new ApiError(erro)} onRetry={carregar} compact />}
 
       <div className="grid gap-5 md:grid-cols-2">
-        <Card title="Aplicação" icon={<Cpu className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />}>
+        <InfoCard
+          title="Aplicação"
+          loading={loading && !devInfo}
+          icon={<Cpu className="h-4 w-4 text-brand" aria-hidden />}
+        >
           {devInfo ? (
             <dl>
               <Linha label="App" valor={devInfo.app} />
@@ -141,11 +161,14 @@ export default function PainelDesenvolvedor() {
               <Linha label="Fuso JPA" valor={devInfo.timezone} />
             </dl>
           ) : (
-            <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">Carregando…</p>
+            <Skeleton className="h-32 w-full rounded" />
           )}
-        </Card>
+        </InfoCard>
 
-        <Card title="Status" icon={<Server className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />}>
+        <InfoCard
+          title="Status"
+          icon={<Server className="h-4 w-4 text-brand" aria-hidden />}
+        >
           <dl>
             <Linha
               label="Sessão"
@@ -168,14 +191,21 @@ export default function PainelDesenvolvedor() {
               }
             />
           </dl>
-        </Card>
+        </InfoCard>
 
-        <Card title="Empresa configurada" icon={<Database className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />}>
+        <InfoCard
+          title="Empresa configurada"
+          loading={loading && !empresa}
+          icon={<Database className="h-4 w-4 text-brand" aria-hidden />}
+        >
           {empresa ? (
             <dl>
               <Linha label="Nome" valor={empresa.nome} />
               <Linha label="CNPJ" valor={empresa.cnpj} />
-              <Linha label="Cidade / UF" valor={empresa.cidade && empresa.uf ? `${empresa.cidade} / ${empresa.uf}` : '—'} />
+              <Linha
+                label="Cidade / UF"
+                valor={empresa.cidade && empresa.uf ? `${empresa.cidade} / ${empresa.uf}` : '—'}
+              />
               <Linha
                 label="Logo"
                 valor={
@@ -184,7 +214,7 @@ export default function PainelDesenvolvedor() {
                       href={empresa.logoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1 text-[var(--color-primary)] hover:underline"
+                      className="flex items-center gap-1 text-brand hover:underline"
                     >
                       abrir <ExternalLink className="h-3 w-3" aria-hidden />
                     </a>
@@ -195,17 +225,17 @@ export default function PainelDesenvolvedor() {
               />
             </dl>
           ) : (
-            <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">Carregando…</p>
+            <Skeleton className="h-24 w-full rounded" />
           )}
-        </Card>
+        </InfoCard>
 
-        <Card title="Ações" icon={<RefreshCw className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />}>
-          <p className="text-xs text-[var(--color-text-secondary)]">
+        <InfoCard title="Ações" icon={<RefreshCw className="h-4 w-4 text-brand" aria-hidden />}>
+          <p className="text-xs text-secondary">
             Configure logo, telefone e WhatsApp da empresa em{' '}
-            <span className="font-semibold text-[var(--color-text-primary)]">Configurações</span> no menu lateral.
-            Os links <span className="font-mono">wa.me</span> usam o WhatsApp cadastrado.
+            <span className="font-semibold text-primary">Configurações</span> no menu lateral. Os
+            links <span className="font-mono">wa.me</span> usam o WhatsApp cadastrado.
           </p>
-        </Card>
+        </InfoCard>
       </div>
     </div>
   );

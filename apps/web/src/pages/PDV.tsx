@@ -1,110 +1,46 @@
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  Banknote,
-  Box,
-  CheckCircle2,
-  ChevronRight,
-  CreditCard,
-  FileText,
-  LockKeyhole,
-  MoreHorizontal,
-  Plus,
-  Printer,
-  Search,
-  ShoppingCart,
-  Trash2,
-  UserRound,
-  Wallet,
-  X,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog } from '@/components/ui/dialog';
-import { ComprovanteImpressao, type ComprovanteItem } from '@/components/pdv/ComprovanteImpressao';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 import { ControleCaixaModal } from '@/components/caixa/ControleCaixaModal';
 import { AutorizacaoDescontoModal } from '@/components/pdv/AutorizacaoDescontoModal';
 import { NovoClienteModal } from '@/components/pdv/NovoClienteModal';
 import { DadosClienteModal } from '@/components/pdv/DadosClienteModal';
 import { MaisAcoesModal } from '@/components/pdv/MaisAcoesModal';
-import { FinalizarVendaModal, type FormaPagamentoDTO } from '@/components/pdv/FinalizarVendaModal';
+import { FinalizarVendaModal } from '@/components/pdv/FinalizarVendaModal';
+import { ClienteBuscaCard } from '@/components/pdv/ClienteBuscaCard';
+import { ProdutosBuscaCard } from '@/components/pdv/ProdutosBuscaCard';
+import { CarrinhoLista } from '@/components/pdv/CarrinhoLista';
+import { ResumoVendaPanel } from '@/components/pdv/ResumoVendaPanel';
+import { VendaConcluidaDialog } from '@/components/pdv/VendaConcluidaDialog';
+import { FeedbackBanner } from '@/components/pdv/FeedbackBanner';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import type { ClienteDTO, CriarOrdemServicoPayload, PageResponse, ProdutoDTO } from '@/lib/types';
 import { normalizeProduto, unwrapPage } from '@/lib/types';
 import { useDebounce, useOnline } from '@/hooks/useOnline';
-import { OfflineBanner } from '@/components/ui/offline-banner';
-import { ErrorState } from '@/components/ui/error-state';
-
-type CartItem = { sku: string; nome: string; qtd: number; preco: number; produtoId?: string; categoria?: string };
-type Feedback = { tone: 'success' | 'error' | 'warning'; msg: string };
-type DescontoTipo = 'valor' | 'percentual';
-type ProdutoPdv = ProdutoDTO & { tipoProduto?: string };
-
-function normalizarRotulo(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-}
+import {
+  categoriaCombina,
+  currency,
+  getOutboxCount,
+  pushOutbox,
+  type CartItem,
+  type DescontoTipo,
+  type Feedback,
+  type ProdutoPdv,
+  type VendaConcluida,
+} from '@/components/pdv/pdvHelpers';
 
 /**
- * Filtro client-side defensivo por categoria (espelha ProdutoService.tipoPorRotuloCategoria).
- * Compara rótulo da UI contra categoria text e tipoProduto — nunca esconde o que o backend aceitou.
+ * PDV — frente de caixa VisionBox (ONDA 2A).
+ *
+ * Layout 3 colunas (busca | carrinho | resumo), teclado-first e denso:
+ * cabe em 1366x768 com zoom 100%. Abaixo de 1280px as colunas empilham e a
+ * página rola; a partir de 1280px tudo rola internamente (sem scroll da página).
+ *
+ * Offline-first: Finalizar nunca é bloqueado por rede — sem conexão a venda
+ * vai para o outbox local (`visionbox-outbox`) e o banner mostra a fila.
+ * Atalhos: F2 = foco na busca de produto, F8 = finalizar, ESC = fecha diálogos.
  */
-function categoriaCombina(produto: ProdutoPdv, rotulo: string): boolean {
-  if (rotulo === 'Todos') return true;
-  const alvo = normalizarRotulo(rotulo);
-  const candidatos = [produto.categoria, produto.tipoProduto]
-    .filter((valor): valor is string => typeof valor === 'string' && valor.length > 0)
-    .map(normalizarRotulo);
-  if (alvo === 'ARMACOES') return candidatos.some((c) => c.includes('ARMACAO'));
-  if (alvo === 'LENTES') return candidatos.some((c) => c.includes('LENTE'));
-  if (alvo === 'ACESSORIOS') return candidatos.some((c) => c.includes('ACESSORIO'));
-  if (alvo === 'SERVICOS') return candidatos.some((c) => c.includes('SERVICO'));
-  return candidatos.includes(alvo);
-}
-
-function getOutboxCount(): number {
-  try {
-    const raw = localStorage.getItem('visionbox-outbox');
-    if (!raw) return 0;
-    const arr = JSON.parse(raw) as unknown[];
-    return Array.isArray(arr) ? arr.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function pushOutbox(payload: CriarOrdemServicoPayload & { _idempotencyKey?: string }) {
-  try {
-    const raw = localStorage.getItem('visionbox-outbox');
-    const arr = raw ? (JSON.parse(raw) as unknown[]) : [];
-    const next = Array.isArray(arr) ? [...arr, { ...payload, _ts: Date.now() }] : [payload];
-    localStorage.setItem('visionbox-outbox', JSON.stringify(next));
-  } catch {
-    /* local outbox best effort */
-  }
-}
-
-function currency(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function initials(name?: string): string {
-  return name?.split(' ').slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || 'CL';
-}
-
-function PixIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M12 3.4 8.7 6.7a2.6 2.6 0 0 0 0 3.7L12 13.7l3.3-3.3a2.6 2.6 0 0 0 0-3.7L12 3.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m5.6 9.8-2.2 2.2 2.2 2.2a2.6 2.6 0 0 0 3.7 0l2.7-2.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m18.4 9.8 2.2 2.2-2.2 2.2a2.6 2.6 0 0 1-3.7 0L12 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m12 13.7-3.3 3.3a2.6 2.6 0 0 0 0 3.7L12 23.6l3.3-2.9a2.6 2.6 0 0 0 0-3.7L12 13.7Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export default function PDV() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -134,20 +70,7 @@ export default function PDV() {
   const [dadosClienteOpen, setDadosClienteOpen] = React.useState(false);
   const [maisAcoesOpen, setMaisAcoesOpen] = React.useState(false);
 
-  const [vendaConcluida, setVendaConcluida] = React.useState<{
-    osId: string;
-    osNumero: string;
-    itens: CartItem[];
-    subtotal: number;
-    desconto: number;
-    total: number;
-    formaPagamento: string;
-    clienteNome: string;
-    clienteCpf?: string;
-    clienteTelefone?: string;
-    chaveNfce?: string;
-    protocoloNfce?: string;
-  } | null>(null);
+  const [vendaConcluida, setVendaConcluida] = React.useState<VendaConcluida | null>(null);
 
   const emitirNfceMutation = useMutation({
     mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
@@ -265,9 +188,17 @@ export default function PDV() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F8') {
         e.preventDefault();
-        // dispara direto: o botão pode estar disabled (carrinho vazio) e precisa dar feedback
+        // dispara direto: o botão pode estar desabilitado (carrinho vazio) e precisa dar feedback
         if (document.querySelector('[role="dialog"]')) return;
         finalizarRef.current();
+        return;
+      }
+      if (e.key === 'F2') {
+        // atalho de operação: volta o foco para a busca de produto
+        if (document.querySelector('[role="dialog"]')) return;
+        e.preventDefault();
+        skuRef.current?.focus();
+        skuRef.current?.select();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -381,7 +312,10 @@ export default function PDV() {
     setCart((prev) => {
       const found = prev.find((item) => item.sku === produto.sku);
       if (found) return prev.map((item) => (item.sku === produto.sku ? { ...item, qtd: item.qtd + 1 } : item));
-      return [...prev, { sku: produto.sku, nome: produto.nome, qtd: 1, preco: produto.preco, produtoId: produto.id, categoria: produto.categoria }];
+      return [
+        ...prev,
+        { sku: produto.sku, nome: produto.nome, qtd: 1, preco: produto.preco, produtoId: produto.id, categoria: produto.categoria },
+      ];
     });
     setBuscaSku('');
     skuRef.current?.focus();
@@ -489,497 +423,111 @@ export default function PDV() {
     }
   }
 
+  function alterarQtd(sku: string, qtd: number) {
+    setCart((prev) => prev.map((row) => (row.sku === sku ? { ...row, qtd } : row)));
+  }
+
   return (
-    <div className="pdv-screen">
-      {outboxCount > 0 && <OfflineBanner pendingCount={outboxCount} />}
+    <div className="flex min-h-full flex-col gap-2.5 xl:h-full">
+      <OfflineBanner pendingCount={outboxCount} />
 
-      {feedback && (
-        <div className={`pdv-feedback pdv-feedback-${feedback.tone}`} role="status" aria-live="polite">
-          {feedback.tone === 'success' ? <CheckCircle2 strokeWidth={1.8} /> : <AlertTriangle strokeWidth={1.8} />}
-          <span>{feedback.msg}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fechar aviso">
-            <X strokeWidth={1.8} />
-          </button>
+      {feedback && <FeedbackBanner feedback={feedback} onClose={() => setFeedback(null)} />}
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(300px,340px)] xl:grid-rows-[minmax(0,1fr)]">
+        {/* Coluna 1 — cliente + produtos */}
+        <div className="flex min-h-0 flex-col gap-2.5 lg:col-start-1 lg:row-start-1 xl:col-start-1 xl:row-start-1">
+          <ClienteBuscaCard
+            busca={buscaCliente}
+            onBuscaChange={(valor) => {
+              setBuscaCliente(valor);
+              setClienteRemovido(false);
+            }}
+            cliente={cliente}
+            resultados={clientesFiltrados}
+            isLoading={clientesQuery.isLoading}
+            error={clientesQuery.isError ? clientesQuery.error : null}
+            onRetry={() => clientesQuery.refetch()}
+            onSelecionar={(item) => {
+              setCliente(item);
+              setBuscaCliente('');
+              setClienteRemovido(false);
+            }}
+            onRemover={removerClienteDaVenda}
+            onNovoCliente={() => setNovoClienteOpen(true)}
+            onVerDados={() => setDadosClienteOpen(true)}
+          />
+
+          <ProdutosBuscaCard
+            className="max-h-[46vh] shrink-0 xl:max-h-none xl:min-h-0 xl:flex-1"
+            busca={buscaSku}
+            onBuscaChange={setBuscaSku}
+            onEnter={() => {
+              if (produtosFiltrados[0]) addToCart(produtosFiltrados[0]);
+            }}
+            skuRef={skuRef}
+            debouncedBusca={debouncedSku}
+            categoriaAtiva={categoriaAtiva}
+            onCategoria={setCategoriaAtiva}
+            produtos={produtosFiltrados}
+            isLoading={produtosQuery.isLoading}
+            error={produtosQuery.isError ? produtosQuery.error : null}
+            onRetry={() => produtosQuery.refetch()}
+            onAdicionar={addToCart}
+            onNovoProduto={() => navigate('/catalogo?novo=1')}
+          />
         </div>
-      )}
 
-      <div className="pdv-grid">
-        <section className="pdv-col-products">
-          <section className="pdv-card pdv-client-card">
-            <header className="pdv-card-header">
-              <h2><UserRound strokeWidth={1.8} /> Cliente</h2>
-              <Button variant="outline" className="pdv-outline-action gap-2" onClick={() => setNovoClienteOpen(true)}>
-                <Plus /> Novo cliente
-              </Button>
-            </header>
+        {/* Coluna 2 — carrinho */}
+        <div className="min-h-0 lg:col-start-1 lg:row-start-2 xl:col-start-2 xl:row-start-1">
+          <CarrinhoLista
+            cart={cart}
+            cliente={cliente}
+            onQtdChange={alterarQtd}
+            onRemover={(sku) => setCart((prev) => prev.filter((row) => row.sku !== sku))}
+            onLimpar={() => setCart([])}
+          />
+        </div>
 
-            <div className="pdv-search">
-              <Search strokeWidth={1.8} />
-              <Input
-                value={buscaCliente}
-                onChange={(e) => {
-                  setBuscaCliente(e.target.value);
-                  setClienteRemovido(false);
-                }}
-                placeholder="Buscar por nome, CPF, telefone..."
-                aria-label="Buscar cliente"
-              />
-            </div>
-
-            {clientesQuery.isError && <ErrorState error={clientesQuery.error as ApiError} onRetry={() => clientesQuery.refetch()} compact />}
-
-            {cliente ? (
-              <div className="pdv-selected-customer">
-                <button
-                  type="button"
-                  className="pdv-unlink-customer"
-                  onClick={removerClienteDaVenda}
-                  aria-label="Remover cliente da venda"
-                >
-                  <X strokeWidth={1.8} />
-                </button>
-                <div className="pdv-avatar">{initials(cliente.nome)}</div>
-                <div className="pdv-customer-main">
-                  <strong>{cliente.nome}</strong>
-                  <span>{cliente.telefone ?? cliente.whatsapp ?? '(00) 00000-0000'}</span>
-                </div>
-                <div className="pdv-customer-meta">
-                  <span>CPF: {cliente.cpfMasked ?? cliente.cpf ?? '***'}</span>
-                  <span>Nascimento: —</span>
-                  <span>Última compra: {cliente.ultimaCompra ? new Date(cliente.ultimaCompra).toLocaleDateString('pt-BR') : '—'}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  className="pdv-customer-data gap-2"
-                  onClick={() => setDadosClienteOpen(true)}
-                >
-                  Ver dados <ChevronRight />
-                </Button>
-              </div>
-            ) : (
-              <div className="pdv-selected-customer pdv-empty-customer">
-                {clientesQuery.isLoading ? (
-                  <>
-                    <Skeleton className="h-14 w-14 rounded-full" />
-                    <Skeleton className="h-12 flex-1" />
-                    <Skeleton className="h-12 w-52" />
-                  </>
-                ) : (
-                  <span>{debouncedCliente ? 'Selecione um cliente encontrado.' : 'Nenhum cliente selecionado.'}</span>
-                )}
-              </div>
-            )}
-
-            {buscaCliente.trim().length >= 2 && clientesFiltrados.length > 0 && (
-              <div className="pdv-floating-results">
-                {clientesFiltrados.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setCliente(item);
-                      setBuscaCliente('');
-                      setClienteRemovido(false);
-                    }}
-                  >
-                    <span>{item.nome}</span>
-                    <small>{item.cpfMasked ?? item.cpf ?? '***'}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="pdv-card pdv-product-card">
-            <header className="pdv-card-header">
-              <h2><Box strokeWidth={1.8} /> Produto / SKU</h2>
-              <Button
-                variant="outline"
-                className="pdv-outline-action gap-2"
-                onClick={() => navigate('/catalogo?novo=1')}
-              >
-                <Plus /> Novo produto
-              </Button>
-            </header>
-
-            <div className="pdv-search">
-              <Search strokeWidth={1.8} />
-              <Input
-                ref={skuRef}
-                value={buscaSku}
-                onChange={(e) => setBuscaSku(e.target.value)}
-                placeholder="Buscar por produto, SKU, código de barras..."
-                aria-label="Buscar produto, SKU ou código de barras"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && produtosFiltrados[0]) addToCart(produtosFiltrados[0]);
-                }}
-              />
-            </div>
-
-            <div className="pdv-categories">
-              {['Todos', 'Armações', 'Lentes', 'Óculos de Sol', 'Acessórios', 'Serviços'].map((categoria) => (
-                <button
-                  key={categoria}
-                  type="button"
-                  className={categoria === categoriaAtiva ? 'active' : undefined}
-                  aria-pressed={categoria === categoriaAtiva}
-                  onClick={() => setCategoriaAtiva((atual) => (categoria === atual && categoria !== 'Todos' ? 'Todos' : categoria))}
-                >
-                  {categoria}
-                </button>
-              ))}
-            </div>
-
-            {produtosQuery.isError && <ErrorState error={produtosQuery.error as ApiError} onRetry={() => produtosQuery.refetch()} compact />}
-
-            {(buscaSku.trim().length > 0 || categoriaAtiva !== 'Todos') && (
-              <div className="pdv-floating-results pdv-product-results">
-                {produtosQuery.isLoading ? (
-                  <Skeleton className="h-11 w-full" />
-                ) : produtosFiltrados.length === 0 ? (
-                  <span className="pdv-result-empty">
-                    {debouncedSku || categoriaAtiva !== 'Todos'
-                      ? 'Nenhum produto encontrado para esta busca/categoria.'
-                      : 'Nenhum produto encontrado.'}
-                  </span>
-                ) : (
-                  produtosFiltrados.map((produto) => (
-                    <button key={produto.sku} type="button" onClick={() => addToCart(produto)} className="flex items-center gap-3 p-2 hover:bg-[var(--color-pdv-soft)] text-left w-full border-b border-[var(--color-pdv-border-soft)] transition-colors">
-                      <img
-                        src={`/assets/produtos/${produto.sku}.jpg`}
-                        alt=""
-                        className="h-10 w-10 object-contain rounded bg-[var(--color-bg-card-soft)] border border-[var(--color-pdv-border)] shrink-0 p-0.5"
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          if (!img.dataset.fallback) {
-                            img.dataset.fallback = 'true';
-                            img.src = '/assets/produtos/ARM-RAY-001.jpg';
-                          }
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="block font-medium text-sm text-[var(--color-pdv-text)] truncate">{produto.nome}</span>
-                        <small className="text-xs text-[var(--color-pdv-muted)]">{produto.sku} • {currency(produto.preco)}</small>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </section>
-        </section>
-
-        <section className="pdv-col-cart">
-          <section className="pdv-card pdv-cart-card">
-            <header className="pdv-card-header pdv-cart-header">
-              <h2><ShoppingCart strokeWidth={1.8} /> Carrinho — {cart.length} itens</h2>
-              <Button variant="outline" className="pdv-outline-action gap-2" onClick={() => setCart([])}>
-                <Trash2 /> Limpar carrinho
-              </Button>
-            </header>
-
-            <div className="pdv-cart-table-clean">
-              <div className="pdv-cart-head-clean">
-                <span>Item</span>
-                <span>Cliente</span>
-                <span className="text-center">Quantidade</span>
-                <span className="text-right">Preço</span>
-                <span className="text-center"></span>
-              </div>
-
-              {cart.length === 0 ? (
-                <div className="pdv-empty-cart">
-                  <ShoppingCart strokeWidth={1.8} />
-                  <strong>Carrinho vazio</strong>
-                  <span>Busque um produto ao lado para adicionar ao carrinho.</span>
-                </div>
-              ) : (
-                cart.map((item) => (
-                  <div className="pdv-cart-row-clean" key={item.sku}>
-                    <div className="min-w-0 pr-2">
-                      <strong className="block font-semibold text-sm text-[var(--color-pdv-text)] truncate" title={item.nome}>
-                        {item.nome}
-                      </strong>
-                      <small className="block text-xs text-[var(--color-pdv-muted)] truncate">
-                        {item.sku}{item.categoria ? ` • ${item.categoria}` : ''}
-                      </small>
-                    </div>
-
-                    <div className="min-w-0">
-                      {cliente ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pdv-text)] bg-[var(--color-pdv-soft)] px-2.5 py-1 rounded-md border border-[var(--color-pdv-border-soft)] truncate max-w-full" title={cliente.nome}>
-                          <UserRound className="h-3 w-3 text-[var(--color-primary)] shrink-0" />
-                          <span className="truncate">{cliente.nome}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-[var(--color-pdv-muted)] italic">
-                          Consumidor
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-center">
-                      <div className="pdv-qty-input-box">
-                        <button
-                          type="button"
-                          onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: Math.max(1, row.qtd - 1) } : row)))}
-                          title="Diminuir quantidade"
-                          aria-label="Diminuir quantidade"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={999}
-                          value={item.qtd}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: isNaN(val) || val < 1 ? 1 : val } : row)));
-                          }}
-                          aria-label="Quantidade"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCart((prev) => prev.map((row) => (row.sku === item.sku ? { ...row, qtd: row.qtd + 1 } : row)))}
-                          title="Aumentar quantidade"
-                          aria-label="Aumentar quantidade"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <strong className="block text-sm font-bold text-[var(--color-pdv-text)]">
-                        {currency(item.preco * item.qtd)}
-                      </strong>
-                      {item.qtd > 1 && (
-                        <small className="block text-[11px] text-[var(--color-pdv-muted)]">
-                          {item.qtd}x {currency(item.preco)}
-                        </small>
-                      )}
-                    </div>
-
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => setCart((prev) => prev.filter((row) => row.sku !== item.sku))}
-                        aria-label={`Remover ${item.nome}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger-light)] hover:text-[var(--color-danger)] transition"
-                        title="Remover item"
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={1.8} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </section>
-
-        <aside className="pdv-summary">
-          <header className="pdv-summary-header">
-            <div className="flex items-center gap-2">
-              <h2><ShoppingCart strokeWidth={1.8} /> Resumo da venda</h2>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCaixaModalOpen(true)}
-              className="gap-1 text-xs"
-            >
-              <Banknote className="h-3.5 w-3.5" /> Caixa
-            </Button>
-          </header>
-
-          <div className="pdv-totals">
-            <div>
-              <span>Subtotal</span>
-              <strong>{currency(subtotal)}</strong>
-            </div>
-            <div className="pdv-discount">
-              <span>Desconto</span>
-              <button
-                type="button"
-                className={descontoTipo === 'percentual' ? 'active' : undefined}
-                aria-pressed={descontoTipo === 'percentual'}
-                onClick={() => setDescontoTipo('percentual')}
-              >
-                %
-              </button>
-              <Input
-                type="number"
-                min={0}
-                value={desconto}
-                onChange={(e) => setDesconto(Number(e.target.value) || 0)}
-                aria-label={descontoTipo === 'percentual' ? 'Desconto em percentual' : 'Desconto em reais'}
-              />
-              <button
-                type="button"
-                className={descontoTipo === 'valor' ? 'active' : undefined}
-                aria-pressed={descontoTipo === 'valor'}
-                onClick={() => setDescontoTipo('valor')}
-              >
-                R$
-              </button>
-              <span aria-hidden="true" />
-            </div>
-            <div className="pdv-total-line">
-              <span>Total</span>
-              <strong>{currency(total)}</strong>
-            </div>
-          </div>
-
-          <section className="pdv-payment">
-            <h3><Wallet strokeWidth={1.8} /> Pagamento</h3>
-            <div className="pdv-payment-methods">
-              {[
-                { label: 'Dinheiro', icon: Banknote },
-                { label: 'Cartão', icon: CreditCard },
-                { label: 'PIX', icon: PixIcon },
-                { label: 'Outros', icon: MoreHorizontal },
-              ].map((method) => (
-                <button
-                  key={method.label}
-                  type="button"
-                  className={formaPagamento === method.label ? 'active' : undefined}
-                  onClick={() => setFormaPagamento(method.label)}
-                >
-                  <method.icon strokeWidth={1.8} />
-                  <span>{method.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="pdv-received">
-              <span>Valor recebido</span>
-              <Input
-                type="number"
-                min={0}
-                value={valorRecebido}
-                onChange={(e) => setValorRecebido(Number(e.target.value) || 0)}
-                aria-label="Valor recebido"
-              />
-            </div>
-            <div className="pdv-change">
-              <span>Troco</span>
-              <strong>{currency(troco)}</strong>
-            </div>
-          </section>
-
-          <Button
-            id="pdv-finalizar"
-            className="pdv-finish-button"
-            onClick={handleFinalizar}
-            disabled={cart.length === 0 || criarOrdem.isPending}
-            aria-busy={criarOrdem.isPending}
-          >
-            <LockKeyhole strokeWidth={1.8} /> {criarOrdem.isPending ? 'Enviando...' : 'Finalizar'}
-          </Button>
-
-          <div className="pdv-summary-actions">
-            <Button variant="outline" className="gap-2" onClick={gerarPrevia}>
-              <FileText /> Orçamento
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={gerarPrevia}>
-              <Printer /> Imprimir
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Mais ações"
-              onClick={() => setMaisAcoesOpen(true)}
-            >
-              <MoreHorizontal />
-            </Button>
-          </div>
-        </aside>
+        {/* Coluna 3 — resumo + pagamento + finalizar */}
+        <div className="min-h-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 xl:col-start-3 xl:row-start-1 xl:row-span-1">
+          <ResumoVendaPanel
+            subtotal={subtotal}
+            desconto={desconto}
+            descontoTipo={descontoTipo}
+            onDescontoTipo={setDescontoTipo}
+            onDesconto={setDesconto}
+            total={total}
+            troco={troco}
+            valorRecebido={valorRecebido}
+            onValorRecebido={setValorRecebido}
+            formaPagamento={formaPagamento}
+            onFormaPagamento={setFormaPagamento}
+            onFinalizar={handleFinalizar}
+            finalizando={criarOrdem.isPending}
+            temItens={cart.length > 0}
+            onAbrirCaixa={() => setCaixaModalOpen(true)}
+            onOrcamento={gerarPrevia}
+            onMaisAcoes={() => setMaisAcoesOpen(true)}
+          />
+        </div>
       </div>
 
-      {/* Modal de Conclusão da Venda e Impressão de Cupom / NFC-e */}
-      {vendaConcluida && (
-        <Dialog
-          open={!!vendaConcluida}
-          onClose={() => setVendaConcluida(null)}
-          title={vendaConcluida.osId === 'PREVIA' ? 'Orçamento / Prévia da Venda' : 'Venda Concluída com Sucesso!'}
-          description={
-            vendaConcluida.osId === 'PREVIA'
-              ? 'Prévia pronta para impressão — nenhuma OS foi criada ainda.'
-              : `Ordem de Serviço: ${vendaConcluida.osNumero}`
-          }
-        >
-          <div className="space-y-4">
-            {/* Opções de Emissão Fiscal */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-page)] p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[var(--color-primary)]" />
-                <div>
-                  <p className="font-semibold text-[var(--color-text-primary)]">Emissão Fiscal (NFC-e)</p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    {vendaConcluida.chaveNfce
-                      ? `Autorizada! Chave: ${vendaConcluida.chaveNfce.slice(0, 16)}...`
-                      : 'Emitir cupom fiscal eletrônico na SEFAZ'}
-                  </p>
-                </div>
-              </div>
-              {!vendaConcluida.chaveNfce && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={emitirNfceMutation.isPending || vendaConcluida.osId === 'PREVIA'}
-                  onClick={() => emitirNfceMutation.mutate({ pedidoId: vendaConcluida.osId })}
-                >
-                  {emitirNfceMutation.isPending ? 'Emitindo...' : 'Emitir NFC-e'}
-                </Button>
-              )}
-            </div>
-
-            {/* Componente de Impressão Formatado */}
-            <ComprovanteImpressao
-              osNumero={vendaConcluida.osNumero}
-              clienteNome={vendaConcluida.clienteNome}
-              clienteCpf={vendaConcluida.clienteCpf}
-              clienteTelefone={vendaConcluida.clienteTelefone}
-              itens={vendaConcluida.itens}
-              subtotal={vendaConcluida.subtotal}
-              desconto={vendaConcluida.desconto}
-              total={vendaConcluida.total}
-              formaPagamento={vendaConcluida.formaPagamento}
-              chaveNfce={vendaConcluida.chaveNfce}
-              protocoloNfce={vendaConcluida.protocoloNfce}
-            />
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-              <Button
-                variant="outline"
-                onClick={() => setVendaConcluida(null)}
-              >
-                Fechar / Nova Venda
-              </Button>
-              {vendaConcluida.osId !== 'PREVIA' && (
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    const osId = vendaConcluida.osId;
-                    setVendaConcluida(null);
-                    navigate(`/os/${osId}`);
-                  }}
-                >
-                  Acompanhar OS
-                </Button>
-              )}
-            </div>
-          </div>
-        </Dialog>
-      )}
+      {/* Conclusão da venda: emissão NFC-e + comprovante */}
+      <VendaConcluidaDialog
+        venda={vendaConcluida}
+        onClose={() => setVendaConcluida(null)}
+        emitindo={emitirNfceMutation.isPending}
+        onEmitir={() => {
+          if (vendaConcluida) emitirNfceMutation.mutate({ pedidoId: vendaConcluida.osId });
+        }}
+        onAcompanhar={(osId) => {
+          setVendaConcluida(null);
+          navigate(`/os/${osId}`);
+        }}
+      />
 
       {/* Modal de Controle de Caixa Físico */}
-      <ControleCaixaModal
-        open={caixaModalOpen}
-        onClose={() => setCaixaModalOpen(false)}
-      />
+      <ControleCaixaModal open={caixaModalOpen} onClose={() => setCaixaModalOpen(false)} />
 
       {/* Modal de Autorização de Desconto (Alçada Gerencial > 15%) */}
       <AutorizacaoDescontoModal

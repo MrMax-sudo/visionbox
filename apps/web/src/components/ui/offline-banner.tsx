@@ -10,12 +10,12 @@ export function OfflineBanner({ pendingCount }: { pendingCount?: number }) {
       <div
         role="status"
         aria-live="polite"
-        className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-3 py-2 text-sm text-[var(--color-danger-dark)]"
+        className="flex items-center gap-2 rounded border border-danger-light bg-danger-light px-3 py-2 text-sm text-danger-dark"
       >
         <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
         <span className="font-medium">Você está offline • operação em fila local (outbox) • sincroniza quando a rede voltar</span>
         {typeof pendingCount === 'number' && pendingCount > 0 && (
-          <span className="ml-auto rounded-full bg-[var(--color-bg-card)] px-2 py-0.5 text-xs font-semibold">{pendingCount} pendentes</span>
+          <span className="ml-auto rounded-full bg-card px-2 py-0.5 text-xs font-semibold">{pendingCount} pendentes</span>
         )}
       </div>
     );
@@ -25,7 +25,7 @@ export function OfflineBanner({ pendingCount }: { pendingCount?: number }) {
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--color-warning-light)] bg-[var(--color-warning-light)] px-3 py-2 text-sm text-[var(--color-warning-dark)]"
+      className="flex items-center gap-2 rounded border border-warning-light bg-warning-light px-3 py-2 text-sm text-warning-dark"
     >
       <Wifi className="h-4 w-4 shrink-0" aria-hidden />
       <span>Sincronizando • {pendingCount} na fila do outbox</span>
@@ -37,6 +37,6 @@ export function OnlineOnlyHint() {
   const online = useOnline();
   if (online) return null;
   return (
-    <p className="text-xs text-[var(--color-danger-dark)]">Sem conexão — dados exibidos do cache local.</p>
+    <p className="text-xs text-danger-dark">Sem conexão — dados exibidos do cache local.</p>
   );
 }

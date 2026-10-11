@@ -27,17 +27,18 @@ function Acao({ icon: Icon, titulo, descricao, disabled, onClick }: AcaoProps) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-card)] px-3 py-3 text-left transition-colors hover:bg-[var(--color-bg-page)] disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-card border border-border bg-card px-3 py-3 text-left transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <Icon className="h-5 w-5 shrink-0 text-[var(--color-primary)]" strokeWidth={1.8} aria-hidden />
+      <Icon className="h-5 w-5 shrink-0 text-brand" strokeWidth={1.8} aria-hidden />
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[var(--color-text-primary)]">{titulo}</span>
-        <span className="block text-xs text-[var(--color-text-secondary)]">{descricao}</span>
+        <span className="block text-sm font-semibold text-primary">{titulo}</span>
+        <span className="block text-xs text-secondary">{descricao}</span>
       </span>
     </button>
   );
 }
 
+/** Mais ações da venda — ONDA 2A (contrato inalterado). */
 export function MaisAcoesModal({
   open,
   onClose,
@@ -48,7 +49,13 @@ export function MaisAcoesModal({
   onCopiarResumo,
 }: MaisAcoesModalProps) {
   return (
-    <Dialog open={open} onClose={onClose} title="Mais ações" description="Ações rápidas da venda atual.">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Mais ações"
+      description="Ações rápidas da venda atual."
+      className="max-w-[480px]"
+    >
       <div className="space-y-2">
         <Acao
           icon={Trash2}
@@ -73,7 +80,7 @@ export function MaisAcoesModal({
         />
       </div>
 
-      <div className="mt-4 flex justify-end border-t border-[var(--color-border)] pt-3">
+      <div className="mt-4 flex justify-end border-t border-border pt-3">
         <Button variant="outline" onClick={onClose}>
           Fechar
         </Button>

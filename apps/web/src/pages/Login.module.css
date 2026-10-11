@@ -1,0 +1,656 @@
+/* ==========================================================================
+   Login — ONDA 2A
+   Composição 57/43 (foto da ótica | card creme). Tudo LOCAL (CSS module):
+   nenhum seletor global é criado ou sobrescrito, nenhum hex (R5) — só tokens
+   de theme-visionbox.css. Sem position:fixed, sem zoom, sem scroll:
+   a altura usa 100dvh e os ajustes finos ficam nos breakpoints de ALTURA
+   abaixo (px absolutos — o root tem font-size 13.5px).
+   ========================================================================== */
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--color-bg-page);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+/* ------------------------------- Painel esquerdo (foto) ------------------ */
+.photo {
+  position: relative;
+  display: none;
+  overflow: hidden;
+  border: 1px solid var(--color-login-border);
+  border-radius: 26px;
+  /* fallback caso a foto não carregue */
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-dark) 0%,
+    var(--color-pdv-sidebar-mid) 55%,
+    var(--color-pdv-sidebar-top) 100%
+  );
+}
+
+.photoImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Véu marrom: forte à esquerda, dissolvendo à direita */
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgb(var(--color-login-overlay-rgb) / 0.94) 0%,
+    rgb(var(--color-login-overlay-rgb) / 0.78) 42%,
+    rgb(var(--color-login-overlay-rgb) / 0.24) 100%
+  );
+}
+
+.photoContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6% 6% 6% 7%;
+  color: var(--color-login-white-soft);
+}
+
+.kicker {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.85;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--color-login-white-soft);
+  opacity: 0.86;
+}
+
+.rule {
+  width: 40px;
+  height: 2px;
+  margin: 18px 0;
+  background: var(--color-primary-light);
+  opacity: 0.75;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 46px;
+  line-height: 1.08;
+  font-weight: 300;
+  color: var(--color-login-white-soft);
+}
+
+.headlineStrong {
+  display: block;
+  font-weight: 700;
+  /* bege claro da marca: garante contraste AA sobre o véu marrom escuro */
+  color: var(--color-primary-light);
+}
+
+.subtext {
+  max-width: 380px;
+  margin: 20px 0 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--color-login-white-soft);
+  opacity: 0.9;
+}
+
+.benefits {
+  display: grid;
+  gap: 22px;
+  margin: 40px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.benefit {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.benefitIcon {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--color-login-cream-rgb) / 0.12);
+  border: 1px solid rgb(var(--color-login-cream-rgb) / 0.22);
+}
+
+.benefitText {
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--color-login-white-soft);
+}
+
+.benefitLine {
+  display: block;
+}
+
+.bottom {
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--color-login-white-soft);
+  opacity: 0.82;
+}
+
+/* ------------------------------- Painel direito (card) ------------------- */
+.card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px 22px 16px;
+  border: 1px solid var(--color-login-border);
+  border-radius: 26px;
+  background: var(--color-login-cream-2);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Arco decorativo (sem position:fixed) */
+.deco {
+  position: absolute;
+  top: -70px;
+  right: -70px;
+  width: 190px;
+  height: 190px;
+  border: 26px solid var(--color-login-white-soft);
+  border-radius: 999px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.cardInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.logoWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 26px;
+}
+
+.logo {
+  width: min(340px, 82%);
+  height: auto;
+}
+
+.logoFallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+}
+
+.logoWord {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--color-primary-dark);
+}
+
+.logoWordAccent {
+  color: var(--color-login-button);
+}
+
+.logoTagline {
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  padding-left: 0.4em;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+/* Inputs do login (maiores que o Input do kit — sobrescrevem sem utilitário) */
+.input {
+  height: 56px;
+  padding: 0 18px 0 54px;
+  font-size: 17px;
+  border: 1px solid var(--color-login-border);
+  border-radius: 14px;
+  background: var(--color-login-white-soft);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+.input::placeholder {
+  color: var(--color-login-muted);
+}
+
+.input:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--color-bg-card);
+}
+
+.inputPassword {
+  padding-right: 54px;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Botão café (marca) */
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 56px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--color-login-button);
+  color: var(--color-text-on-action);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgb(var(--color-primary-dark-rgb) / 0.25);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  color: var(--color-text-on-primary);
+}
+
+.submit:active:not(:disabled) {
+  transform: scale(0.995);
+}
+
+.submit:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-primary-dark);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pwToggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--color-primary-dark);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.pwToggle:hover {
+  background: var(--color-primary-light);
+  color: var(--color-login-button);
+}
+
+.remember {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-danger);
+  border-radius: 12px;
+  background: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.footerStrong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.divider {
+  width: 1px;
+  height: 28px;
+  background: var(--color-login-border);
+}
+
+.footerTagline {
+  max-width: 220px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Breakpoints de ALTURA (novos, locais) — garantem zero scroll em telas
+   baixas (ex.: 1366x768 e notebooks 1280x640). Só valem no layout 57/43.
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  .page {
+    padding: 20px;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 57fr) minmax(0, 43fr);
+    gap: 18px;
+  }
+
+  .photo {
+    display: block;
+  }
+
+  .card {
+    padding: 30px 30px 18px;
+  }
+}
+
+/* --- Tela baixa (<= 900px de altura) --- */
+@media (min-width: 1024px) and (max-height: 900px) {
+  .page {
+    padding: 14px;
+  }
+
+  .grid {
+    gap: 14px;
+  }
+
+  .photoContent {
+    padding: 5% 5.5%;
+  }
+
+  .kicker {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .rule {
+    margin: 12px 0;
+  }
+
+  .headline {
+    font-size: 34px;
+  }
+
+  .subtext {
+    margin-top: 14px;
+    font-size: 15px;
+  }
+
+  .benefits {
+    gap: 16px;
+    margin-top: 26px;
+  }
+
+  .benefitIcon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .benefitText {
+    font-size: 15px;
+  }
+
+  .bottom {
+    font-size: 12px;
+  }
+
+  .card {
+    padding: 20px 22px 14px;
+  }
+
+  .logoWrap {
+    margin-bottom: 18px;
+  }
+
+  .logo {
+    width: min(280px, 78%);
+  }
+
+  .form {
+    gap: 12px;
+  }
+
+  .input {
+    height: 50px;
+    padding-left: 50px;
+    font-size: 16px;
+  }
+
+  .inputPassword {
+    padding-right: 50px;
+  }
+
+  .submit {
+    height: 50px;
+    font-size: 16px;
+  }
+
+  .footer {
+    padding-top: 10px;
+    font-size: 12px;
+  }
+}
+
+/* --- Muito baixa (<= 760px): some a lista de benefícios --- */
+@media (min-width: 1024px) and (max-height: 760px) {
+  .benefits {
+    display: none;
+  }
+
+  .headline {
+    font-size: 30px;
+  }
+
+  .subtext {
+    font-size: 14px;
+  }
+
+  .logo {
+    width: min(240px, 72%);
+  }
+
+  .logoWrap {
+    margin-bottom: 14px;
+  }
+
+  .form {
+    gap: 10px;
+  }
+
+  .input {
+    height: 46px;
+    padding-left: 46px;
+    font-size: 15px;
+  }
+
+  .inputPassword {
+    padding-right: 46px;
+  }
+
+  .inputIcon {
+    left: 15px;
+  }
+
+  .pwToggle {
+    right: 5px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .submit {
+    height: 46px;
+    font-size: 15px;
+  }
+
+  .error {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
+/* --- Extremamente baixa (<= 640px): só foto + formulário --- */
+@media (min-width: 1024px) and (max-height: 640px) {
+  .kicker,
+  .subtext,
+  .bottom {
+    display: none;
+  }
+
+  .headline {
+    font-size: 26px;
+  }
+
+  .logo {
+    width: min(200px, 66%);
+  }
+
+  .logoWrap {
+    margin-bottom: 10px;
+  }
+
+  .form {
+    gap: 8px;
+  }
+
+  .input {
+    height: 42px;
+    padding-left: 42px;
+    font-size: 14px;
+  }
+
+  .inputPassword {
+    padding-right: 42px;
+  }
+
+  .inputIcon {
+    left: 13px;
+  }
+
+  .pwToggle {
+    width: 34px;
+    height: 34px;
+  }
+
+  .submit {
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .footer {
+    padding-top: 8px;
+    font-size: 11px;
+  }
+
+  .footerTagline {
+    display: none;
+  }
+}
+
+/* Larguras intermediárias: respira menos no card */
+@media (min-width: 1024px) and (max-width: 1280px) {
+  .card {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+}
+
+/* Mobile / tablet: card ocupa a tela inteira.
+   Se o conteúdo não couder (landscape curto), a página rola em vez de cortar
+   o botão Entrar — no desktop 57/43 continua sem scroll. */
+@media (max-width: 1023px) {
+  .page {
+    overflow-y: auto;
+  }
+
+  .grid {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .card {
+    border-radius: 0;
+    border: 0;
+    padding: 26px 22px 16px;
+  }
+
+  .deco {
+    width: 150px;
+    height: 150px;
+    border-width: 20px;
+  }
+}
