@@ -9,7 +9,6 @@ import s from './Login.module.css';
 
 const BANNER_LEFT = '/assets/login-banner-left.png';
 const LOGO = '/assets/logo_.png';
-const ARCOS = '/assets/login-arcos.png';
 
 export default function Login() {
   const [email, setEmail] = React.useState('');
@@ -63,7 +62,7 @@ export default function Login() {
   return (
     <div className={s.page}>
       <div className={s.grid}>
-        {/* ============ PAINEL ESQUERDO — Banner gráfico de alta fidelidade ============ */}
+        {/* ============ PAINEL ESQUERDO — Banner gráfico ============ */}
         <section className={s.photo} aria-label="VisionBox — Gestão completa para sua ótica">
           <img
             className={s.photoImg}
@@ -84,16 +83,12 @@ export default function Login() {
 
         {/* ============ PAINEL DIREITO — Card de acesso ============ */}
         <main className={s.card}>
-          {/* Arcos decorativos no canto superior direito */}
-          <img src={ARCOS} className={s.deco} alt="" aria-hidden />
+          {/* Anel decorativo (canto superior direito) — CSS puro */}
+          <span className={s.deco} aria-hidden />
 
           <div className={s.cardInner}>
             <div className={s.logoWrap}>
-              <img
-                className={s.logo}
-                src={LOGO}
-                alt="VisionBox — Um novo olhar em gestão"
-              />
+              <img className={s.logo} src={LOGO} alt="VisionBox — Um novo olhar em gestão" />
             </div>
 
             <form onSubmit={handleSubmit} className={s.form}>
@@ -142,7 +137,11 @@ export default function Login() {
                   aria-pressed={showPassword}
                   title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
-                  {showPassword ? <Eye className="h-5 w-5" aria-hidden /> : <EyeOff className="h-5 w-5" aria-hidden />}
+                  {showPassword ? (
+                    <Eye className={s.pwIcon} strokeWidth={1.7} aria-hidden />
+                  ) : (
+                    <EyeOff className={s.pwIcon} strokeWidth={1.7} aria-hidden />
+                  )}
                 </button>
               </div>
 
@@ -166,13 +165,13 @@ export default function Login() {
               <button type="submit" disabled={loading} className={s.submit} aria-busy={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                    <Loader2 className={`${s.btnIcon} animate-spin`} aria-hidden />
                     <span>Entrando...</span>
                   </>
                 ) : (
                   <>
                     <span>Entrar</span>
-                    <ArrowRight className="h-5 w-5" aria-hidden />
+                    <ArrowRight className={s.btnIcon} strokeWidth={1.7} aria-hidden />
                   </>
                 )}
               </button>
