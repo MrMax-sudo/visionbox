@@ -34,13 +34,13 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
     @Query("""
             select p from Produto p
              where p.lojaId = :lojaId
-               and (:q is null
-                    or lower(p.nome) like lower(concat('%', :q, '%'))
-                    or lower(p.sku) like lower(concat('%', :q, '%'))
-                    or (p.codigoBarras is not null and lower(p.codigoBarras) like lower(concat('%', :q, '%'))))
-               and (:categoria is null or lower(p.categoria) = lower(:categoria))
+               and (cast(:q as string) is null
+                    or lower(p.nome) like lower(concat('%', cast(:q as string), '%'))
+                    or lower(p.sku) like lower(concat('%', cast(:q as string), '%'))
+                    or (p.codigoBarras is not null and lower(p.codigoBarras) like lower(concat('%', cast(:q as string), '%'))))
+               and (cast(:categoria as string) is null or lower(p.categoria) = lower(cast(:categoria as string)))
                and (:tipo is null or p.tipoProduto = :tipo)
-               and (:marca is null or (p.marca is not null and lower(p.marca) like lower(concat('%', :marca, '%'))))
+               and (cast(:marca as string) is null or (p.marca is not null and lower(p.marca) like lower(concat('%', cast(:marca as string), '%'))))
             """)
     Page<Produto> buscarFiltrado(@Param("lojaId") UUID lojaId,
                                  @Param("q") String q,

@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Building2, CreditCard, LogOut, Moon, Sun, UserRound } from 'lucide-react';
+import { Building2, CreditCard, FileText, LogOut, Moon, Sun, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmpresaConfig } from '@/components/config/EmpresaConfig';
+import { FiscalConfig } from '@/components/config/FiscalConfig';
 import { FormasPagamentoConfig } from '@/components/config/FormasPagamentoConfig';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -126,6 +127,12 @@ export function ConfiguracoesDialog({
               Empresa
             </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="fiscal">
+              <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Módulo Fiscal (A1)
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <div className="mt-3 max-h-[62vh] overflow-y-auto pr-1">
@@ -186,6 +193,12 @@ export function ConfiguracoesDialog({
           {isAdmin && (
             <TabsContent value="empresa" className="mt-0">
               <EmpresaConfig />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="fiscal" className="mt-0">
+              <FiscalConfig />
             </TabsContent>
           )}
         </div>

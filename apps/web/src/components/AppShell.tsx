@@ -289,15 +289,15 @@ function SidebarNavLink({
           'flex h-10 items-center gap-3 rounded text-sm font-medium transition-colors',
           collapsed ? 'justify-center px-0' : 'px-3',
           isActive
-            ? 'bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] text-sidebar-text'
-            : 'text-sidebar-text hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)]',
+            ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text'
+            : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
         )
       }
     >
       <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
       {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
       {item.shortcut && !collapsed && (
-        <span className="rounded-[6px] bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] px-1.5 py-0.5 text-[11px] font-semibold">
+        <span className="rounded-[6px] bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text">
           {item.shortcut}
         </span>
       )}
@@ -317,12 +317,13 @@ function SidebarContent({
   onOpenConfig: () => void;
 }) {
   const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR';
+  const isDev = user?.perfil === 'DESENVOLVEDOR';
+  const isAdmin = user?.perfil === 'ADMIN' || isDev;
   const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
 
   const adminNav: NavItem[] = [
     { label: 'Usuários', to: '/usuarios', icon: Users },
-    { label: 'Painel Dev', to: '/desenvolvedor', icon: Settings },
+    ...(isDev ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }] : []),
   ];
 
   return (
@@ -332,7 +333,7 @@ function SidebarContent({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="group mx-auto flex items-center justify-center rounded-xl p-1 transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-text"
+          className="group mx-auto flex items-center justify-center rounded-xl p-1 transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
         >
@@ -363,10 +364,10 @@ function SidebarContent({
         {isAdmin && (
           <>
             <hr
-              className={cn('my-4 border-[rgb(var(--color-pdv-sidebar-active-rgb)/0.35)]', collapsed && 'mx-1')}
+              className={cn('my-4 border-border dark:border-[rgb(var(--color-pdv-sidebar-active-rgb)/0.35)]', collapsed && 'mx-1')}
             />
             {!collapsed && (
-              <h4 className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-text">
+              <h4 className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted dark:text-sidebar-text/80">
                 Administrativo
               </h4>
             )}
@@ -388,8 +389,8 @@ function SidebarContent({
           aria-label="Configurações"
           className={cn(
             'flex h-10 w-full items-center gap-3 rounded text-sm font-medium transition-colors',
-            'text-sidebar-text hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-text',
+            'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
             collapsed ? 'justify-center px-0' : 'px-3',
           )}
         >
@@ -402,7 +403,7 @@ function SidebarContent({
       <div className={cn('space-y-3 p-3', collapsed && 'px-2')}>
         <div
           className={cn(
-            'rounded-card bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] p-3',
+            'rounded-card bg-page border border-border dark:border-transparent dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] p-3',
             collapsed && 'flex justify-center p-2',
           )}
         >
@@ -413,22 +414,22 @@ function SidebarContent({
               rel="noreferrer"
               title="Suporte via WhatsApp"
               aria-label="Suporte via WhatsApp"
-              className="text-sidebar-text hover:opacity-80"
+              className="text-primary dark:text-sidebar-text hover:opacity-80"
             >
               <Headphones className="h-5 w-5" strokeWidth={1.8} aria-hidden />
             </a>
           ) : (
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] text-sidebar-text">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] text-primary dark:text-sidebar-text">
                 <Headphones className="h-5 w-5" strokeWidth={1.8} aria-hidden />
               </span>
-              <p className="min-w-0 text-xs leading-snug text-sidebar-text">
+              <p className="min-w-0 text-xs leading-snug text-foreground dark:text-sidebar-text">
                 Precisa de ajuda?{' '}
                 <a
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                  className="font-semibold text-primary dark:text-sidebar-text underline underline-offset-2 hover:opacity-80"
                 >
                   Suporte via WhatsApp
                 </a>
@@ -440,7 +441,7 @@ function SidebarContent({
         <SyncIndicator className="w-full justify-center" />
 
         {!collapsed && (
-          <p className="px-1 text-[11px] text-sidebar-text">
+          <p className="px-1 text-[11px] text-muted dark:text-sidebar-text/70">
             VisionBox v0.1.0 • TechboxBR 2026
           </p>
         )}
@@ -553,7 +554,7 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
         <aside
           className={cn(
             'absolute inset-y-0 left-0 z-sidebar flex w-[264px] flex-col overflow-hidden border-r border-border',
-            'bg-[linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)]',
+            'bg-card dark:bg-[linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)]',
             'transition-[transform,visibility,width] duration-200 ease-out',
             'lg:static lg:z-auto lg:translate-x-0 lg:opacity-100',
             mobileOpen

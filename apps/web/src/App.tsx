@@ -79,6 +79,14 @@ function Protected({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function DevOnly({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.perfil !== 'DESENVOLVEDOR') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -104,7 +112,7 @@ export default function App() {
           <Route path="os/:id" element={<LazyPage><OSDetail /></LazyPage>} />
           <Route path="financeiro" element={<LazyPage><Financeiro /></LazyPage>} />
           <Route path="usuarios" element={<LazyPage><UserManagement /></LazyPage>} />
-          <Route path="desenvolvedor" element={<LazyPage><PainelDesenvolvedor /></LazyPage>} />
+          <Route path="desenvolvedor" element={<DevOnly><LazyPage><PainelDesenvolvedor /></LazyPage></DevOnly>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

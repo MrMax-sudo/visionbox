@@ -13,7 +13,8 @@ export default defineConfig({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://localhost:8080',
+                // API_PROXY_TARGET permite apontar para outra API (ex.: VPS) sem editar este arquivo
+                target: process.env.API_PROXY_TARGET || 'http://localhost:8080',
                 changeOrigin: true,
                 // mantém /api prefix — backend expõe /api/v1
             },

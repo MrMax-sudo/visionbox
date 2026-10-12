@@ -86,11 +86,36 @@ export function CsvImportDialog({
     },
   });
 
+  const baixarModelo = () => {
+    const csvContent = '\uFEFF' + `${columns}\n${example}\n`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `modelo-${itemLabel.toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Dialog open={open} onClose={onClose} title={title} description={description}>
       <div className="space-y-4">
-        <div className="space-y-1 rounded border border-border bg-page p-3 text-xs">
-          <p className="font-semibold text-primary">Formato do cabeçalho CSV recomendado:</p>
+        <div className="space-y-2 rounded border border-border bg-page p-3 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-primary">Formato do cabeçalho CSV recomendado:</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={baixarModelo}
+            >
+              <Upload className="h-3.5 w-3.5 rotate-180" aria-hidden />
+              Baixar Modelo (.csv)
+            </Button>
+          </div>
           <p className="break-all font-mono text-[11px] text-secondary">{columns}</p>
           <p className="pt-1 text-[10px] text-muted">
             * Suporta separador por vírgula (,) ou ponto-e-vírgula (;).
