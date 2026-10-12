@@ -218,7 +218,7 @@ export default function DashboardKanban() {
         ) : (
           <div className="grid gap-4 lg:grid-cols-5">
             <OrdersChart ordens={ordens} />
-            <PromoPanel />
+            <PromoPanel ordens={ordens} />
           </div>
         )}
 

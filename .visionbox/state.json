@@ -10,12 +10,12 @@
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [
-    "P1 BLOQUEADO (draft pronto p/ db-admin): migrations V3-V10 ausentes + V2 referencia perfil/usuario_loja/sequencia_numeracao/fn_next_sequencia inexistentes — draft em docs/p1-migrations-draft/ (V1_1 fundacao + V3 catalogo + V4 pedido_venda + V5 colunas OS); requer db-admin + Postgres real para validar flyway migrate/validate"
+    "VARREDURA DADOS REAIS: Saneamento total de dados visíveis — Flowbox desconectado com status transparente, remoção de CNPJ/telefone fake de bobina térmica, defaults artificiais de caixa e agrupamento temporal estrito no gráfico"
   ],
   "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (232/232 verdes)",
-  "phase": "Fase 3.6 — Enforcement Alçada Server-side & Rastreio Cliente US17",
+  "phase": "Fase 4 — Saneamento de Mocks & Operação Real",
   "current_sprint": "S3-WAVE-PARALELA",
-  "progress_pct": 95,
+  "progress_pct": 96,
   "milestones": [
     {"id": "M0", "name": "Kickoff docs", "status": "done", "evidence": "docs/"},
     {"id": "M1", "name": "S0 Foundation", "status": "done", "evidence": "V11 + CpfConverter 51/51 + CI", "done_at": "2026-09-05"},
@@ -97,7 +97,7 @@
     "fiscal": "FlowboxFiscalProvider + MockFallback NFC-e 65/NF-e 55",
     "sla": "Quartz @Scheduled 1min",
     "outbox": "RabbitMQ ready",
-    "vps_deploy": "GitHub repository origin/main sync + Docker compose up -d healthy (app:8080, web:8088)",
-    "ci_cd": "GitHub Actions Self-Hosted Runner v2.337.0 ativo na VPS (deploy automático no push main)"
+    "vps_deploy": "Deploy automatizado via script deploy.ps1 (push GitHub + ssh vps git pull + docker compose up -d --build)",
+    "ci_cd": "deploy.ps1 PowerShell/npm run deploy + workflow_dispatch manual"
   }
 }

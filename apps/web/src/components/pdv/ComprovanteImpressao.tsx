@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useEmpresaStore } from '@/stores/empresaStore';
 
 export interface ComprovanteItem {
   sku: string;
@@ -31,11 +32,10 @@ export interface ComprovanteProps {
  * Comprovante de venda / via de OS — ONDA 2A.
  * O layout do "papel" é intencionalmente monocromático (branco/preto/cinza de
  * bobina) e por isso usa cinzas do Tailwind em vez dos tokens de tema.
- * `window.print()` permanece como no legado (sem isolamento de print — decisão
- * registrada; adicionar @media print global é tarefa do fiscal-engineer).
+ * Utiliza dados da empresa persistidos no banco de dados via useEmpresaStore.
  */
 export function ComprovanteImpressao({
-  osNumero = 'OS-2026-0001',
+  osNumero = '—',
   clienteNome = 'Consumidor',
   clienteCpf,
   clienteTelefone,
@@ -51,11 +51,20 @@ export function ComprovanteImpressao({
   grauOD,
   grauOE,
 }: ComprovanteProps) {
+  const empresa = useEmpresaStore((s) => s.empresa);
   const dataFormatada = new Date(data).toLocaleString('pt-BR');
 
   const handlePrint = () => {
     window.print();
   };
+
+  const cnpjFormatado = empresa?.cnpj
+    ? empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+    : null;
+  const contatoEmpresa = empresa?.telefone || empresa?.whatsapp;
+  const enderecoEmpresa = [empresa?.endereco, empresa?.numero, empresa?.cidade, empresa?.uf]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <div className="space-y-4">
@@ -67,10 +76,18 @@ export function ComprovanteImpressao({
       >
         {/* Cabeçalho */}
         <div className="mb-3 border-b border-dashed border-gray-400 pb-3 text-center">
-          <h2 className="text-sm font-bold tracking-wider">VISIONBOX ÓTICA & LABORATÓRIO</h2>
-          <p className="text-[10px] text-gray-600">Soluções Especializadas em Saúde Visual</p>
-          <p className="text-[10px] text-gray-600">CNPJ: 00.000.000/0001-00</p>
-          <p className="text-[10px] text-gray-600">Atendimento ao Cliente: (11) 99999-9999</p>
+          <h2 className="text-sm font-bold tracking-wider uppercase">
+            {empresa?.nome || 'VISIONBOX ÓTICA'}
+          </h2>
+          {cnpjFormatado && (
+            <p className="text-[10px] text-gray-600">CNPJ: {cnpjFormatado}</p>
+          )}
+          {contatoEmpresa && (
+            <p className="text-[10px] text-gray-600">Atendimento: {contatoEmpresa}</p>
+          )}
+          {enderecoEmpresa && (
+            <p className="text-[10px] text-gray-600">{enderecoEmpresa}</p>
+          )}
           <div className="mt-2 inline-block rounded border border-gray-300 bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-black">
             {tipo === 'os'
               ? 'VIA DE ORDEM DE SERVIÇO'

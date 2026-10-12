@@ -60,15 +60,15 @@ export function PilotReadinessPanel({
 
   const badge = !online
     ? { label: 'Offline', variant: 'danger' as const }
-    : blocked
-      ? { label: 'Ajustar SLA', variant: 'danger' as const }
-      : attention
-        ? { label: 'Pronto para piloto', variant: 'success' as const }
-        : { label: 'Aguardando OS', variant: 'warning' as const };
+    : stats.total === 0
+      ? { label: 'Fila Vazia', variant: 'warning' as const }
+      : stats.atrasadas > 0
+        ? { label: `${stats.atrasadas} OS em Atraso`, variant: 'danger' as const }
+        : { label: 'SLA Regular', variant: 'success' as const };
 
   if (loading) {
     return (
-      <Card aria-busy="true" aria-label="Carregando prontidão M2">
+      <Card aria-busy="true" aria-label="Carregando prontidão">
         <CardHeader className="pb-3">
           <Skeleton className="h-5 w-44" />
           <Skeleton className="h-4 w-72" />
@@ -91,9 +91,9 @@ export function PilotReadinessPanel({
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-3">
         <div>
-          <CardTitle>Painel de prontidão M2</CardTitle>
+          <CardTitle>Monitoramento Operacional da Fila</CardTitle>
           <p className="mt-1 text-xs text-secondary">
-            Piloto 2 óticas • leitura operacional da fila atual
+            Leitura em tempo real do fluxo de ordens de serviço e SLA
           </p>
         </div>
         <Badge variant={badge.variant} className="shrink-0">
@@ -104,14 +104,13 @@ export function PilotReadinessPanel({
         {!online && (
           <div className="flex items-center gap-2 rounded border border-danger-light bg-danger-light px-3 py-2 text-sm text-danger-dark">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-            <span>Modo offline ativo: validar PDV/outbox antes de abrir loja piloto.</span>
+            <span>Modo offline ativo: ordens concluídas serão enfileiradas no outbox local.</span>
           </div>
         )}
 
         {!hasData ? (
           <div className="rounded border border-dashed border-border bg-page p-4 text-sm text-secondary">
-            Nenhuma OS carregada para medir prontidão. Assim que houver dados, este painel mostra
-            SLA, fila de laboratório e retirada.
+            Nenhuma ordem de serviço registrada no banco de dados no momento.
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -133,21 +132,6 @@ export function PilotReadinessPanel({
             />
           </div>
         )}
-
-        <div className="grid gap-2 text-xs text-secondary sm:grid-cols-3">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-success-dark" aria-hidden />
-            Login, dashboard, PDV e OS disponíveis
-          </span>
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-success-dark" aria-hidden />
-            Dados recentes sem recarregar a tela
-          </span>
-          <span className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning-dark" aria-hidden />
-            Integrações externas em validação
-          </span>
-        </div>
       </CardContent>
     </Card>
   );

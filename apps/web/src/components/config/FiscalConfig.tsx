@@ -1,23 +1,42 @@
 import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   FileText,
   ShieldCheck,
   Key,
   Server,
-  CheckCircle2,
   AlertCircle,
   HelpCircle,
   Zap,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useEmpresaStore } from '@/stores/empresaStore';
+import { apiClient } from '@/lib/apiClient';
+
+interface DevInfo {
+  app: string;
+  version: string;
+  profiles: string;
+  fiscalProvider: string;
+}
 
 /**
  * FiscalConfig — Gestão e Informações do Módulo Fiscal & Certificado Digital A1.
- * Exibe a integração nativa com o Flowbox (TECHBOXBR) e os parâmetros fiscais da loja.
+ * Exibe o status real de conexão com o Flowbox (TECHBOXBR) e os parâmetros fiscais da loja.
  */
 export function FiscalConfig() {
   const empresa = useEmpresaStore((s) => s.empresa);
+
+  const { data: devInfo } = useQuery<DevInfo>({
+    queryKey: ['dev-info-fiscal'],
+    queryFn: async () => {
+      const res = await apiClient.get<DevInfo>('/v1/dev/info');
+      return res.data;
+    },
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const isFlowboxConnected = devInfo?.fiscalProvider === 'flowbox';
 
   return (
     <section className="space-y-4 text-xs">
@@ -30,15 +49,35 @@ export function FiscalConfig() {
           <div>
             <h3 className="font-semibold text-primary">Módulo Fiscal & Certificado A1</h3>
             <p className="text-[11px] text-muted">
-              Emissão de NFC-e (65) e NF-e (55) via gateway centralizado Flowbox
+              Gateway fiscal centralizado Flowbox (TECHBOXBR)
             </p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-          <CheckCircle2 className="h-3 w-3" />
-          Flowbox Conectado
-        </span>
+        {isFlowboxConnected ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <ShieldCheck className="h-3 w-3" />
+            Flowbox Conectado
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <AlertCircle className="h-3 w-3" />
+            Flowbox Desconectado (Pendente)
+          </span>
+        )}
       </div>
+
+      {/* Alerta Real do Estado da Integração */}
+      {!isFlowboxConnected && (
+        <div className="flex items-start gap-2.5 rounded border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="text-[11px] space-y-1">
+            <p className="font-semibold">Serviço Flowbox ainda não iniciado</p>
+            <p className="text-secondary leading-relaxed">
+              O microsserviço Flowbox Fiscal Gateway não está rodando nesta instância. O VisionBox está atualmente em modo local/homologação. A comunicação externa e emissão oficial com a SEFAZ será ativada assim que o Flowbox for iniciado na porta 8085 ou na VPS.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Como funciona o Certificado A1 */}
       <div className="rounded-lg border border-border bg-page p-3.5 space-y-2.5">
@@ -52,7 +91,7 @@ export function FiscalConfig() {
         <div className="grid gap-2 sm:grid-cols-2 pt-1">
           <div className="rounded border border-border bg-card p-2.5">
             <span className="font-semibold text-primary flex items-center gap-1.5 mb-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Segurança Isolada
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Isolamento do Certificado
             </span>
             <p className="text-[11px] text-muted">
               O arquivo <code className="text-primary font-mono">.pfx</code> e sua senha nunca ficam expostos no navegador ou nos caixas locais, prevenindo clonagem e vazamento.
@@ -60,7 +99,7 @@ export function FiscalConfig() {
           </div>
           <div className="rounded border border-border bg-card p-2.5">
             <span className="font-semibold text-primary flex items-center gap-1.5 mb-1">
-              <Zap className="h-3.5 w-3.5 text-amber-500" /> Emissão em Alta Velocidade
+              <Zap className="h-3.5 w-3.5 text-amber-500" /> Assinatura e Autorização
             </span>
             <p className="text-[11px] text-muted">
               O Flowbox assina o XML, autoriza na SEFAZ e devolve o protocolo com DANFE e QR-Code para impressão térmica instantânea no PDV.
@@ -73,25 +112,25 @@ export function FiscalConfig() {
       <div className="space-y-2">
         <h4 className="font-semibold text-primary flex items-center gap-1.5">
           <Server className="h-3.5 w-3.5" />
-          Parâmetros Fiscais da Loja
+          Parâmetros Fiscais Cadastrados no Banco
         </h4>
         <dl className="grid gap-2 sm:grid-cols-3">
           <div className="rounded border border-border bg-card p-2.5">
+            <dt className="text-[10px] text-muted uppercase font-medium">Razão Social</dt>
+            <dd className="text-xs font-semibold text-primary mt-0.5 truncate">
+              {empresa?.nome || 'Não cadastrada'}
+            </dd>
+          </div>
+          <div className="rounded border border-border bg-card p-2.5">
             <dt className="text-[10px] text-muted uppercase font-medium">CNPJ Emitente</dt>
             <dd className="font-mono text-xs font-semibold text-primary mt-0.5">
-              {empresa?.cnpj ? empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : 'Não cadastrado'}
+              {empresa?.cnpj ? empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : 'Pendente de cadastro'}
             </dd>
           </div>
           <div className="rounded border border-border bg-card p-2.5">
-            <dt className="text-[10px] text-muted uppercase font-medium">Ambiente SEFAZ</dt>
+            <dt className="text-[10px] text-muted uppercase font-medium">Status do Provider</dt>
             <dd className="text-xs font-semibold text-primary mt-0.5">
-              Homologação / Produção
-            </dd>
-          </div>
-          <div className="rounded border border-border bg-card p-2.5">
-            <dt className="text-[10px] text-muted uppercase font-medium">Regime Tributário</dt>
-            <dd className="text-xs font-semibold text-primary mt-0.5">
-              Simples Nacional (CRT 1)
+              {isFlowboxConnected ? 'Flowbox Ativo' : 'Simulação Local / Pendente'}
             </dd>
           </div>
         </dl>
@@ -101,7 +140,7 @@ export function FiscalConfig() {
       <div className="rounded-lg border border-border bg-card p-3 space-y-2">
         <h4 className="font-semibold text-primary flex items-center gap-1.5">
           <HelpCircle className="h-3.5 w-3.5 text-blue-500" />
-          Regras de Tributação e NCMs do Setor Óptico
+          Regras de Tributação e NCMs do Setor Óptico (Referência)
         </h4>
         <div className="space-y-1.5 text-[11px] text-secondary">
           <div className="flex justify-between border-b border-border/50 pb-1">
@@ -120,12 +159,12 @@ export function FiscalConfig() {
       </div>
 
       {/* Contingência Offline */}
-      <div className="flex items-start gap-2.5 rounded border border-amber-500/20 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
-        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-2.5 rounded border border-border bg-card p-3 text-secondary">
+        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-muted" />
         <div className="text-[11px] space-y-0.5">
-          <p className="font-semibold">Contingência Offline no PDV</p>
+          <p className="font-semibold text-primary">Contingência Offline no PDV</p>
           <p className="text-muted">
-            Se a internet ou a SEFAZ estiver fora do ar, o PDV do VisionBox permite concluir vendas normalmente. As notas são assinadas e enviadas ao Flowbox automaticamente assim que o sinal for restabelecido.
+            Se a internet ou o serviço fiscal estiver indisponível, o PDV do VisionBox permite concluir vendas normalmente. As notas são enfileiradas no outbox para transmissão assim que o serviço for restabelecido.
           </p>
         </div>
       </div>

@@ -153,7 +153,9 @@ export default function PainelDesenvolvedor() {
                 valor={
                   <span className="flex items-center gap-2">
                     {devInfo.fiscalProvider}
-                    <Chip ok={devInfo.fiscalProvider === 'flowbox'}>ativo</Chip>
+                    <Chip ok={devInfo.fiscalProvider === 'flowbox'}>
+                      {devInfo.fiscalProvider === 'flowbox' ? 'ativo' : 'inativo / emulação'}
+                    </Chip>
                   </span>
                 }
               />

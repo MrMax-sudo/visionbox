@@ -20,6 +20,8 @@ import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient, ApiError } from '@/lib/apiClient';
 
+import { useAuthStore } from '@/stores/authStore';
+
 export interface CaixaMovimento {
   id: string;
   tipo:
@@ -86,11 +88,21 @@ const abaTriggerCls =
 export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const user = useAuthStore((s) => s.user);
   const [tab, setTab] = React.useState<Aba>('status');
 
-  // Form states
-  const [saldoInicialInput, setSaldoInicialInput] = React.useState('100.00');
-  const [operadorNomeInput, setOperadorNomeInput] = React.useState('Operador PDV');
+  // Form states — sem valores inventados; operador vem do login real
+  const [saldoInicialInput, setSaldoInicialInput] = React.useState('');
+  const [operadorNomeInput, setOperadorNomeInput] = React.useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setOperadorNomeInput(user?.nome || '');
+      setSaldoInicialInput('');
+      setFormError(null);
+    }
+  }, [open, user]);
+
   const [valorMovimentoInput, setValorMovimentoInput] = React.useState('');
   const [motivoMovimentoInput, setMotivoMovimentoInput] = React.useState('');
   const [saldoFechamentoInput, setSaldoFechamentoInput] = React.useState('');
@@ -407,7 +419,7 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
                   min="0"
                   value={saldoInicialInput}
                   onChange={(e) => setSaldoInicialInput(e.target.value)}
-                  placeholder="Ex: 100.00"
+                  placeholder="0.00"
                   className="font-mono"
                 />
               </Field>

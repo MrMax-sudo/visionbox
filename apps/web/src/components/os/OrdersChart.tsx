@@ -13,10 +13,14 @@ export function OrdersChart({ ordens }: { ordens: OrdemServicoDTO[] }) {
   const series = React.useMemo(() => {
     const buckets = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
     const base = buckets.map((label) => ({ label, recebidas: 0, producao: 0, prontas: 0, atrasadas: 0 }));
-    ordens.forEach((os, index) => {
-      const date = os.criadoEm ?? os.previsao ?? os.previsaoEntrega;
-      const day = date ? new Date(date).getDay() : index % 7;
+    ordens.forEach((os) => {
+      const rawDate = os.criadoEm ?? os.previsaoEntrega ?? os.previsao;
+      if (!rawDate) return;
+      const parsed = new Date(rawDate);
+      if (isNaN(parsed.getTime())) return;
+      const day = parsed.getDay();
       const slot = base[(day + 6) % 7];
+      if (!slot) return;
       slot.recebidas += 1;
       if (['ENVIADO_LABORATORIO', 'EM_PRODUCAO'].includes(os.status)) slot.producao += 1;
       if (os.status === 'PRONTO_PARA_RETIRADA') slot.prontas += 1;

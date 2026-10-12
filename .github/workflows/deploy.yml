@@ -1,9 +1,8 @@
 name: Deploy to VPS
 
 on:
-  push:
-    branches:
-      - main
+  # Deploy direto automatizado via script local: .\deploy.ps1 (SSH direto na VPS)
+  # Disparo manual via GitHub Actions caso necessario:
   workflow_dispatch:
 
 jobs:

@@ -131,20 +131,56 @@ export function AlertaAtrasadas({ total }: { total: number }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Banner promocional do dashboard                                     */
+/* Painel de Distribuição por Status (dados reais do banco)            */
 /* ------------------------------------------------------------------ */
 
-export function PromoPanel() {
+export function PromoPanel({ ordens = [] }: { ordens?: Array<{ status: string }> }) {
+  const orcamentos = ordens.filter((o) => o.status === 'ORCAMENTO').length;
+  const confirmadas = ordens.filter((o) => o.status === 'PEDIDO_CONFIRMADO').length;
+  const producao = ordens.filter((o) => ['ENVIADO_LABORATORIO', 'EM_PRODUCAO'].includes(o.status)).length;
+  const montagem = ordens.filter((o) => ['LENTE_PRONTA', 'MONTAGEM', 'CONTROLE_QUALIDADE'].includes(o.status)).length;
+  const prontas = ordens.filter((o) => o.status === 'PRONTO_PARA_RETIRADA').length;
+  const concluidas = ordens.filter((o) => o.status === 'ENTREGUE').length;
+
   return (
-    <Card className="relative flex min-h-[240px] max-h-[300px] items-end overflow-hidden bg-gradient-to-br from-primary via-primary-dark to-secondary p-6 lg:col-span-2">
+    <Card className="flex flex-col justify-between overflow-hidden p-4 lg:col-span-2">
       <div>
-        <p className="text-lg font-semibold text-white">
-          Mais organização — clientes mais satisfeitos.
-        </p>
-        <p className="mt-1 text-sm text-white/80">
-          Controle, agilidade e resultados para sua ótica.
-        </p>
+        <div className="flex items-center justify-between border-b border-border pb-2.5">
+          <CardTitle className="text-sm font-semibold text-primary">
+            Distribuição por Status
+          </CardTitle>
+          <span className="font-mono text-xs text-muted">{ordens.length} ordens</span>
+        </div>
+        <div className="mt-2.5 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between border-b border-border/40 py-1">
+            <span className="text-secondary">Orçamentos</span>
+            <span className="font-mono font-semibold text-primary">{orcamentos}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border/40 py-1">
+            <span className="text-secondary">Confirmadas</span>
+            <span className="font-mono font-semibold text-primary">{confirmadas}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border/40 py-1">
+            <span className="text-secondary">Laboratório / Produção</span>
+            <span className="font-mono font-semibold text-warning-dark">{producao}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border/40 py-1">
+            <span className="text-secondary">Montagem / CQ</span>
+            <span className="font-mono font-semibold text-secondary-dark">{montagem}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-border/40 py-1">
+            <span className="text-secondary">Prontas p/ Retirada</span>
+            <span className="font-mono font-semibold text-success-dark">{prontas}</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-secondary">Entregues</span>
+            <span className="font-mono font-semibold text-muted">{concluidas}</span>
+          </div>
+        </div>
       </div>
+      <p className="mt-2 border-t border-border pt-2 text-[10px] text-muted">
+        Dados consolidados da base de dados.
+      </p>
     </Card>
   );
 }
