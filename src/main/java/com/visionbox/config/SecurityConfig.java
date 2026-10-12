@@ -80,7 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/caixa/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "FINANCEIRO")
                         .requestMatchers("/api/v1/financeiro/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
-                        .requestMatchers("/api/v1/fiscal/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
+                        .requestMatchers("/api/v1/fiscal/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO", "DESENVOLVEDOR")
                         .requestMatchers("/api/v1/receitas/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO")
                         .requestMatchers("/api/v1/crm/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
                         .requestMatchers("/api/v1/estoque/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "TECNICO")

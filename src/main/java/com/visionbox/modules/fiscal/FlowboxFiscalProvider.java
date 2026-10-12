@@ -28,6 +28,9 @@ public class FlowboxFiscalProvider implements FiscalProvider {
     @Value("${visionbox.fiscal.flowbox.api-key:flowbox_dev_key}")
     private String flowboxApiKey;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.visionbox.modules.pessoa.repository.LojaRepository lojaRepository;
+
     private final RestTemplate restTemplate;
 
     public FlowboxFiscalProvider() {
@@ -42,14 +45,34 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
     @Override
     public ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado) {
-        String url = flowboxBaseUrl + "/api/v1/fiscal/emitir";
+        String baseUrl = flowboxBaseUrl;
+        String apiKey = flowboxApiKey;
+
+        if (lojaRepository != null && documento.getLojaId() != null) {
+            com.visionbox.modules.pessoa.domain.Loja loja = lojaRepository.findById(documento.getLojaId()).orElse(null);
+            if (loja != null) {
+                if (org.springframework.util.StringUtils.hasText(loja.getFlowboxUrl())) {
+                    baseUrl = loja.getFlowboxUrl().trim();
+                }
+                if (org.springframework.util.StringUtils.hasText(loja.getFlowboxApiKey())) {
+                    apiKey = loja.getFlowboxApiKey().trim();
+                }
+            }
+        }
+
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        String url = baseUrl + "/api/v1/fiscal/emitir";
         log.info("Enviando documento fiscal para Flowbox: loja={} modelo={} serie={} numero={} url={}",
                 documento.getLojaId(), documento.getModelo(), documento.getSerie(), documento.getNumero(), url);
 
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Flowbox-Api-Key", flowboxApiKey);
+            headers.set("X-Flowbox-Api-Key", apiKey);
+            headers.set("X-API-KEY", apiKey);
             headers.set("X-Loja-Id", documento.getLojaId().toString());
 
             Map<String, Object> payload = new LinkedHashMap<>();

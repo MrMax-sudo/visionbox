@@ -94,7 +94,7 @@
     "auth": "JWT HS256 15m/7d httpOnly",
     "tenant": "loja_id RLS FORCE",
     "crypto": "AES-GCM + HMAC-SHA256",
-    "fiscal": "FlowboxFiscalProvider ativo em prod,flowbox (Mock desativado)",
+    "fiscal": "Painel de Gestão Flowbox completo (URL, API Key, Ping em tempo real, Atalho Web Flowbox) + FlowboxFiscalProvider dinâmico",
     "sla": "Quartz @Scheduled 1min",
     "outbox": "RabbitMQ ready",
     "vps_deploy": "Servidor VPS configurado com profile prod,flowbox, credenciais seguras e deploy automatizado via deploy.ps1",

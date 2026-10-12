@@ -60,4 +60,13 @@ public class Loja {
 
     @Column(name = "logo_url")
     private String logoUrl;
+
+    @Column(name = "flowbox_url")
+    private String flowboxUrl;
+
+    @Column(name = "flowbox_api_key")
+    private String flowboxApiKey;
+
+    @Column(name = "flowbox_web_url")
+    private String flowboxWebUrl;
 }
