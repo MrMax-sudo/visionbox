@@ -1,30 +1,15 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BarChart3, Eye, EyeOff, FileText, Glasses, Loader2, Lock, User } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, User } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { useAuthStore } from '@/stores/authStore';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import s from './Login.module.css';
 
-/**
- * Login — ONDA 2A.
- *
- * Composição 57/43: foto da ótica (`/assets/login-optica.png`) com véu marrom à
- * esquerda e card creme à direita. Sem `position:fixed`, sem zoom e sem scroll em
- * nenhuma altura (100dvh + breakpoints de altura locais no CSS module).
- * Foto/logo têm fallback — a tela nunca quebra se o asset faltar.
- */
-const PHOTO = '/assets/login-optica.png';
+const BANNER_LEFT = '/assets/login-banner-left.png';
 const LOGO = '/assets/logo_.png';
-
-const FEATURES = [
-  { icon: Glasses, lines: ['Clientes', 'e prescrições'] },
-  { icon: FileText, lines: ['Vendas e pedidos', 'em um só lugar'] },
-  { icon: BarChart3, lines: ['Relatórios que', 'impulsionam', 'seus resultados'] },
-];
+const ARCOS = '/assets/login-arcos.png';
 
 export default function Login() {
   const [email, setEmail] = React.useState('');
@@ -33,8 +18,6 @@ export default function Login() {
   const [lembrar, setLembrar] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
-  const [photoFailed, setPhotoFailed] = React.useState(false);
-  const [logoFailed, setLogoFailed] = React.useState(false);
 
   const setAuth = useAuthStore((st) => st.setAuth);
   const nav = useNavigate();
@@ -65,7 +48,6 @@ export default function Login() {
       });
       nav('/', { replace: true });
     } catch (err: unknown) {
-      // ApiError já carrega problem.detail (RFC 7807) ou a mensagem de timeout/sem rede
       const msg =
         err instanceof ApiError
           ? err.problem?.detail || err.message || 'Falha no login'
@@ -81,100 +63,47 @@ export default function Login() {
   return (
     <div className={s.page}>
       <div className={s.grid}>
-        {/* ============ PAINEL ESQUERDO — foto + véu marrom ============ */}
-        <section className={s.photo} aria-label="VisionBox — gestão para óticas">
-          {!photoFailed && (
-            <img
-              className={s.photoImg}
-              src={PHOTO}
-              alt=""
-              aria-hidden
-              onError={() => setPhotoFailed(true)}
-            />
-          )}
-          <div className={s.photoOverlay} aria-hidden />
-
-          <div className={s.photoContent}>
-            <div>
-              <div className={s.rule} aria-hidden />
-              <p className={s.kicker}>
-                Tecnologia
-                <br />a favor de
-                <br />
-                novos olhares
-              </p>
-            </div>
-
-            <div>
-              <h1 className={s.headline}>
-                <span>Gestão completa</span>
-                <span className={s.headlineStrong}>para sua ótica</span>
-              </h1>
-              <p className={s.subtext}>
-                Mais controle, organização e resultados para o crescimento do seu negócio.
-              </p>
-
-              <ul className={s.benefits}>
-                {FEATURES.map(({ icon: Icon, lines }) => (
-                  <li key={lines[0]} className={s.benefit}>
-                    <span className={s.benefitIcon}>
-                      <Icon className="h-6 w-6" strokeWidth={1.6} aria-hidden />
-                    </span>
-                    <span className={s.benefitText}>
-                      {lines.map((line) => (
-                        <span key={line} className={s.benefitLine}>
-                          {line}
-                        </span>
-                      ))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <div className={s.rule} aria-hidden />
-              <p className={s.bottom}>
-                Visão para
-                <br />grandes
-                <br />
-                conquistas
-              </p>
-            </div>
+        {/* ============ PAINEL ESQUERDO — Banner gráfico de alta fidelidade ============ */}
+        <section className={s.photo} aria-label="VisionBox — Gestão completa para sua ótica">
+          <img
+            className={s.photoImg}
+            src={BANNER_LEFT}
+            alt="VisionBox — Gestão completa para sua ótica: Mais controle, organização e resultados para o crescimento do seu negócio"
+          />
+          <div className="sr-only">
+            <h1>Gestão completa para sua ótica</h1>
+            <p>Mais controle, organização e resultados para o crescimento do seu negócio.</p>
+            <ul>
+              <li>Clientes e prescrições</li>
+              <li>Vendas e pedidos em um só lugar</li>
+              <li>Relatórios que impulsionam seus resultados</li>
+            </ul>
+            <p>Tecnologia a favor de novos olhares. Visão para grandes conquistas.</p>
           </div>
         </section>
 
-        {/* ============ PAINEL DIREITO — card de acesso ============ */}
+        {/* ============ PAINEL DIREITO — Card de acesso ============ */}
         <main className={s.card}>
-          <div className={s.deco} aria-hidden />
+          {/* Arcos decorativos no canto superior direito */}
+          <img src={ARCOS} className={s.deco} alt="" aria-hidden />
 
           <div className={s.cardInner}>
             <div className={s.logoWrap}>
-              {logoFailed ? (
-                <div className={s.logoFallback} aria-label="VisionBox — um novo olhar em gestão">
-                  <span className={s.logoWord}>
-                    Vision<span className={s.logoWordAccent}>Box</span>
-                  </span>
-                  <span className={s.logoTagline}>Um novo olhar em gestão</span>
-                </div>
-              ) : (
-                <img
-                  className={s.logo}
-                  src={LOGO}
-                  alt="VisionBox — um novo olhar em gestão"
-                  onError={() => setLogoFailed(true)}
-                />
-              )}
+              <img
+                className={s.logo}
+                src={LOGO}
+                alt="VisionBox — Um novo olhar em gestão"
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className={s.form} noValidate={false}>
+            <form onSubmit={handleSubmit} className={s.form}>
               {/* Usuário */}
               <div className={s.inputWrap}>
                 <label className="sr-only" htmlFor="login-email">
                   Usuário
                 </label>
                 <User className={s.inputIcon} strokeWidth={1.7} aria-hidden />
-                <Input
+                <input
                   id="login-email"
                   type="text"
                   value={email}
@@ -188,13 +117,13 @@ export default function Login() {
                 />
               </div>
 
-              {/* Senha (exibível) */}
+              {/* Senha */}
               <div className={s.inputWrap}>
                 <label className="sr-only" htmlFor="login-senha">
                   Senha
                 </label>
                 <Lock className={s.inputIcon} strokeWidth={1.7} aria-hidden />
-                <Input
+                <input
                   id="login-senha"
                   type={showPassword ? 'text' : 'password'}
                   value={senha}
@@ -234,7 +163,7 @@ export default function Login() {
                 </div>
               )}
 
-              <Button type="submit" disabled={loading} className={s.submit} aria-busy={loading}>
+              <button type="submit" disabled={loading} className={s.submit} aria-busy={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -246,15 +175,19 @@ export default function Login() {
                     <ArrowRight className="h-5 w-5" aria-hidden />
                   </>
                 )}
-              </Button>
+              </button>
             </form>
           </div>
 
           {/* Rodapé */}
           <footer className={s.footer}>
-            <span className={s.footerTagline}>Foco na sua visão, impulso no seu negócio.</span>
+            <span className={s.footerTagline}>
+              FOCO NA SUA VISÃO,
+              <br />
+              IMPULSO NO SEU NEGÓCIO.
+            </span>
             <span className={s.divider} aria-hidden />
-            <span>
+            <span className={s.footerCopyright}>
               Desenvolvido por <strong className={s.footerStrong}>TechboxBR</strong> 2026
             </span>
           </footer>
