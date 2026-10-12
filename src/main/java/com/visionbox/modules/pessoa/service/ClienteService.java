@@ -188,44 +188,45 @@ public class ClienteService {
     public ImportacaoResultado importarCsv(MultipartFile file) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo CSV vazio ou ausente");
+            throw new IllegalArgumentException("Arquivo vazio ou ausente");
         }
 
         List<String> erros = new ArrayList<>();
         int processados = 0;
         int totalLinhas = 0;
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
+        try {
+            List<List<String>> linhas = com.visionbox.shared.util.PlanilhaImportHelper.extrairLinhas(file);
             boolean firstLine = true;
 
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
+            for (List<String> cols : linhas) {
+                if (cols.isEmpty()) continue;
                 totalLinhas++;
 
                 // Pula cabeçalho se contiver "nome" ou "cpf"
-                if (firstLine && (line.toLowerCase().contains("nome") || line.toLowerCase().contains("cpf"))) {
+                String primeiraCol = cols.get(0).toLowerCase();
+                String segundaCol = cols.size() > 1 ? cols.get(1).toLowerCase() : "";
+                if (firstLine && (primeiraCol.contains("nome") || primeiraCol.contains("cpf") || segundaCol.contains("cpf"))) {
                     firstLine = false;
                     continue;
                 }
                 firstLine = false;
 
-                String[] cols = line.contains(";") ? line.split(";") : line.split(",");
-                if (cols.length < 2) {
-                    erros.add("Linha " + totalLinhas + ": Formato inválido. Esperado no mínimo: nome, telefone ou cpf");
+                if (cols.size() < 2 || cols.get(0).isBlank()) {
+                    erros.add("Linha " + totalLinhas + ": Formato inválido. Esperado no mínimo: Nome do Cliente e Telefone ou CPF");
                     continue;
                 }
 
                 try {
-                    String nome = cols[0].trim();
+                    String nome = cols.get(0).trim();
                     validarNome(nome);
 
-                    String cpfRaw = cols.length > 1 ? cols[1].trim() : null;
-                    String telefone = cols.length > 2 ? cols[2].trim() : null;
-                    String email = cols.length > 3 ? cols[3].trim() : null;
-                    String cep = cols.length > 4 ? sanitizeCep(cols[4].trim()) : null;
-                    String cidade = cols.length > 5 ? cols[5].trim() : null;
-                    String uf = cols.length > 6 ? cols[6].trim().toUpperCase() : null;
+                    String cpfRaw = cols.size() > 1 && !cols.get(1).isBlank() ? cols.get(1).trim() : null;
+                    String telefone = cols.size() > 2 && !cols.get(2).isBlank() ? cols.get(2).trim() : null;
+                    String email = cols.size() > 3 && !cols.get(3).isBlank() ? cols.get(3).trim() : null;
+                    String cep = cols.size() > 4 && !cols.get(4).isBlank() ? sanitizeCep(cols.get(4).trim()) : null;
+                    String cidade = cols.size() > 5 && !cols.get(5).isBlank() ? cols.get(5).trim() : null;
+                    String uf = cols.size() > 6 && !cols.get(6).isBlank() ? cols.get(6).trim().toUpperCase() : null;
 
                     String cpfHash = null;
                     byte[] cpfCipher = null;
@@ -241,6 +242,9 @@ public class ClienteService {
                                     exist.setNome(nome);
                                     if (telefone != null) exist.setTelefone(telefone);
                                     if (email != null) exist.setEmail(email);
+                                    if (cep != null) exist.setCep(cep);
+                                    if (cidade != null) exist.setCidade(cidade);
+                                    if (uf != null) exist.setUf(uf);
                                     repository.save(exist);
                                     processados++;
                                     continue;
@@ -266,14 +270,28 @@ public class ClienteService {
                     repository.save(c);
                     processados++;
                 } catch (Exception e) {
-                    erros.add("Linha " + totalLinhas + " (" + line + "): " + e.getMessage());
+                    erros.add("Linha " + totalLinhas + ": " + e.getMessage());
                 }
             }
         } catch (Exception e) {
-            log.error("Erro ao importar CSV de clientes: {}", e.getMessage());
+            log.error("Erro ao importar planilha de clientes: {}", e.getMessage());
             erros.add("Falha ao ler arquivo: " + e.getMessage());
         }
 
         return ImportacaoResultado.sucesso(totalLinhas, processados, erros);
+    }
+
+    public byte[] exportarModeloClientes(String formato) throws java.io.IOException {
+        List<String> cabecalhos = List.of("Nome do Cliente", "CPF", "Telefone", "Email", "CEP", "Cidade", "UF");
+        List<List<String>> exemplos = List.of(
+                List.of("Ana Paula Souza", "123.456.789-00", "(11) 98765-4321", "ana.souza@email.com", "01310-100", "São Paulo", "SP"),
+                List.of("Carlos Eduardo Lima", "987.654.321-99", "(21) 99876-5432", "carlos.lima@email.com", "20040-002", "Rio de Janeiro", "RJ")
+        );
+
+        if ("xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato)) {
+            return com.visionbox.shared.util.PlanilhaImportHelper.gerarModeloExcel("Clientes", cabecalhos, exemplos);
+        } else {
+            return com.visionbox.shared.util.PlanilhaImportHelper.gerarModeloCsv(cabecalhos, exemplos);
+        }
     }
 }

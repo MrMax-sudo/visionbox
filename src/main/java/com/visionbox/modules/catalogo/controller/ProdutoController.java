@@ -63,6 +63,21 @@ public class ProdutoController {
         return ResponseEntity.ok(res);
     }
 
+    @GetMapping("/modelo-importacao")
+    public ResponseEntity<byte[]> baixarModelo(@RequestParam(defaultValue = "xlsx") String formato) throws java.io.IOException {
+        byte[] bytes = service.exportarModeloProdutos(formato);
+        boolean isExcel = "xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato);
+        String filename = isExcel ? "modelo-produtos.xlsx" : "modelo-produtos.csv";
+        String contentType = isExcel
+                ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : "text/csv; charset=utf-8";
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                .body(bytes);
+    }
+
     @PutMapping("/{id}")
     public ProdutoResponse atualizar(@PathVariable UUID id, @Valid @RequestBody ProdutoRequest req) {
         return service.atualizar(id, req);

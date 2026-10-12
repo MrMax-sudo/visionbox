@@ -54,6 +54,21 @@ public class ClienteController {
         return ResponseEntity.ok(resp);
     }
 
+    @GetMapping("/modelo-importacao")
+    public ResponseEntity<byte[]> baixarModelo(@RequestParam(defaultValue = "xlsx") String formato) throws java.io.IOException {
+        byte[] bytes = service.exportarModeloClientes(formato);
+        boolean isExcel = "xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato);
+        String filename = isExcel ? "modelo-clientes.xlsx" : "modelo-clientes.csv";
+        String contentType = isExcel
+                ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : "text/csv; charset=utf-8";
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                .body(bytes);
+    }
+
     @PutMapping("/{id}")
     public ClienteResponse atualizar(@PathVariable UUID id, @Valid @RequestBody ClienteRequest req) {
         return service.atualizar(id, req);

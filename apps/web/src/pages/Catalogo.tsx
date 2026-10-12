@@ -288,8 +288,8 @@ export default function Catalogo() {
       <CsvImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        title="Importar Catálogo de Produtos (CSV)"
-        description="Carregue centenas de armações e lentes de uma só vez usando uma planilha."
+        title="Importar Catálogo de Produtos (Excel / CSV)"
+        description="Carregue centenas de armações e lentes de uma só vez usando uma planilha Excel (.xlsx) ou CSV."
         endpoint="/v1/produtos/importar-csv"
         invalidateKeys={[['produtos'], ['pdv-produtos']]}
         columns="sku,nome,precoVenda,tipoProduto,precoCusto,estoqueQuantidade,ncm"

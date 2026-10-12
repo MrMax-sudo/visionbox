@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Upload } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,7 @@ import { cn } from '@/lib/utils';
 /**
  * CsvImportDialog — importação de base em lote (Clientes + Catálogo).
  *
- * Genérico de propósito: endpoint, chaves de invalidação e a cópia do guia
- * vêm por props. O contrato de API (multipart POST) é idêntico ao original.
+ * Suporta arquivos Excel (.xlsx, .xls) e CSV (.csv) com download de modelos.
  */
 export type CsvImportResult = {
   processadosComSucesso: number;
@@ -62,8 +61,9 @@ export function CsvImportDialog({
   const queryClient = useQueryClient();
   const [file, setFile] = React.useState<File | null>(null);
   const [result, setResult] = React.useState<CsvImportResult | null>(null);
+  const [downloading, setDownloading] = React.useState<'xlsx' | 'csv' | null>(null);
 
-  // ao reabrir, começa limpo (antes era feito manualmente no onClick do botão)
+  // ao reabrir, começa limpo
   React.useEffect(() => {
     if (open) {
       setFile(null);
@@ -86,40 +86,87 @@ export function CsvImportDialog({
     },
   });
 
-  const baixarModelo = () => {
-    const csvContent = '\uFEFF' + `${columns}\n${example}\n`;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `modelo-${itemLabel.toLowerCase()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const baixarModelo = async (formato: 'xlsx' | 'csv') => {
+    try {
+      setDownloading(formato);
+      const baseUrl = endpoint.replace('/importar-csv', '');
+      const response = await apiClient.get(`${baseUrl}/modelo-importacao?formato=${formato}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type:
+          formato === 'xlsx'
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv;charset=utf-8;',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `modelo-${itemLabel.toLowerCase()}.${formato}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback local se a rota de template não responder
+      const csvContent = '\uFEFF' + `${columns}\n${example}\n`;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `modelo-${itemLabel.toLowerCase()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
     <Dialog open={open} onClose={onClose} title={title} description={description}>
       <div className="space-y-4">
         <div className="space-y-2 rounded border border-border bg-page p-3 text-xs">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold text-primary">Formato do cabeçalho CSV recomendado:</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={baixarModelo}
-            >
-              <Upload className="h-3.5 w-3.5 rotate-180" aria-hidden />
-              Baixar Modelo (.csv)
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-primary">Modelos para preenchimento:</p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-medium"
+                onClick={() => baixarModelo('xlsx')}
+                disabled={downloading !== null}
+              >
+                {downloading === 'xlsx' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                )}
+                Modelo Excel (.xlsx)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => baixarModelo('csv')}
+                disabled={downloading !== null}
+              >
+                {downloading === 'csv' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5 rotate-180" aria-hidden />
+                )}
+                Modelo CSV (.csv)
+              </Button>
+            </div>
           </div>
           <p className="break-all font-mono text-[11px] text-secondary">{columns}</p>
           <p className="pt-1 text-[10px] text-muted">
-            * Suporta separador por vírgula (,) ou ponto-e-vírgula (;).
-            {sanitizeNote ? ` ${sanitizeNote}` : ''} Exemplo: <br />
+            * Aceita arquivos <strong>Excel (.xlsx, .xls)</strong> e <strong>CSV (.csv)</strong>.
+            {sanitizeNote ? ` ${sanitizeNote}` : ''} Exemplo de linha: <br />
             <code className="break-all text-brand">{example}</code>
           </p>
         </div>
@@ -130,15 +177,15 @@ export function CsvImportDialog({
         >
           <Upload className="mb-2 h-8 w-8 text-muted" aria-hidden />
           <span className="text-sm font-medium text-primary">
-            {file ? file.name : 'Clique para selecionar o arquivo .csv'}
+            {file ? file.name : 'Clique para selecionar planilha Excel (.xlsx, .xls) ou CSV (.csv)'}
           </span>
           <span className="mt-1 text-xs text-muted">
-            {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Tamanho máximo: 10MB'}
+            {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Formatos suportados: .xlsx, .xls, .csv • Tamanho máx.: 10MB'}
           </span>
           <input
             id="csv-import-file"
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0];

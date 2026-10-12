@@ -339,8 +339,8 @@ export default function Clientes() {
       <CsvImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        title="Importar Clientes (CSV)"
-        description="Carregue sua base de clientes existente a partir de uma planilha CSV."
+        title="Importar Clientes (Excel / CSV)"
+        description="Carregue sua base de clientes existente a partir de uma planilha Excel (.xlsx) ou CSV."
         endpoint="/v1/clientes/importar-csv"
         invalidateKeys={[['clientes']]}
         columns="nome,cpf,telefone,email,cidade,uf,cep,logradouro,numero,bairro"

@@ -1,16 +1,16 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-12T14:30:00-03:00",
+  "updated_at": "2026-10-12T17:27:00-03:00",
   "web_refactor": {
-    "status": "sidebar_topbar_sku_ean_ok",
+    "status": "excel_csv_carga_deploy_ready",
     "wave": 4,
-    "scope": "Sidebar reordenada (Dashboard, PDV, Receitas, OS, Financeiro, Administrativo com submenu Clientes e Catálogo); Topbar enxuta com avatar circular e DropdownMenu para baixo (Configurações, Usuários, Sair); Geração automática sequencial de SKU e EAN-13 sem duplicidade por loja",
-    "evidence": "typecheck + build verdes (24.7s); ProdutoSkuEanTest 5/5 verdes (2.98s)",
+    "scope": "Sidebar reordenada com submenu Administrativo, Topbar com Avatar Dropdown, Geração sequencial de SKU/EAN-13, Suporte total a planilhas Excel (.xlsx/.xls) e CSV em carga e download de modelos",
+    "evidence": "typecheck + build verdes (13.7s); PlanilhaImportHelperTest 2/2 verdes; ProdutoSkuEanTest 5/5 verdes",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [
-    "Sidebar reordenada com submenu Administrativo, Topbar com Avatar Dropdown, Geração sequencial de SKU e EAN-13"
+    "Carga de dados Excel e CSV, Deploy na VPS, Documentação executiva para clientes e técnica para desenvolvedores"
   ],
   "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (232/232 verdes)",
   "phase": "Fase 4 — Saneamento de Mocks & Operação Real",

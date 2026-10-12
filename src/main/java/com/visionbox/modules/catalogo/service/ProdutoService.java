@@ -384,57 +384,93 @@ public class ProdutoService {
     public ImportacaoResultado importarCsv(MultipartFile file) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo CSV vazio ou ausente");
+            throw new IllegalArgumentException("Arquivo vazio ou ausente");
         }
 
         List<String> erros = new ArrayList<>();
         int processados = 0;
         int totalLinhas = 0;
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
+        try {
+            List<List<String>> linhas = com.visionbox.shared.util.PlanilhaImportHelper.extrairLinhas(file);
             boolean firstLine = true;
 
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
+            for (List<String> cols : linhas) {
+                if (cols.isEmpty()) continue;
                 totalLinhas++;
 
                 // Pula cabeçalho se contiver "sku" ou "nome"
-                if (firstLine && (line.toLowerCase().contains("sku") || line.toLowerCase().contains("nome"))) {
+                String col0 = cols.get(0).toLowerCase();
+                String col1 = cols.size() > 1 ? cols.get(1).toLowerCase() : "";
+                if (firstLine && (col0.contains("sku") || col0.contains("nome") || col1.contains("nome") || col1.contains("preço") || col1.contains("preco"))) {
                     firstLine = false;
                     continue;
                 }
                 firstLine = false;
 
-                // Suporta delimitador ';' ou ','
-                String[] cols = line.contains(";") ? line.split(";") : line.split(",");
-                if (cols.length < 3) {
-                    erros.add("Linha " + totalLinhas + ": Formato inválido. Esperado no mínimo: sku, nome, precoVenda");
+                // Esperamos no mínimo: nome e preço, ou sku, nome e preço
+                if (cols.size() < 2 || (cols.get(0).isBlank() && cols.size() > 1 && cols.get(1).isBlank())) {
+                    erros.add("Linha " + totalLinhas + ": Formato inválido. Esperado no mínimo: Nome do produto e Preço de venda");
                     continue;
                 }
 
                 try {
-                    String sku = cols[0].trim();
-                    String nome = cols[1].trim();
-                    String precoStr = cols[2].trim().replace("R$", "").replace(" ", "").replace(",", ".");
+                    String skuRaw = cols.get(0).trim();
+                    String nome;
+                    String precoStr;
+                    int offset = 0;
+
+                    // Se a primeira coluna não tiver cara de SKU e tiver nome direto
+                    if (cols.size() >= 2 && skuRaw.length() > 30 && cols.get(1).matches("^[\\d,.]+$")) {
+                        nome = skuRaw;
+                        skuRaw = "";
+                        precoStr = cols.get(1).trim();
+                        offset = 1;
+                    } else if (cols.size() >= 3) {
+                        nome = cols.get(1).trim();
+                        precoStr = cols.get(2).trim();
+                        offset = 2;
+                    } else {
+                        nome = skuRaw;
+                        skuRaw = "";
+                        precoStr = cols.get(1).trim();
+                        offset = 1;
+                    }
+
+                    if (nome.isBlank()) {
+                        erros.add("Linha " + totalLinhas + ": Nome do produto é obrigatório");
+                        continue;
+                    }
+
+                    precoStr = precoStr.replace("R$", "").replace(" ", "").replace(",", ".");
                     BigDecimal precoVenda = new BigDecimal(precoStr);
 
-                    String tipo = cols.length > 3 && !cols[3].isBlank() ? cols[3].trim().toUpperCase() : "ARMACAO";
-                    String precoCustoStr = cols.length > 4 && !cols[4].isBlank() ? cols[4].trim().replace(",", ".") : "0";
+                    String tipo = cols.size() > (offset + 1) && !cols.get(offset + 1).isBlank() ? cols.get(offset + 1).trim() : "ARMACAO";
+                    String precoCustoStr = cols.size() > (offset + 2) && !cols.get(offset + 2).isBlank() ? cols.get(offset + 2).trim().replace("R$", "").replace(",", ".") : "0";
                     BigDecimal precoCusto = new BigDecimal(precoCustoStr);
-                    int estoqueQtd = cols.length > 5 && !cols[5].isBlank() ? Integer.parseInt(cols[5].trim()) : 0;
-                    String ncmInformado = cols.length > 6 && !cols[6].isBlank() ? cols[6].trim() : null;
+                    int estoqueQtd = 0;
+                    if (cols.size() > (offset + 3) && !cols.get(offset + 3).isBlank()) {
+                        String estStr = cols.get(offset + 3).trim().replaceAll("\\.0+$", "");
+                        estoqueQtd = Integer.parseInt(estStr);
+                    }
+                    String ncmInformado = cols.size() > (offset + 4) && !cols.get(offset + 4).isBlank() ? cols.get(offset + 4).trim() : null;
+                    String codigoBarrasInformado = cols.size() > (offset + 5) && !cols.get(offset + 5).isBlank() ? cols.get(offset + 5).trim() : null;
 
                     Produto.TipoProduto tipoEnum = parseTipo(tipo);
                     String ncmFinal = resolverNcmAutomatico(tipoEnum, ncmInformado);
                     String cestFinal = resolverCestAutomatico(tipoEnum, null);
                     String cfopFinal = resolverCfopAutomatico(null);
 
-                    // Se já existe, atualiza preço e estoque; senão cria novo
-                    Produto p = repository.findBySkuAndLojaId(sku, lojaId)
+                    String skuFinal = (!skuRaw.isBlank()) ? skuRaw : gerarProximoSku(lojaId);
+                    String eanFinal = (codigoBarrasInformado != null && !codigoBarrasInformado.isBlank())
+                            ? codigoBarrasInformado
+                            : gerarProximoCodigoBarrasEan(lojaId);
+
+                    // Se já existe pelo SKU na loja, atualiza; senão cria novo
+                    Produto p = repository.findBySkuAndLojaId(skuFinal, lojaId)
                             .orElseGet(() -> Produto.builder()
                                     .lojaId(lojaId)
-                                    .sku(sku)
+                                    .sku(skuFinal)
                                     .ativo(true)
                                     .build());
 
@@ -444,20 +480,38 @@ public class ProdutoService {
                     p.setCusto(precoCusto);
                     p.setEstoqueQuantidade(estoqueQtd);
                     p.setNcm(ncmFinal);
+                    p.setCodigoBarras(eanFinal);
                     if (p.getCest() == null) p.setCest(cestFinal);
                     if (p.getCfop() == null) p.setCfop(cfopFinal);
 
                     repository.save(p);
                     processados++;
                 } catch (Exception e) {
-                    erros.add("Linha " + totalLinhas + " (" + line + "): " + e.getMessage());
+                    erros.add("Linha " + totalLinhas + ": " + e.getMessage());
                 }
             }
         } catch (Exception e) {
-            log.error("Erro ao processar arquivo CSV de produtos: {}", e.getMessage());
-            erros.add("Falha ao ler arquivo CSV: " + e.getMessage());
+            log.error("Erro ao processar planilha de produtos: {}", e.getMessage());
+            erros.add("Falha ao ler planilha: " + e.getMessage());
         }
 
         return ImportacaoResultado.sucesso(totalLinhas, processados, erros);
+    }
+
+    public byte[] exportarModeloProdutos(String formato) throws java.io.IOException {
+        List<String> cabecalhos = List.of(
+                "SKU (opcional)", "Nome do Produto", "Preço de Venda (R$)", "Categoria", "Custo (R$)", "Estoque", "NCM", "Código de Barras (EAN)"
+        );
+        List<List<String>> exemplos = List.of(
+                List.of("PRD-000001", "Armação Ray-Ban Aviador Dourada", "489.90", "Armação", "190.00", "15", "90031100", "7890000000017"),
+                List.of("PRD-000002", "Lente Transitions Antirreflexo 1.67", "650.00", "Lente", "220.00", "20", "90015000", "7890000000024"),
+                List.of("", "Armação Oakley Holbrook Preto Fosco", "399.00", "Armação", "150.00", "10", "90031100", "")
+        );
+
+        if ("xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato)) {
+            return com.visionbox.shared.util.PlanilhaImportHelper.gerarModeloExcel("Produtos", cabecalhos, exemplos);
+        } else {
+            return com.visionbox.shared.util.PlanilhaImportHelper.gerarModeloCsv(cabecalhos, exemplos);
+        }
     }
 }
