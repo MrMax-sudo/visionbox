@@ -82,7 +82,7 @@ services:
       minio:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: prod,flowbox
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/visionbox
       SPRING_DATASOURCE_USERNAME: visionbox
       SPRING_DATASOURCE_PASSWORD: visionbox
@@ -91,6 +91,13 @@ services:
       SPRING_RABBITMQ_USERNAME: visionbox
       SPRING_RABBITMQ_PASSWORD: visionbox
       AWS_S3_ENDPOINT: http://minio:9000
+      VISIONBOX_JWT_SECRET: ${JWT_SECRET:-vb_prod_jwt_secret_2026_secured_key_32chars}
+      VISIONBOX_CRYPTO_KEK_HEX: ${CRYPTO_KEK_HEX:-c8f3b6127d49e1a85b032c74d9e1f568c8f3b6127d49e1a85b032c74d9e1f568}
+      VISIONBOX_CRYPTO_HMAC_PEPPER: ${CRYPTO_HMAC_PEPPER:-vb_prod_pepper_secure_hash_hmac_2026}
+      VISIONBOX_LAB_PORTAL_TOKEN_SECRET: ${VISIONBOX_LAB_PORTAL_TOKEN_SECRET:-vb_prod_lab_token_portal_secret_32chars}
+      VISIONBOX_AUTH_PUBLIC_REGISTER_ENABLED: "false"
+      VISIONBOX_FISCAL_FLOWBOX_URL: ${VISIONBOX_FISCAL_FLOWBOX_URL:-http://localhost:8085}
+      VISIONBOX_FISCAL_FLOWBOX_API_KEY: ${VISIONBOX_FISCAL_FLOWBOX_API_KEY:-flowbox_production_key}
     ports:
       - "8080:8080"
 

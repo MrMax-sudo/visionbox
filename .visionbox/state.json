@@ -94,10 +94,10 @@
     "auth": "JWT HS256 15m/7d httpOnly",
     "tenant": "loja_id RLS FORCE",
     "crypto": "AES-GCM + HMAC-SHA256",
-    "fiscal": "FlowboxFiscalProvider + MockFallback NFC-e 65/NF-e 55",
+    "fiscal": "FlowboxFiscalProvider ativo em prod,flowbox (Mock desativado)",
     "sla": "Quartz @Scheduled 1min",
     "outbox": "RabbitMQ ready",
-    "vps_deploy": "Deploy automatizado via script deploy.ps1 (push GitHub + ssh vps git pull + docker compose up -d --build)",
+    "vps_deploy": "Servidor VPS configurado com profile prod,flowbox, credenciais seguras e deploy automatizado via deploy.ps1",
     "ci_cd": "deploy.ps1 PowerShell/npm run deploy + workflow_dispatch manual"
   }
 }
