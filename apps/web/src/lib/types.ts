@@ -49,6 +49,7 @@ export type ClienteDTO = {
 export type ProdutoDTO = {
   id?: string;
   sku: string;
+  codigoBarras?: string;
   nome: string;
   marca?: string;
   categoria: 'Armação' | 'Lente' | string;

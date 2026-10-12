@@ -18,6 +18,14 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
     boolean existsBySkuAndLojaId(String sku, UUID lojaId);
 
+    boolean existsByCodigoBarrasAndLojaId(String codigoBarras, UUID lojaId);
+
+    @Query(value = "SELECT p.sku FROM produto p WHERE p.loja_id = :lojaId ORDER BY p.criado_em DESC", nativeQuery = true)
+    java.util.List<String> findUltimosSkusPorLoja(@Param("lojaId") UUID lojaId);
+
+    @Query(value = "SELECT p.codigo_barras FROM produto p WHERE p.loja_id = :lojaId AND p.codigo_barras IS NOT NULL AND p.codigo_barras != '' ORDER BY p.criado_em DESC", nativeQuery = true)
+    java.util.List<String> findUltimosCodigosBarrasPorLoja(@Param("lojaId") UUID lojaId);
+
     Page<Produto> findAllByLojaId(UUID lojaId, Pageable pageable);
 
     /**

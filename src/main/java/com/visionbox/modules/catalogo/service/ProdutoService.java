@@ -3,6 +3,7 @@ package com.visionbox.modules.catalogo.service;
 import com.visionbox.modules.catalogo.domain.Produto;
 import com.visionbox.modules.catalogo.dto.ProdutoRequest;
 import com.visionbox.modules.catalogo.dto.ProdutoResponse;
+import com.visionbox.modules.catalogo.dto.SugestaoSkuEanResponse;
 import com.visionbox.modules.catalogo.mapper.ProdutoMapper;
 import com.visionbox.modules.catalogo.repository.ProdutoRepository;
 import com.visionbox.shared.dto.ImportacaoResultado;
@@ -73,12 +74,103 @@ public class ProdutoService {
         return mapper.toResponse(p);
     }
 
+    @Transactional(readOnly = true)
+    public SugestaoSkuEanResponse obterSugestaoSkuEan() {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        return SugestaoSkuEanResponse.builder()
+                .sku(gerarProximoSku(lojaId))
+                .codigoBarras(gerarProximoCodigoBarrasEan(lojaId))
+                .build();
+    }
+
+    /**
+     * Gera o próximo SKU sequencial para a loja garantindo ausência de duplicidade.
+     * Analisa os SKUs existentes da loja para manter a sequência (ex.: PRD-000001, PRD-000002...).
+     */
+    public String gerarProximoSku(UUID lojaId) {
+        List<String> ultimosSkus = repository.findUltimosSkusPorLoja(lojaId);
+        long maiorSeq = 0;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)");
+        for (String s : ultimosSkus) {
+            if (s != null) {
+                java.util.regex.Matcher m = pattern.matcher(s);
+                while (m.find()) {
+                    try {
+                        long num = Long.parseLong(m.group(1));
+                        if (num > maiorSeq && num < 1_000_000_000L) {
+                            maiorSeq = num;
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+
+        long candidatoSeq = maiorSeq + 1;
+        String candidato = String.format("PRD-%06d", candidatoSeq);
+        while (repository.existsBySkuAndLojaId(candidato, lojaId)) {
+            candidatoSeq++;
+            candidato = String.format("PRD-%06d", candidatoSeq);
+        }
+        return candidato;
+    }
+
+    /**
+     * Gera o próximo Código de Barras EAN-13 sequencial para a loja.
+     * Utiliza prefixo oficial 789 (Brasil) com cálculo de dígito verificador GS1 Modulo 10.
+     */
+    public String gerarProximoCodigoBarrasEan(UUID lojaId) {
+        List<String> ultimosCodigos = repository.findUltimosCodigosBarrasPorLoja(lojaId);
+        long maiorSeq = 0;
+        for (String c : ultimosCodigos) {
+            if (c != null && c.matches("^789\\d{10}$")) {
+                try {
+                    long seq = Long.parseLong(c.substring(3, 12));
+                    if (seq > maiorSeq) {
+                        maiorSeq = seq;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        long candidatoSeq = maiorSeq + 1;
+        String candidato = calcularEan13(candidatoSeq);
+        while (repository.existsByCodigoBarrasAndLojaId(candidato, lojaId)) {
+            candidatoSeq++;
+            candidato = calcularEan13(candidatoSeq);
+        }
+        return candidato;
+    }
+
+    /**
+     * Calcula o código EAN-13 com dígito verificador oficial GS1 Modulo 10.
+     */
+    public static String calcularEan13(long sequencia) {
+        String base12 = String.format("789%09d", sequencia);
+        int soma = 0;
+        for (int i = 0; i < 12; i++) {
+            int digito = Character.getNumericValue(base12.charAt(i));
+            soma += (i % 2 == 0) ? digito : digito * 3;
+        }
+        int resto = soma % 10;
+        int dv = (resto == 0) ? 0 : 10 - resto;
+        return base12 + dv;
+    }
+
     @Transactional
     public ProdutoResponse criar(ProdutoRequest req) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
-        if (repository.existsBySkuAndLojaId(req.getSku().trim(), lojaId)) {
+        String sku = (req.getSku() != null && !req.getSku().isBlank())
+                ? req.getSku().trim()
+                : gerarProximoSku(lojaId);
+
+        if (repository.existsBySkuAndLojaId(sku, lojaId)) {
             throw new IllegalArgumentException("SKU já cadastrado nesta loja");
         }
+
+        String codigoBarras = (req.getCodigoBarras() != null && !req.getCodigoBarras().isBlank())
+                ? req.getCodigoBarras().trim()
+                : gerarProximoCodigoBarrasEan(lojaId);
+
         Produto.TipoProduto tipo = parseTipo(req.getTipoProduto());
         String ncmAuto = resolverNcmAutomatico(tipo, req.getNcm());
         String cestAuto = resolverCestAutomatico(tipo, req.getCest());
@@ -91,8 +183,8 @@ public class ProdutoService {
 
         Produto p = Produto.builder()
                 .lojaId(lojaId)
-                .sku(req.getSku().trim())
-                .codigoBarras(req.getCodigoBarras())
+                .sku(sku)
+                .codigoBarras(codigoBarras)
                 .nome(req.getNome().trim())
                 .descricao(req.getDescricao())
                 .tipoProduto(tipo)

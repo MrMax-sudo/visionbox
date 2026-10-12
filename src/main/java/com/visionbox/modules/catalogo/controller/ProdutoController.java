@@ -36,6 +36,16 @@ public class ProdutoController {
         return service.listar(termo, categoria, marca, pageable);
     }
 
+    @GetMapping("/sugestao-sku-ean")
+    public com.visionbox.modules.catalogo.dto.SugestaoSkuEanResponse obterSugestaoSkuEan() {
+        return service.obterSugestaoSkuEan();
+    }
+
+    @GetMapping("/proximo-sku-ean")
+    public com.visionbox.modules.catalogo.dto.SugestaoSkuEanResponse obterProximoSkuEan() {
+        return service.obterSugestaoSkuEan();
+    }
+
     @GetMapping("/{id}")
     public ProdutoResponse buscar(@PathVariable UUID id) {
         return service.buscar(id);

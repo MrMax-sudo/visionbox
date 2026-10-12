@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -12,6 +12,7 @@ import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 
 import { apiClient, ApiError } from '@/lib/apiClient';
+import { cn } from '@/lib/utils';
 import type { ProdutoDTO } from '@/lib/types';
 import {
   CATEGORIAS_PRODUTO,
@@ -36,17 +37,34 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   const { toast } = useToast();
   const isEditing = !!produto;
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [loadingSugestao, setLoadingSugestao] = React.useState(false);
 
   const form = useForm<ProdutoForm>({
     resolver: zodResolver(produtoSchema),
     defaultValues: PRODUTO_DEFAULT_VALUES,
   });
 
+  const carregarSugestao = React.useCallback(async () => {
+    try {
+      setLoadingSugestao(true);
+      const res = await apiClient.get<{ sku: string; codigoBarras: string }>('/v1/produtos/sugestao-sku-ean');
+      if (res.data) {
+        if (res.data.sku) form.setValue('sku', res.data.sku, { shouldValidate: true });
+        if (res.data.codigoBarras) form.setValue('codigoBarras', res.data.codigoBarras, { shouldValidate: true });
+      }
+    } catch {
+      // se a chamada falhar, o backend gera na criação
+    } finally {
+      setLoadingSugestao(false);
+    }
+  }, [form]);
+
   React.useLayoutEffect(() => {
     if (!open) return;
     setActionError(null);
     if (!produto) {
       form.reset(PRODUTO_DEFAULT_VALUES);
+      carregarSugestao();
       return;
     }
     form.reset({
@@ -58,9 +76,9 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
       precoVenda: Number(produto.preco ?? 0),
       estoqueQuantidade: Number(produto.estoque ?? 0),
       ncm: produto.ncm ?? '',
-      codigoBarras: '',
+      codigoBarras: produto.codigoBarras ?? '',
     });
-  }, [open, produto, form]);
+  }, [open, produto, form, carregarSugestao]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -127,8 +145,29 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
     >
       <form onSubmit={form.handleSubmit(onSalvarProduto)} className="space-y-4" noValidate>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="SKU" id="produto-sku" required error={errors.sku}>
-            <Input placeholder="Ex.: ARM-RAY-001" {...form.register('sku')} />
+          <Field
+            label="SKU"
+            id="produto-sku"
+            error={errors.sku}
+            hint={!isEditing ? "Gerado automaticamente em sequência" : undefined}
+          >
+            <div className="flex gap-2">
+              <Input placeholder="Ex.: PRD-000001" {...form.register('sku')} />
+              {!isEditing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={carregarSugestao}
+                  disabled={loadingSugestao}
+                  title="Recarregar próximo SKU e EAN sequenciais"
+                  aria-label="Recarregar sequência"
+                >
+                  <RefreshCw className={cn("h-4 w-4 text-muted", loadingSugestao && "animate-spin text-primary")} />
+                </Button>
+              )}
+            </div>
           </Field>
           <Field label="Nome" id="produto-nome" required error={errors.nome}>
             <Input placeholder="Ex.: Armação Ray-Ban Aviador" {...form.register('nome')} />
@@ -176,8 +215,13 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
           >
             <Input placeholder="Ex.: 90031100" {...form.register('ncm')} />
           </Field>
-          <Field label="Código de barras" id="produto-barras" error={errors.codigoBarras}>
-            <Input placeholder="EAN-13 (opcional)" {...form.register('codigoBarras')} />
+          <Field
+            label="Código de barras (EAN)"
+            id="produto-barras"
+            error={errors.codigoBarras}
+            hint={!isEditing ? "EAN-13 gerado automaticamente em sequência" : undefined}
+          >
+            <Input placeholder="EAN-13 automático" {...form.register('codigoBarras')} />
           </Field>
         </div>
 

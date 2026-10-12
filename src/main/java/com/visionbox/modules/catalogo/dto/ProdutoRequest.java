@@ -12,7 +12,6 @@ import java.util.UUID;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ProdutoRequest {
-    @NotBlank
     private String sku;
     private String codigoBarras;
     @NotBlank

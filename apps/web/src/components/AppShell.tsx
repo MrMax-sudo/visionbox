@@ -7,8 +7,11 @@ import {
 } from 'react-router-dom';
 import {
   Bell,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   Eye,
+  FolderKanban,
   Headphones,
   LayoutGrid,
   LogOut,
@@ -27,6 +30,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfiguracoesDialog } from '@/components/config/ConfiguracoesDialog';
 import { useOnline } from '@/hooks/useOnline';
 import { apiClient } from '@/lib/apiClient';
@@ -50,9 +61,7 @@ type NavItem = {
 const mainNav: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutGrid, end: true },
   { label: 'PDV', to: '/pdv', icon: ShoppingCart, shortcut: 'F8' },
-  { label: 'Clientes', to: '/clientes', icon: Users },
   { label: 'Receitas', to: '/receitas', icon: Eye },
-  { label: 'Catálogo', to: '/catalogo', icon: Package },
   { label: 'OS', to: '/os', icon: ClipboardList },
   { label: 'Financeiro', to: '/financeiro', icon: Wallet },
 ];
@@ -305,24 +314,116 @@ function SidebarNavLink({
   );
 }
 
+function SidebarAdminSubmenu({
+  collapsed,
+  onNavigate,
+  items,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+  items: NavItem[];
+}) {
+  const location = useLocation();
+  const isChildActive = items.some((item) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+  );
+  const [open, setOpen] = React.useState(isChildActive);
+
+  React.useEffect(() => {
+    if (isChildActive) setOpen(true);
+  }, [isChildActive]);
+
+  if (collapsed) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title="Administrativo"
+            aria-label="Administrativo"
+            className={cn(
+              'flex h-10 w-full items-center justify-center rounded text-sm font-medium transition-colors',
+              isChildActive
+                ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text'
+                : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
+            )}
+          >
+            <FolderKanban className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="start" className="w-48">
+          <DropdownMenuLabel>Administrativo</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {items.map((sub) => (
+            <DropdownMenuItem key={sub.to} asChild>
+              <NavLink
+                to={sub.to}
+                onClick={onNavigate}
+                className="flex items-center gap-2 cursor-pointer w-full text-sm"
+              >
+                <sub.icon className="h-4 w-4 text-muted shrink-0" />
+                <span>{sub.label}</span>
+              </NavLink>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors',
+          isChildActive
+            ? 'text-primary font-semibold dark:text-sidebar-text bg-primary/10 dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.3)]'
+            : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
+        )}
+      >
+        <FolderKanban className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+        <span className="flex-1 text-left truncate">Administrativo</span>
+        {open ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted transition-transform" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted transition-transform" />
+        )}
+      </button>
+
+      {open && (
+        <div className="ml-4 space-y-1 border-l-2 border-border/60 pl-2 dark:border-[rgb(var(--color-pdv-sidebar-active-rgb)/0.35)]">
+          {items.map((sub) => (
+            <SidebarNavLink
+              key={sub.to}
+              item={sub}
+              collapsed={false}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarContent({
   collapsed,
   onToggleCollapse,
   onNavigate,
-  onOpenConfig,
 }: {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onNavigate?: () => void;
-  onOpenConfig: () => void;
 }) {
   const user = useAuthStore((s) => s.user);
   const isDev = user?.perfil === 'DESENVOLVEDOR';
-  const isAdmin = user?.perfil === 'ADMIN' || isDev;
   const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
 
-  const adminNav: NavItem[] = [
-    { label: 'Usuários', to: '/usuarios', icon: Users },
+  const adminSubmenuItems: NavItem[] = [
+    { label: 'Clientes', to: '/clientes', icon: Users },
+    { label: 'Catálogo', to: '/catalogo', icon: Package },
     ...(isDev ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }] : []),
   ];
 
@@ -361,42 +462,11 @@ function SidebarContent({
           />
         ))}
 
-        {isAdmin && (
-          <>
-            <hr
-              className={cn('my-4 border-border dark:border-[rgb(var(--color-pdv-sidebar-active-rgb)/0.35)]', collapsed && 'mx-1')}
-            />
-            {!collapsed && (
-              <h4 className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted dark:text-sidebar-text/80">
-                Administrativo
-              </h4>
-            )}
-            {adminNav.map((item) => (
-              <SidebarNavLink
-                key={item.to}
-                item={item}
-                collapsed={collapsed}
-                onNavigate={onNavigate}
-              />
-            ))}
-          </>
-        )}
-
-        <button
-          type="button"
-          onClick={onOpenConfig}
-          title="Configurações"
-          aria-label="Configurações"
-          className={cn(
-            'flex h-10 w-full items-center gap-3 rounded text-sm font-medium transition-colors',
-            'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-            collapsed ? 'justify-center px-0' : 'px-3',
-          )}
-        >
-          <Settings className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
-          {!collapsed && <span>Configurações</span>}
-        </button>
+        <SidebarAdminSubmenu
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+          items={adminSubmenuItems}
+        />
       </nav>
 
       {/* Rodapé: suporte WhatsApp + sync/offline */}
@@ -483,6 +553,8 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
   const outlet = useOutlet();
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, logout } = useAuthStore();
+  const isDev = user?.perfil === 'DESENVOLVEDOR';
+  const isAdmin = user?.perfil === 'ADMIN' || isDev;
   const carregarEmpresa = useEmpresaStore((s) => s.carregar);
 
   const [collapsed, setCollapsed] = React.useState(
@@ -578,7 +650,6 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
             collapsed={!isDesktop ? false : collapsed}
             onToggleCollapse={() => setCollapsed((v) => !v)}
             onNavigate={() => setMobileOpen(false)}
-            onOpenConfig={() => setConfigOpen(true)}
           />
         </aside>
 
@@ -620,36 +691,41 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
 
               <NotificationBell />
 
-              <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
+              <div className="mx-1 h-6 w-px bg-border" />
 
-              {/* Operador logado */}
-              <div className="hidden items-center gap-2 sm:flex">
-                <span
-                  aria-hidden
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
-                >
-                  {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
-                <span className="leading-tight">
-                  <span className="block max-w-[140px] truncate text-xs font-semibold text-primary">
-                    {user?.nome || 'Operador'}
-                  </span>
-                  <span className="block text-[11px] text-muted">
-                    {user?.perfil || '—'}
-                  </span>
-                </span>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-danger hover:bg-danger-light"
-                onClick={handleLogout}
-                aria-label="Sair da conta"
-                title="Sair da conta"
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </Button>
+              {/* Avatar do operador logado — submenu colapsável com Configurações, Usuários, Sair */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-105 hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label="Menu do usuário"
+                    title={user?.nome ? `${user.nome} (${user.perfil || 'Operador'})` : 'Menu do usuário'}
+                  >
+                    {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => setConfigOpen(true)} className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4 text-muted" />
+                    <span>Configurações</span>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate('/usuarios')} className="cursor-pointer">
+                      <Users className="mr-2 h-4 w-4 text-muted" />
+                      <span>Usuários</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-danger focus:bg-danger/10 focus:text-danger"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
 

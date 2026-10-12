@@ -13,7 +13,7 @@ export const TIPO_POR_CATEGORIA: Record<CategoriaProduto, string> = {
 };
 
 export const produtoSchema = z.object({
-  sku: z.string().trim().min(1, 'SKU é obrigatório').max(50, 'SKU máximo 50 caracteres'),
+  sku: z.string().trim().max(50, 'SKU máximo 50 caracteres').optional().or(z.literal('')),
   nome: z
     .string()
     .trim()
