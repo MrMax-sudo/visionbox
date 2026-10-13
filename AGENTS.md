@@ -67,7 +67,7 @@ VisionBox/
 
 ### 5.3 Entregar
 
-1. `mvn verify` + `flyway validate` verdes; cobertura ≥80% (≥95% OS/fiscal), `axe` 0, `docker compose up` sobe PG/Redis/Rabbit/MinIO.
+1. `mvn verify` + `flyway validate` verdes; cobertura ≥80% (≥95% OS/fiscal), `axe` 0, `docker compose up` sobe PG (único serviço exigido hoje; Redis/Rabbit/MinIO removidos do compose em 2026-10-13 — sem uso no código).
 2. PR com `feat(USxx): ...` + link evidência (log/screenshot) + atualize `docs/PROGRESS.md:1` (burndown/quadro/histórico) e `.visionbox/state.json:1` (`progress_pct`, `sprints[].progress`, `milestones[]`).
 3. Só fecha US se `DoD` em `docs/GOVERNANCE.md:5` tickado.
 

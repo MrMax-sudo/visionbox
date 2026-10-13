@@ -1,5 +1,8 @@
 name: visionbox
 
+# Nota (2026-10-13): Redis/RabbitMQ/MinIO REMOVIDOS — nenhum uso no código hoje
+# (outbox é 100% banco; anexos em storage local). Re-adicionar quando a camada
+# de eventos (publisher/listener Rabbit) for implementada.
 services:
   postgres:
     image: postgres:15-alpine
@@ -19,54 +22,6 @@ services:
       timeout: 2s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: visionbox-redis
-    restart: unless-stopped
-    ports:
-      - "6380:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      retries: 5
-
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: visionbox-rabbitmq
-    restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: visionbox
-      RABBITMQ_DEFAULT_PASS: visionbox
-    ports:
-      - "5673:5672"
-      - "15673:15672"
-    volumes:
-      - rabbitdata:/var/lib/rabbitmq
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
-      interval: 10s
-      retries: 5
-
-  minio:
-    image: quay.io/minio/minio:latest
-    container_name: visionbox-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: visionbox
-      MINIO_ROOT_PASSWORD: visionbox123
-    ports:
-      - "9100:9000"
-      - "9101:9001"
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 10s
-      retries: 5
-
   app:
     build:
       context: .
@@ -75,22 +30,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod,flowbox
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/visionbox
       SPRING_DATASOURCE_USERNAME: visionbox
       SPRING_DATASOURCE_PASSWORD: visionbox
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: visionbox
-      SPRING_RABBITMQ_PASSWORD: visionbox
-      AWS_S3_ENDPOINT: http://minio:9000
       VISIONBOX_JWT_SECRET: ${JWT_SECRET:-vb_prod_jwt_secret_2026_secured_key_32chars}
       VISIONBOX_CRYPTO_KEK_HEX: ${CRYPTO_KEK_HEX:-c8f3b6127d49e1a85b032c74d9e1f568c8f3b6127d49e1a85b032c74d9e1f568}
       VISIONBOX_CRYPTO_HMAC_PEPPER: ${CRYPTO_HMAC_PEPPER:-vb_prod_pepper_secure_hash_hmac_2026}
@@ -122,6 +66,3 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
-  rabbitdata:
-  miniodata:
