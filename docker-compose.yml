@@ -44,6 +44,9 @@ services:
       VISIONBOX_FISCAL_FLOWBOX_API_KEY: ${VISIONBOX_FISCAL_FLOWBOX_API_KEY:-flowbox_production_key}
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_RABBIT_ENABLED: "false"
+      VISIONBOX_STORAGE_UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploaddata:/data/uploads
     ports:
       - "8080:8080"
 
@@ -68,3 +71,4 @@ services:
 
 volumes:
   pgdata:
+  uploaddata:

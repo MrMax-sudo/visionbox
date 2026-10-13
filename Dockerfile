@@ -39,6 +39,9 @@ RUN printf '%s\n' \
   && javac -d /tmp /tmp/HealthCheck.java \
   && ls -lh /tmp/HealthCheck.class
 
+# Diretório de uploads (pasta vazia a ser copiada com dono nonroot no runtime)
+RUN mkdir -p /data-uploads
+
 # ─────────────────────────────────────────────
 # Stage 2: runtime — distroless java17 nonroot
 # ─────────────────────────────────────────────
@@ -49,6 +52,8 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 # Copia healthcheck compilado
 COPY --from=builder /tmp/HealthCheck.class /app/HealthCheck.class
+# Storage local de anexos (receitas) — montado como volume no compose; dono nonroot (65532)
+COPY --from=builder --chown=65532:65532 /data-uploads /data/uploads
 
 # Distroless nonroot já roda como nonroot (uid 65532). Expor porta.
 EXPOSE 8080
