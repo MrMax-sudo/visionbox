@@ -3,10 +3,10 @@
   "version": "1.1.0-web-refactor",
   "updated_at": "2026-10-12T21:05:00-03:00",
   "web_refactor": {
-    "status": "trava_caixa_pdv_e_auto_estoque",
+    "status": "recibos_termicos_e_venda_pdv_confirmada",
     "wave": 4,
-    "scope": "Trava de venda só com caixa aberto no PDV, indicador de status do caixa, formas de pagamento ativas dinâmicas e auto-reserva resiliente no EstoqueService",
-    "evidence": "ResumoVendaPanel e PDV com sinalizador visual e trava !isCaixaAberto; EstoqueService.obterOuCriar elimina EntityNotFoundException e UnexpectedRollbackException; 246/246 testes verdes; build Vite verde",
+    "scope": "Recibo térmico 80mm isolado fiel a recibo.html, OS PDV nascendo como PEDIDO_CONFIRMADO e indicador único de caixa no PDV",
+    "evidence": "reciboPrint.ts gerando HTML idêntico aos templates; iframe isolado eliminando vazamento visual; OrdemServicoService definindo PEDIDO_CONFIRMADO; 246/246 testes verdes; build Vite verde",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [

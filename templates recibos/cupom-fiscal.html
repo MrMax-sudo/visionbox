@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nota Fiscal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            margin: 0;
+            size: 80mm auto;
+        }
+
+        body {
+            font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
+            background-color: #f0f0f0;
+            color: #000;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .no-print {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .no-print button {
+            padding: 10px 24px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .btn-print {
+            background-color: #155724;
+            color: white;
+        }
+
+        .btn-close-win {
+            background-color: #555;
+            color: white;
+        }
+
+        /* ──── NFC-e container ──── */
+        .nfce {
+            width: 320px;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 14px 12px;
+            font-size: 0.78em;
+            line-height: 1.3;
+        }
+
+        .nfce-header {
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .nfce-header .razao-social {
+            font-size: 1.05em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .nfce-header .dados-empresa {
+            font-size: 0.85em;
+            color: #333;
+        }
+
+        .nfce-faixa {
+            background: #000;
+            color: #fff;
+            text-align: center;
+            font-weight: bold;
+            padding: 4px 0;
+            font-size: 0.9em;
+            margin: 6px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .nfce-faixa.nao-autorizado {
+            background: #555;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px dashed #666;
+            margin: 6px 0;
+        }
+
+        .divider-solid {
+            border: none;
+            border-top: 1px solid #000;
+            margin: 6px 0;
+        }
+
+        .label {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+        }
+
+        /* ──── Tabela de itens ──── */
+        table.itens {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+
+        table.itens thead th {
+            text-align: left;
+            border-bottom: 1px solid #000;
+            padding: 2px 0;
+            font-size: 0.8em;
+            text-transform: uppercase;
+        }
+
+        table.itens tbody td {
+            padding: 2px 0;
+            vertical-align: top;
+        }
+
+        table.itens .nome-prod {
+            font-weight: bold;
+        }
+
+        table.itens .fiscal-info {
+            font-size: 0.78em;
+            color: #333;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        /* ──── Totais ──── */
+        table.totais {
+            width: 100%;
+            font-size: 0.9em;
+        }
+
+        table.totais td {
+            padding: 1px 0;
+        }
+
+        table.totais .linha-total td {
+            font-size: 1.15em;
+            font-weight: bold;
+            padding-top: 6px;
+        }
+
+        /* ──── Tributos ──── */
+        .tributos {
+            font-size: 0.78em;
+            color: #222;
+            text-align: center;
+            margin: 4px 0;
+        }
+
+        /* ──── Pagamentos ──── */
+        table.pagamentos {
+            width: 100%;
+            font-size: 0.88em;
+        }
+
+        table.pagamentos td {
+            padding: 1px 0;
+        }
+
+        /* ──── Rodapé fiscal ──── */
+        .rodape-fiscal {
+            text-align: center;
+            font-size: 0.75em;
+            color: #333;
+            margin-top: 4px;
+        }
+
+        .chave-acesso {
+            font-size: 0.72em;
+            word-break: break-all;
+            letter-spacing: 0.5px;
+            text-align: center;
+            margin: 4px 0;
+            padding: 4px;
+            border: 1px dashed #999;
+            background: #f9f9f9;
+        }
+
+        .qr-placeholder {
+            text-align: center;
+            margin: 8px auto;
+        }
+
+        .qr-placeholder .qr-box {
+            display: inline-block;
+            width: 90px;
+            height: 90px;
+            border: 1px solid #000;
+            background: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .qr-placeholder .qr-box img {
+            display: block;
+        }
+
+        .qr-placeholder .qr-label {
+            font-size: 0.72em;
+            color: #333;
+            margin-top: 2px;
+        }
+
+        .aviso-nao-sefaz {
+            text-align: center;
+            font-size: 0.72em;
+            color: #444;
+            font-style: italic;
+            margin-top: 6px;
+        }
+
+        /* ──── Print ──── */
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .nfce {
+                border: none;
+                width: 100%;
+                padding: 4px 2px;
+            }
+
+            .chave-acesso {
+                background: none !important;
+                border-color: #999;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Imprimir Cupom Fiscal</button>
+        <button class="btn-close-win" onclick="window.close()">✕ Fechar</button>
+    </div>
+    <script>
+        function fecharJanela() { window.close(); }
+    </script>
+
+    <!-- Venda não encontrada -->
+    <div th:if="${venda == null}" style="text-align:center; padding:40px;">
+        <p style="font-size:1.2em;">Venda não encontrada.</p>
+        <p>Verifique o ID ou tente novamente.</p>
+    </div>
+
+    <!-- NFC-e Cupom Fiscal -->
+    <div th:if="${venda != null}" class="nfce">
+
+        <!-- CABEÇALHO DA EMPRESA -->
+        <div class="nfce-header">
+            <div class="razao-social" th:text="${venda.empresa.razaoSocial}">EMPRESA LTDA</div>
+            <div class="dados-empresa"
+                th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'cnpj')}">
+                <span th:if="${venda.empresa.cnpj}" th:text="'CNPJ: ' + ${venda.empresa.cnpj}"></span><br>
+                <span th:if="${venda.empresa.inscricaoEstadual}"
+                    th:text="'IE: ' + ${venda.empresa.inscricaoEstadual}"></span>
+                <span th:if="${venda.empresa.inscricaoEstadual == null}">IE: ISENTO</span>
+            </div>
+            <div class="dados-empresa"
+                th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'endereco')}">
+                <span th:if="${venda.empresa.logradouro != null}"
+                    th:text="${venda.empresa.logradouro + (venda.empresa.numero != null ? ', ' + venda.empresa.numero : '') + (venda.empresa.bairro != null ? ' - ' + venda.empresa.bairro : '') + (venda.empresa.cidade != null ? ' / ' + venda.empresa.cidade : '') + (venda.empresa.uf != null ? ' - ' + venda.empresa.uf : '')}">
+                </span>
+                <br th:if="${venda.empresa.telefone != null}">
+                <span th:if="${venda.empresa.telefone != null}" th:text="'Fone: ' + ${venda.empresa.telefone}"></span>
+            </div>
+        </div>
+
+        <hr class="divider-solid">
+
+        <!-- BANNER CANCELAMENTO NFC-e -->
+        <div th:if="${venda.statusFiscal != null and venda.statusFiscal.name() == 'CANCELADO'}"
+             style="background:#b91c1c; color:#fff; text-align:center; padding:6px 4px; margin:4px 0 8px 0; border:1px solid #7f1d1d; border-radius:3px;">
+            <div style="font-weight:bold; font-size:1.1em; letter-spacing:0.5px;">⛔ NFC-e CANCELADA ⛔</div>
+            <div style="font-size:0.75em; margin-top:2px;" th:if="${venda.dataCancelamento != null}"
+                 th:text="'Cancelamento em: ' + ${#temporals.format(venda.dataCancelamento, 'dd/MM/yyyy HH:mm:ss')}"></div>
+            <div style="font-size:0.75em;" th:if="${venda.motivoCancelamento != null}"
+                 th:text="'Motivo: ' + ${venda.motivoCancelamento}"></div>
+        </div>
+
+        <!-- FAIXA NFC-e -->
+        <div class="nfce-faixa" th:classappend="${venda.chaveAcesso == null} ? ' nao-autorizado' : ''"
+            th:text="${venda.chaveAcesso != null} ? 'DANFE NFC-e — Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica' : 'CUPOM NÃO FISCAL — Emissão em Contingência'">
+            NFC-e
+        </div>
+
+        <hr class="divider">
+
+        <!-- DADOS DA VENDA -->
+        <div style="font-size:0.82em; line-height:1.5;">
+            Data: <span th:text="${#temporals.format(venda.dataVenda, 'dd/MM/yyyy HH:mm:ss')}">--/--/----
+                --:--:--</span><br>
+            <span th:if="${venda.numeroFiscal != null}">
+                Número: <strong th:text="${#numbers.formatInteger(venda.numeroFiscal, 9)}">-</strong>
+                &nbsp;&nbsp;Série: <strong
+                    th:text="${venda.chaveAcesso != null ? #strings.substring(venda.chaveAcesso, 22, 25) : '1'}">-</strong><br>
+            </span>
+            <span th:if="${venda.protocoloFiscal != null}">
+                Protocolo de autorização: <strong th:text="${venda.protocoloFiscal}">-</strong>
+                em <span th:text="${#temporals.format(venda.dataAutorizacao != null ? venda.dataAutorizacao : venda.dataVenda, 'dd/MM/yyyy HH:mm:ss')}">--/--/---- --:--:--</span><br>
+            </span>
+            Atendimento: <span
+                th:text="${venda.tipoAtendimento != null ? venda.tipoAtendimento.nomeExibicao() : 'Balcão'}">BALCÃO</span><br>
+            Pedido: <span th:text="${venda.numeroVenda}">0000</span><br>
+            <span th:if="${venda.referenciaExterna != null}">
+                Ref. externa: <span th:text="${venda.referenciaExterna}">PED-123</span><br>
+            </span>
+        </div>
+
+        <hr class="divider">
+
+        <!-- CONSUMIDOR -->
+        <div style="font-size:0.82em; margin-bottom:4px;"
+            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'cliente')}"
+            th:with="docConsumidor=${venda.cpfClienteSnapshot != null and !venda.cpfClienteSnapshot.isBlank() ? venda.cpfClienteSnapshot : (venda.cliente != null and venda.cliente.cpfCnpj != null ? venda.cliente.cpfCnpj : null)},
+                     nomeConsumidor=${venda.nomeClienteSnapshot != null and !venda.nomeClienteSnapshot.isBlank() ? venda.nomeClienteSnapshot : (venda.cliente != null and venda.cliente.nome != null ? venda.cliente.nome : null)}">
+            <span class="label">Consumidor:</span><br>
+            <th:block th:if="${docConsumidor != null and !docConsumidor.isBlank()}">
+                <span th:if="${nomeConsumidor != null and !nomeConsumidor.isBlank()}"
+                    th:text="${T(com.outbox.sistema.util.TextoUtils).formatarNomeTitleCase(nomeConsumidor) + (venda.telefoneClienteSnapshot != null and !venda.telefoneClienteSnapshot.isBlank() ? ' — ' + venda.telefoneClienteSnapshot : '')}"></span>
+                <span th:unless="${nomeConsumidor != null and !nomeConsumidor.isBlank()}">CONSUMIDOR FINAL</span>
+                <div style="font-size:0.9em;">
+                    <span th:text="${(T(com.outbox.sistema.util.TextoUtils).formatarCpfCnpj(docConsumidor).length() > 14 ? 'CNPJ: ' : 'CPF: ') + T(com.outbox.sistema.util.TextoUtils).formatarCpfCnpj(docConsumidor)}">CPF: 000.000.000-00</span>
+                </div>
+            </th:block>
+            <th:block th:unless="${docConsumidor != null and !docConsumidor.isBlank()}">
+                <span>CONSUMIDOR FINAL</span>
+            </th:block>
+            <div th:if="${venda.enderecoEntregaSnapshot != null and !venda.enderecoEntregaSnapshot.isBlank()}" style="font-size:0.9em;">
+                End.: <span th:text="${venda.enderecoEntregaSnapshot}">-</span>
+            </div>
+            <div th:if="${venda.referenciaClienteSnapshot != null and !venda.referenciaClienteSnapshot.isBlank()}" style="font-size:0.9em;">
+                Ref.: <span th:text="${venda.referenciaClienteSnapshot}">-</span>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- TABELA DE ITENS -->
+        <span class="label">Itens</span>
+        <table class="itens" style="margin-top:4px;">
+            <thead>
+                <tr>
+                    <th style="width:46%;">Produto</th>
+                    <th class="text-right">Qtd</th>
+                    <th class="text-right">Unit.</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="item : ${venda.itens}">
+                    <td>
+                        <div class="nome-prod" th:text="${item.produto != null ? item.produto.nome : item.nomeItem}">
+                            Produto</div>
+                        <div class="fiscal-info"
+                            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'ncm_cfop')}">
+                            NCM: <span
+                                th:text="${(item.ncm != null and !item.ncm.isEmpty()) ? item.ncm : (item.produto != null and item.produto.ncm != null and !item.produto.ncm.isEmpty() ? item.produto.ncm : '9505.90.00')}">9505.90.00</span>
+                            &nbsp;|&nbsp;
+                            CFOP: <span
+                                th:text="${item.produto != null and item.produto.cfop != null and !item.produto.cfop.isEmpty() ? item.produto.cfop : '5102'}">5102</span>
+                        </div>
+                    </td>
+                    <td class="text-right">
+                        <span
+                            th:text="${item.quantidade.stripTrailingZeros().toPlainString().replace('.', ',')}">1</span>
+                        <span
+                            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : '', 'unidade_medida') and item.produto != null and item.produto.unidade != null}"
+                            th:text="${' ' + item.produto.unidade}" style="font-size:0.85em;"></span>
+                    </td>
+                    <td class="text-right" th:text="${#numbers.formatDecimal(item.precoUnitario, 1, 2, 'COMMA')}">0,00
+                    </td>
+                    <td class="text-right" th:text="${#numbers.formatDecimal(item.subtotal, 1, 2, 'COMMA')}">0,00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr class="divider">
+
+        <!-- TOTALIZADORES -->
+        <table class="totais">
+            <tr>
+                <td>Subtotal:</td>
+                <td class="text-right" th:text="|R$ ${#numbers.formatDecimal(venda.subtotal, 1, 2, 'COMMA')}|">R$ 0,00
+                </td>
+            </tr>
+            <tr
+                th:if="${venda.descontoMimos != null and venda.descontoMimos > 0
+                and #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'desconto_mimos')}">
+                <td style="color:#c00;">&#9829; Desconto Mimos:</td>
+                <td class="text-right" style="color:#c00;"
+                    th:text="|(-) R$ ${#numbers.formatDecimal(venda.descontoMimos, 1, 2, 'COMMA')}|">R$ 0,00</td>
+            </tr>
+            <tr
+                th:if="${venda.descontoFormaPagamento != null and venda.descontoFormaPagamento > 0
+                and #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'desconto_pagamento')}">
+                <td>Desc. Pagamento:</td>
+                <td class="text-right"
+                    th:text="|(-) R$ ${#numbers.formatDecimal(venda.descontoFormaPagamento, 1, 2, 'COMMA')}|">R$ 0,00
+                </td>
+            </tr>
+            <tr th:if="${venda.acrescimo != null and venda.acrescimo > 0}">
+                <td>Acréscimo:</td>
+                <td class="text-right" th:text="|(+) R$ ${#numbers.formatDecimal(venda.acrescimo, 1, 2, 'COMMA')}|">R$
+                    0,00</td>
+            </tr>
+            <!-- Taxas adicionais do PDV -->
+            <th:block th:if="${venda.taxasAdicionais != null and !venda.taxasAdicionais.isEmpty()}">
+                <tr th:each="taxa : ${venda.taxasAdicionais}">
+                    <td
+                        th:text="${taxa.nomeTaxa + (taxa.tipo == 'PERCENTUAL' ? ' (' + taxa.valor.stripTrailingZeros().toPlainString() + '%)' : '')} + ':'">
+                        Taxa:</td>
+                    <td class="text-right"
+                        th:text="${taxa.tipoOperacao != null and taxa.tipoOperacao == 'DESCONTO' ? '(-) R$ ' + #numbers.formatDecimal(taxa.valorCalculado.abs(), 1, 2, 'COMMA') : '(+) R$ ' + #numbers.formatDecimal(taxa.valorCalculado, 1, 2, 'COMMA')}"
+                        th:styleappend="${taxa.tipoOperacao != null and taxa.tipoOperacao == 'DESCONTO' ? 'color:#c00;' : ''}">
+                        R$ 0,00</td>
+                </tr>
+            </th:block>
+            <tr th:if="${venda.taxaEntrega != null and venda.taxaEntrega > 0}">
+                <td>Tx. Entrega:</td>
+                <td class="text-right" th:text="|R$ ${#numbers.formatDecimal(venda.taxaEntrega, 1, 2, 'COMMA')}|">R$
+                    0,00</td>
+            </tr>
+            <tr class="linha-total">
+                <td>TOTAL A PAGAR:</td>
+                <td class="text-right" th:text="|R$ ${#numbers.formatDecimal(venda.total, 1, 2, 'COMMA')}|">R$ 0,00</td>
+            </tr>
+        </table>
+
+        <!-- TRIBUTOS (IBPT) -->
+        <hr class="divider"
+            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'tributos')}">
+        <div class="tributos"
+            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'tributos')}">
+            Trib. aprox. s/ itens: R$ <span
+                th:text="${#numbers.formatDecimal(venda.total * 0.1215, 1, 2, 'COMMA')}">0,00</span>
+            &nbsp;(12,15% Fonte: IBPT)<br>
+            <span th:if="${venda.empresa.regimeTributario != null}"
+                th:text="${venda.empresa.regimeTributario.crt + ' — ' + venda.empresa.regimeTributario.descricao}">
+                CRT: 1 — Simples Nacional
+            </span>
+        </div>
+
+        <hr class="divider">
+
+        <!-- FORMAS DE PAGAMENTO -->
+        <span class="label">Forma de Pagamento</span>
+        <table class="pagamentos" style="margin-top:3px;">
+            <tr th:each="pag : ${venda.pagamentos}">
+                <td th:text="${pag.formaPagamento.nome}">Dinheiro</td>
+                <td class="text-right" th:text="|R$ ${#numbers.formatDecimal(pag.valor, 1, 2, 'COMMA')}|">R$ 0,00</td>
+            </tr>
+            <tr th:if="${venda.pagamentos != null}">
+                <td colspan="2" style="font-size:0.8em;padding-top:4px;">
+                    <th:block th:each="pag : ${venda.pagamentos}">
+                        <div th:if="${pag.parcelas != null and pag.parcelas > 1}">
+                            <span th:text="${pag.formaPagamento.nome + ': '}"></span>
+                            <span th:text="${pag.parcelas + 'x'}"></span>
+                        </div>
+                        <div th:if="${pag.troco != null and pag.troco > 0}">
+                            Troco: R$ <span th:text="${#numbers.formatDecimal(pag.troco, 1, 2, 'COMMA')}">0,00</span>
+                        </div>
+                    </th:block>
+                </td>
+            </tr>
+        </table>
+
+        <hr class="divider-solid"
+            th:if="${#strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'qrcode') or #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'chave_acesso')}">
+
+        <!-- QR CODE -->
+        <div class="qr-placeholder"
+            th:if="${venda.chaveAcesso != null and #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'qrcode')}">
+            <div class="qr-box">
+                <img th:src="@{/pdv/qrcode(texto=${venda.qrCodeUrlFinal != null ? venda.qrCodeUrlFinal : (consultaNfceBaseUrl + '?p=' + venda.chaveAcesso)})}"
+                    width="90" height="90" alt="QRCode NFC-e" style="image-rendering:pixelated;">
+            </div>
+            <div class="qr-label">Consulte pela chave de acesso ou QR Code</div>
+        </div>
+
+        <!-- Chave de Acesso: só exibimos quando existe uma chave real de 44 dígitos emitida pela SEFAZ -->
+        <div class="chave-acesso"
+            th:if="${venda.chaveAcesso != null and #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'chave_acesso')}">
+            <strong>CHAVE DE ACESSO</strong><br>
+            <span th:text="${venda.chaveAcesso}" style="letter-spacing:0.15em;word-break:break-all;">
+                0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+            </span>
+        </div>
+
+        <!-- Rodapé -->
+        <hr class="divider">
+        <div class="rodape-fiscal">
+            <strong>OBRIGADO PELA PREFERÊNCIA!</strong><br>
+            Volte Sempre.<br><br>
+            <span style="font-size:0.85em;">
+                Emitido em: <span
+                    th:text="${#temporals.format(venda.dataVenda,'dd/MM/yyyy HH:mm:ss')}">--/--/----</span>
+            </span>
+        </div>
+
+        <div th:if="${venda.chaveAcesso == null}" class="aviso-nao-sefaz">
+            Documento de uso interno. Não transmitido à SEFAZ.<br>
+            Válido apenas como comprovante de venda.
+        </div>
+
+    </div>
+
+</body>
+
+</html>

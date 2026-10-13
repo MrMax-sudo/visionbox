@@ -125,20 +125,6 @@ export function ResumoVendaPanel({
           <ReceiptText className="h-[18px] w-[18px] text-brand" strokeWidth={1.8} aria-hidden />
           Resumo da venda
         </h2>
-        <button
-          type="button"
-          onClick={onAbrirCaixa}
-          className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer',
-            isCaixaAberto
-              ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-              : 'border-rose-500/40 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 animate-pulse'
-          )}
-          title={isCaixaAberto ? `Caixa aberto por ${caixaOperador || 'Operador'}. Clique para gerenciar.` : 'Caixa fechado! Clique para abrir o caixa.'}
-        >
-          <span className={cn('h-2 w-2 rounded-full', isCaixaAberto ? 'bg-emerald-500' : 'bg-rose-500')} />
-          {isCaixaAberto ? 'Caixa Aberto' : 'Caixa Fechado'}
-        </button>
       </header>
 
       {/* Totais */}
@@ -336,36 +322,22 @@ export function ResumoVendaPanel({
       </section>
 
       {/* Finalizar */}
-      {!isCaixaAberto ? (
-        <Button
-          id="pdv-abrir-caixa-bloqueado"
-          type="button"
-          onClick={onAbrirCaixa}
-          className="mt-4 h-12 w-full gap-2 rounded-[9px] text-base bg-rose-600 hover:bg-rose-700 text-white font-bold animate-pulse shadow-md cursor-pointer"
-        >
-          <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-          Abrir Caixa para Vender
-        </Button>
-      ) : (
-        <Button
-          id="pdv-finalizar"
-          onClick={onFinalizar}
-          disabled={!temItens || finalizando}
-          aria-busy={finalizando}
-          className={cn(
-            'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
-            'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
-            'disabled:opacity-100',
-          )}
-        >
-          <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-          {finalizando ? 'Enviando...' : 'Finalizar'}
-        </Button>
-      )}
+      <Button
+        id="pdv-finalizar"
+        onClick={onFinalizar}
+        disabled={!temItens || finalizando}
+        aria-busy={finalizando}
+        className={cn(
+          'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
+          'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
+          'disabled:opacity-100',
+        )}
+      >
+        <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+        {finalizando ? 'Enviando...' : 'Finalizar'}
+      </Button>
       <p className="mt-1.5 text-center text-[11px] text-muted">
-        {!isCaixaAberto
-          ? 'O caixa físico deve estar aberto para registrar vendas.'
-          : 'Atalho F8 — funciona offline (venda entra na fila).'}
+        Atalho F8 — funciona offline (venda entra na fila).
       </p>
 
       <div className="mt-auto grid grid-cols-[1fr_1fr_44px] gap-2 pt-3">

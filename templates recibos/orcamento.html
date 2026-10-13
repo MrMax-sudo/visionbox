@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Orçamento Comercial</title>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap-icons/bootstrap-icons.min.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #EFE7E4;
+            --color-paper: #FFFFFF;
+            --color-ink: #2B2430;
+            --color-ink-soft: #857680;
+            --color-ink-faint: #A99EA4;
+            --color-rose: #A23A5C;
+            --color-rose-deep: #6F2740;
+            --color-blush: #F5E9E6;
+            --color-gold: #AD8A3F;
+            --color-line: #E8DCD9;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-ink);
+            padding: 24px 16px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .receipt-container {
+            width: 100%;
+            max-width: 21cm;
+            min-height: 29.7cm;
+            background-color: var(--color-paper);
+            padding: 1cm 1.2cm;
+            box-shadow: 0 15px 35px rgba(111, 39, 64, 0.15);
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        /* ---------- Header ---------- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            page-break-inside: avoid;
+        }
+
+        .brand-logo img {
+            max-height: 64px;
+            max-width: 220px;
+            object-fit: contain;
+            margin-bottom: 14px;
+        }
+
+        .brand-text {
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--color-ink);
+            letter-spacing: -0.3px;
+            margin: 0 0 4px 0;
+            line-height: 1.1;
+        }
+
+        .brand-meta {
+            font-size: 0.68rem;
+            color: var(--color-ink-soft);
+            font-weight: 500;
+        }
+
+        .doc-panel {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .doc-badge {
+            display: inline-block;
+            background: var(--color-rose-deep);
+            color: #fff;
+            padding: 6px 18px;
+            border-radius: 3px;
+            font-family: 'Fraunces', serif;
+            font-weight: 500;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+
+        .doc-field-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            color: var(--color-ink-faint);
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+
+        .doc-field-value {
+            font-size: 0.8rem;
+            color: var(--color-ink);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .doc-field-value:last-child { margin-bottom: 0; }
+
+        /* ---------- Signature divider (heart motif) ---------- */
+        .ornament-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 10px 0;
+            color: var(--color-gold);
+        }
+
+        .ornament-divider::before,
+        .ornament-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--color-line);
+        }
+
+        .ornament-divider .glyph {
+            font-size: 0.9rem;
+            transform: rotate(0deg);
+        }
+
+        /* ---------- Client info ---------- */
+        .info-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--color-ink-faint);
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .client-name {
+            font-family: 'Fraunces', serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--color-ink);
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 0.68rem;
+            color: var(--color-ink-soft);
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .info-value i { color: var(--color-rose); }
+
+        .event-card {
+            background: var(--color-blush);
+            border-radius: 6px;
+            padding: 10px 14px;
+            text-align: right;
+        }
+
+        .event-card .info-label { margin-bottom: 4px; }
+
+        .event-title {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-weight: 500;
+            font-size: 1.05rem;
+            color: var(--color-rose-deep);
+            margin-bottom: 4px;
+        }
+
+        /* ---------- Items table ---------- */
+        .table {
+            margin-top: 0;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .table thead th {
+            background: transparent;
+            color: var(--color-ink-faint);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.58rem;
+            letter-spacing: 1px;
+            border: none;
+            border-bottom: 1.5px solid var(--color-ink);
+            padding: 0 6px 6px 6px;
+        }
+
+        .table tbody td {
+            padding: 3px 6px;
+            vertical-align: middle;
+            color: var(--color-ink);
+            border: none;
+            border-bottom: 1px solid var(--color-line);
+            font-size: 0.62rem;
+        }
+
+        .table tbody tr {
+            page-break-inside: avoid;
+        }
+
+        .table tbody tr:last-child td { border-bottom: 1px solid var(--color-ink); }
+
+        .item-name { font-weight: 600; }
+
+        /* ---------- Totals ---------- */
+        .totals-wrap {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            page-break-inside: avoid;
+        }
+
+        .totals-box {
+            width: 62%;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.7rem;
+            color: var(--color-ink-soft);
+            font-weight: 500;
+            border-bottom: 1px solid var(--color-line);
+        }
+
+        .totals-row.grand-total {
+            margin-top: 6px;
+            padding-top: 10px;
+            border-top: none;
+            border-bottom: none;
+            align-items: baseline;
+        }
+
+        .grand-total .label {
+            font-family: 'Fraunces', serif;
+            font-size: 0.7rem;
+            color: var(--color-ink);
+            font-weight: 500;
+        }
+
+        .grand-total .value {
+            font-family: 'Fraunces', serif;
+            font-size: 1.0rem;
+            font-weight: 600;
+            color: var(--color-rose-deep);
+        }
+
+        /* ---------- Footer ---------- */
+        .footer-terms {
+            margin-top: 14px;
+            display: flex;
+            justify-content: space-between;
+            gap: 32px;
+            page-break-inside: avoid;
+        }
+
+        .footer-terms .terms-block {
+            font-size: 0.62rem;
+            color: var(--color-ink-soft);
+            line-height: 1.5;
+            max-width: 70%;
+        }
+
+        .footer-terms .terms-block strong {
+            color: var(--color-ink);
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+            font-size: 0.68rem;
+            display: block;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .thanks {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-weight: 500;
+            font-size: 0.75rem;
+            color: var(--color-rose);
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* ---------- Actions Toolbar ---------- */
+        .no-print {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 21cm;
+        }
+
+        .no-print button, .no-print a {
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .no-print button:hover, .no-print a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .btn-wpp { background-color: #25D366; color: white; }
+        .btn-print { background-color: var(--color-rose-deep); color: white; }
+        .btn-bobina { background-color: #4b5563; color: white; }
+        .btn-close-app { background-color: #ef4444; color: white; }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 8mm;
+            }
+            body {
+                background-color: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+            }
+            .receipt-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div th:if="${venda == null}" class="text-center mt-5">
+        <h4 class="brand-text">Orçamento não encontrado</h4>
+        <p class="text-secondary">Por favor, verifique o número informado ou tente novamente.</p>
+        <button class="btn btn-secondary btn-sm rounded-pill mt-2" onclick="window.close()">Fechar</button>
+    </div>
+
+    <div th:if="${venda != null}" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div class="no-print">
+            <button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir Orçamento (A4)</button>
+            <a class="btn-bobina" th:href="@{/pdv/recibo(id=${venda.id})}" target="_blank"><i class="bi bi-receipt"></i> Recibo 80mm (Bobina)</a>
+            <button class="btn-wpp" onclick="enviarWhatsApp()"><i class="bi bi-whatsapp"></i> Enviar WhatsApp</button>
+            <button class="btn-close-app" onclick="window.close()"><i class="bi bi-x-lg"></i> Fechar</button>
+        </div>
+
+        <div class="receipt-container">
+
+            <!-- HEADER -->
+            <div class="header">
+                <div>
+                    <div th:if="${venda.empresa != null and venda.empresa.logo != null and !venda.empresa.logo.isBlank()}" class="brand-logo">
+                        <img th:src="${venda.empresa.logo}" alt="Logo da Empresa">
+                    </div>
+                    <h1 class="brand-text" th:text="${venda.empresa != null ? venda.empresa.razaoSocial : 'EMPRESA'}">Nome da Empresa</h1>
+                    <div class="brand-meta" th:if="${venda.empresa != null}">
+                        <span th:if="${venda.empresa.cnpj != null and !venda.empresa.cnpj.isBlank()}" th:text="'CNPJ ' + ${venda.empresa.cnpj}"></span>
+                        <span th:if="${venda.empresa.telefone != null and !venda.empresa.telefone.isBlank()}" th:text="'  ·  ' + ${venda.empresa.telefone}"></span>
+                        <div th:if="${venda.empresa.logradouro != null and !venda.empresa.logradouro.isBlank()}" style="font-size:0.85em; margin-top:2px;">
+                            <span th:text="${venda.empresa.logradouro + (venda.empresa.numero != null and !venda.empresa.numero.isBlank() ? ', ' + venda.empresa.numero : '') + (venda.empresa.bairro != null and !venda.empresa.bairro.isBlank() ? ' - ' + venda.empresa.bairro : '') + (venda.empresa.cidade != null and !venda.empresa.cidade.isBlank() ? ' / ' + venda.empresa.cidade : '') + (venda.empresa.uf != null and !venda.empresa.uf.isBlank() ? ' - ' + venda.empresa.uf : '')}"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="doc-panel">
+                    <div class="doc-badge">Orçamento</div>
+                    <div class="doc-field-label">Nº do documento</div>
+                    <div class="doc-field-value" th:text="${venda.numeroVenda}">00000000</div>
+
+                    <div class="doc-field-label">Data da emissão</div>
+                    <div class="doc-field-value" th:text="${#temporals.format(venda.dataVenda, 'dd/MM/yyyy HH:mm')}">00/00/0000</div>
+                </div>
+            </div>
+
+            <div class="ornament-divider"><span class="glyph">&#10084;</span></div>
+
+            <!-- CLIENT INFO -->
+            <div class="row mb-4">
+                <div class="col-7">
+                    <div class="info-label">Orçamento preparado para</div>
+                    <div class="client-name">
+                        <span th:if="${venda.nomeClienteSnapshot != null and !venda.nomeClienteSnapshot.isBlank()}" th:text="${venda.nomeClienteSnapshot}"></span>
+                        <span th:unless="${venda.nomeClienteSnapshot != null and !venda.nomeClienteSnapshot.isBlank()}">Consumidor Final</span>
+                    </div>
+                    <div class="info-value" th:if="${venda.telefoneClienteSnapshot != null and !venda.telefoneClienteSnapshot.isBlank()}">
+                        <i class="bi bi-telephone me-1"></i><span th:text="${venda.telefoneClienteSnapshot}"></span>
+                    </div>
+                    <div class="info-value" th:if="${venda.enderecoEntregaSnapshot != null and !venda.enderecoEntregaSnapshot.isBlank()}">
+                        <i class="bi bi-geo-alt me-1"></i><span th:text="${venda.enderecoEntregaSnapshot}"></span>
+                    </div>
+                    <div class="info-value" th:if="${venda.referenciaClienteSnapshot != null and !venda.referenciaClienteSnapshot.isBlank()}">
+                        <i class="bi bi-pin-map me-1"></i>Ref.: <span th:text="${venda.referenciaClienteSnapshot}"></span>
+                    </div>
+                </div>
+                <div class="col-5" th:if="${venda.cliente != null and venda.cliente.dataComemorativa != null}">
+                    <div class="event-card">
+                        <div class="info-label">Referente ao evento</div>
+                        <div class="event-title" th:text="${venda.cliente.tipoDataComemorativa}"></div>
+                        <div class="info-value" style="margin-bottom:0;">
+                            <i class="bi bi-calendar-event me-1"></i><span th:text="${#temporals.format(venda.cliente.dataComemorativa, 'dd/MM/yyyy')}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ITEMS TABLE -->
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 46%;">Descrição do item</th>
+                        <th class="text-center">Quantidade</th>
+                        <th class="text-end">Valor unit.</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="item : ${venda.itens}">
+                        <td class="item-name" th:text="${item.produto != null ? item.produto.nome : item.nomeItem}">Produto Exemplo</td>
+                        <td class="text-center" th:text="${item.quantidade != null ? item.quantidade.stripTrailingZeros().toPlainString().replace('.', ',') : '1'}">1</td>
+                        <td class="text-end" th:text="|R$ ${#numbers.formatDecimal(item.precoUnitario, 1, 2, 'COMMA')}|">R$ 0,00</td>
+                        <td class="text-end item-name" th:text="|R$ ${#numbers.formatDecimal(item.subtotal, 1, 2, 'COMMA')}|">R$ 0,00</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- TOTALS -->
+            <div class="totals-wrap">
+                <div class="totals-box">
+                    <div class="totals-row">
+                        <span>Subtotal</span>
+                        <span th:text="|R$ ${#numbers.formatDecimal(venda.subtotal, 1, 2, 'COMMA')}|">R$ 0,00</span>
+                    </div>
+                    <div class="totals-row" th:if="${venda.taxaEntrega != null and venda.taxaEntrega > 0}">
+                        <span>Taxa de entrega</span>
+                        <span th:text="|R$ ${#numbers.formatDecimal(venda.taxaEntrega, 1, 2, 'COMMA')}|">R$ 0,00</span>
+                    </div>
+                    <div class="totals-row grand-total">
+                        <span class="label">Total geral</span>
+                        <span class="value" th:text="|R$ ${#numbers.formatDecimal(venda.total, 1, 2, 'COMMA')}|">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ornament-divider"><span class="glyph">&#10084;</span></div>
+
+            <!-- FOOTER TERMS -->
+            <div class="footer-terms">
+                <div class="terms-block">
+                    <strong>Termos e condições</strong>
+                    1. Este orçamento tem validade de 7 dias a partir da data de emissão.<br>
+                    2. Os preços e estoques estão sujeitos a alterações após o vencimento do orçamento.<br>
+                    3. Para confirmar este pedido, entre em contato com nossa equipe informando o nº do documento.
+                </div>
+                <div class="thanks">Obrigado pela<br>preferência!</div>
+            </div>
+
+        </div>
+
+        <div id="wppData"
+             th:data-razao="${venda.empresa != null ? venda.empresa.razaoSocial : ''}"
+             th:data-numero="${venda.numeroVenda}"
+             th:data-cliente="${venda.nomeClienteSnapshot}"
+             th:data-telefone="${venda.telefoneClienteSnapshot}"
+             th:data-total="${venda.total}"
+             th:data-id="${venda.id}"
+             style="display:none"></div>
+    </div>
+
+    <script>
+        async function enviarWhatsApp() {
+            const el = document.getElementById('wppData');
+            if (!el) return;
+            const telefone = el.dataset.telefone || '';
+            const vendaId = el.dataset.id;
+
+            // Preview URL (fallback se o link do PDF falhar)
+            const orcamentoUrl = window.location.origin + '/pdv/orcamento?id=' + vendaId;
+
+            let linkEnvio = orcamentoUrl;
+            try {
+                const resp = await fetch('/orcamentos/' + vendaId + '/link-pdf');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.url) {
+                        linkEnvio = window.location.origin + data.url;
+                    }
+                } else {
+                    throw new Error('HTTP ' + resp.status);
+                }
+            } catch (err) {
+                linkEnvio = orcamentoUrl; // fallback
+            }
+
+            const texto = 'Olá! 💝 Segue o orçamento da I Love Mimos em PDF:\n' + linkEnvio;
+
+            let numero = telefone.replace(/\D/g, '');
+            if(numero.length >= 10 && numero.length <= 11) numero = '55' + numero;
+
+            let url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(texto);
+            if(numero) url = 'https://api.whatsapp.com/send?phone=' + numero + '&text=' + encodeURIComponent(texto);
+
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+
+</html>

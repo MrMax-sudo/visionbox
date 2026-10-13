@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo Não Fiscal</title>
+    <style>
+        @page {
+            margin: 0;
+            size: 80mm auto;
+        }
+
+        body {
+            font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
+            background-color: #f8f9fa;
+            color: #000;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .receipt-container {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.3;
+        }
+
+        h4 {
+            text-align: center;
+            margin: 4px 0;
+            text-transform: uppercase;
+        }
+
+        .text-center { text-align: center; }
+        .text-right  { text-align: right; }
+
+        .divider {
+            border-bottom: 1px dashed #000;
+            margin: 8px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 3px 2px;
+            vertical-align: top;
+        }
+
+        .qty   { width: 35px; text-align: right; white-space: nowrap; padding-right: 6px; }
+        .unit  { width: 65px; text-align: right; white-space: nowrap; padding-right: 6px; }
+        .total { width: 70px; text-align: right; white-space: nowrap; }
+
+        .no-print {
+            display: block;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .no-print button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+
+            body {
+                background-color: white;
+                padding: 0;
+                display: block;
+            }
+
+            .receipt-container {
+                width: 100%;
+                box-shadow: none;
+                padding: 0;
+            }
+
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div th:if="${venda == null}" class="text-center">
+        <h4>Venda não encontrada</h4>
+    </div>
+
+    <div th:if="${venda != null}">
+        <div class="no-print">
+            <button onclick="window.print()">Imprimir Recibo</button>
+            <button onclick="window.close()" style="background-color:#6c757d; margin-left:10px;">Fechar</button>
+        </div>
+
+        <div class="receipt-container">
+
+            <!-- Cabeçalho empresa (sem logotipo) -->
+            <h4 th:text="${venda.empresa != null ? venda.empresa.razaoSocial : 'EMPRESA'}">EMPRESA</h4>
+            <div class="text-center" style="font-size:0.75em; line-height:1.35;" th:if="${venda.empresa != null}">
+                <div th:if="${venda.empresa.cnpj != null and !venda.empresa.cnpj.isBlank()}">
+                    <span th:text="'CNPJ: ' + ${venda.empresa.cnpj}"></span>
+                    <span th:if="${venda.empresa.inscricaoEstadual != null and !venda.empresa.inscricaoEstadual.isBlank()}"
+                          th:text="' - IE: ' + ${venda.empresa.inscricaoEstadual}"></span>
+                </div>
+                <div th:if="${venda.empresa.logradouro != null and !venda.empresa.logradouro.isBlank()}">
+                    <span th:text="${venda.empresa.logradouro + (venda.empresa.numero != null and !venda.empresa.numero.isBlank() ? ', ' + venda.empresa.numero : '') + (venda.empresa.bairro != null and !venda.empresa.bairro.isBlank() ? ' - ' + venda.empresa.bairro : '') + (venda.empresa.cidade != null and !venda.empresa.cidade.isBlank() ? ' / ' + venda.empresa.cidade : '') + (venda.empresa.uf != null and !venda.empresa.uf.isBlank() ? ' - ' + venda.empresa.uf : '')}">
+                    </span>
+                </div>
+                <div th:if="${venda.empresa.telefone != null and !venda.empresa.telefone.isBlank()}">
+                    <span th:text="'Fone: ' + ${venda.empresa.telefone}"></span>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+            <h4>CUPOM NÃO FISCAL</h4>
+            <div class="divider"></div>
+
+            <!-- Número da venda -->
+            <div style="font-size:0.85em;">
+                <span>Venda N°: </span>
+                <strong th:text="${venda.numeroVenda}">0000</strong><br>
+                Data: <span th:text="${#temporals.format(venda.dataVenda, 'dd/MM/yyyy HH:mm')}">--/--/---- --:--</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Cliente -->
+            <div style="font-size:0.85em; margin-bottom:4px;"
+                 th:with="docConsumidor=${venda.cpfClienteSnapshot != null and !venda.cpfClienteSnapshot.isBlank() ? venda.cpfClienteSnapshot : (venda.cliente != null and venda.cliente.cpfCnpj != null ? venda.cliente.cpfCnpj : null)},
+                          nomeConsumidor=${venda.nomeClienteSnapshot != null and !venda.nomeClienteSnapshot.isBlank() ? venda.nomeClienteSnapshot : (venda.cliente != null and venda.cliente.nome != null ? venda.cliente.nome : null)}">
+                <strong>CLIENTE:</strong>
+                <th:block th:if="${docConsumidor != null and !docConsumidor.isBlank()}">
+                    <span th:if="${nomeConsumidor != null and !nomeConsumidor.isBlank()}" th:text="${T(com.outbox.sistema.util.TextoUtils).formatarNomeTitleCase(nomeConsumidor)}"></span>
+                    <span th:unless="${nomeConsumidor != null and !nomeConsumidor.isBlank()}">CONSUMIDOR FINAL</span>
+                    <div style="margin-top:2px;">
+                        <span th:text="${(T(com.outbox.sistema.util.TextoUtils).formatarCpfCnpj(docConsumidor).length() > 14 ? 'CNPJ: ' : 'CPF: ') + T(com.outbox.sistema.util.TextoUtils).formatarCpfCnpj(docConsumidor)}">CPF: 000.000.000-00</span>
+                    </div>
+                </th:block>
+                <th:block th:unless="${docConsumidor != null and !docConsumidor.isBlank()}">
+                    <span>CONSUMIDOR FINAL</span>
+                </th:block>
+                <div th:if="${venda.enderecoEntregaSnapshot != null and !venda.enderecoEntregaSnapshot.isBlank()}" style="margin-top:2px;">
+                    End.: <span th:text="${venda.enderecoEntregaSnapshot}"></span>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Itens -->
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="qty">Qtd</th>
+                        <th class="unit">Unit.</th>
+                        <th class="total">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="item : ${venda.itens}">
+                        <td>
+                            <span th:text="${item.produto != null ? item.produto.nome : item.nomeItem}">Produto</span>
+                            <span th:if="${item.brinde != null and item.brinde}" style="font-weight:bold;"> BRINDE</span>
+                        </td>
+                        <td class="qty" th:text="${item.quantidade.stripTrailingZeros().toPlainString()}">1</td>
+                        <td class="unit" th:text="'R$ ' + ${#numbers.formatDecimal(item.precoUnitario, 1, 2, 'COMMA')}">0,00</td>
+                        <td class="total">
+                            <span th:if="${item.brinde != null and item.brinde}">GRATIS</span>
+                            <span th:unless="${item.brinde != null and item.brinde}"
+                                  th:text="'R$ ' + ${#numbers.formatDecimal(item.subtotal, 1, 2, 'COMMA')}"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="divider"></div>
+
+            <!-- Totais -->
+            <table style="font-weight:bold;">
+                <tr>
+                    <td>Subtotal:</td>
+                    <td class="text-right" th:text="'R$ ' + ${#numbers.formatDecimal(venda.status != null and venda.status.name() == 'ORCAMENTO' and venda.valorEntrada != null and venda.valorEntrada > 0 ? venda.valorEntrada : venda.subtotal, 1, 2, 'COMMA')}"></td>
+                </tr>
+                <tr th:if="${venda.descontoMimos != null and venda.descontoMimos > 0}">
+                    <td style="color:#c00;">Desconto Mimos:</td>
+                    <td class="text-right" style="color:#c00;" th:text="'-R$ ' + ${#numbers.formatDecimal(venda.descontoMimos, 1, 2, 'COMMA')}"></td>
+                </tr>
+                <tr th:if="${venda.descontoFormaPagamento != null and venda.descontoFormaPagamento > 0}">
+                    <td style="color:#c00;">Desc. Pagamento:</td>
+                    <td class="text-right" style="color:#c00;" th:text="'-R$ ' + ${#numbers.formatDecimal(venda.descontoFormaPagamento, 1, 2, 'COMMA')}"></td>
+                </tr>
+                <tr th:if="${venda.acrescimo != null and venda.acrescimo > 0}">
+                    <td>Acréscimo:</td>
+                    <td class="text-right" th:text="'+R$ ' + ${#numbers.formatDecimal(venda.acrescimo, 1, 2, 'COMMA')}"></td>
+                </tr>
+                <tr th:if="${venda.taxaEntrega != null and venda.taxaEntrega > 0}">
+                    <td>Tx. Entrega:</td>
+                    <td class="text-right" th:text="'R$ ' + ${#numbers.formatDecimal(venda.taxaEntrega, 1, 2, 'COMMA')}"></td>
+                </tr>
+                <tr th:each="taxa : ${venda.taxasAdicionais}">
+                    <td th:text="${taxa.nomeTaxa + ':'}">Taxa:</td>
+                    <td class="text-right"
+                        th:text="${taxa.tipoOperacao != null and taxa.tipoOperacao == 'DESCONTO' ? '-R$ ' + #numbers.formatDecimal(taxa.valorCalculado.abs(), 1, 2, 'COMMA') : '+R$ ' + #numbers.formatDecimal(taxa.valorCalculado, 1, 2, 'COMMA')}"
+                        th:styleappend="${taxa.tipoOperacao != null and taxa.tipoOperacao == 'DESCONTO' ? 'color:#c00;' : ''}">R$ 0,00</td>
+                </tr>
+                <tr>
+                    <td style="font-size:1.1em; padding-top:6px;">TOTAL:</td>
+                    <td class="text-right" style="font-size:1.1em; padding-top:6px;"
+                        th:text="'R$ ' + ${#numbers.formatDecimal(venda.status != null and venda.status.name() == 'ORCAMENTO' and venda.valorEntrada != null and venda.valorEntrada > 0 ? venda.valorEntrada : venda.total, 1, 2, 'COMMA')}"></td>
+                </tr>
+            </table>
+
+            <div th:if="${(venda.observacao != null and !venda.observacao.isBlank()) or (venda.status != null and venda.status.name() == 'ORCAMENTO' and venda.valorEntrada != null and venda.valorEntrada > 0)}"
+                 style="font-size:0.85em; margin:6px 0;">
+                <strong>OBSERVAÇÕES:</strong><br>
+                <div th:if="${venda.status != null and venda.status.name() == 'ORCAMENTO' and venda.valorEntrada != null and venda.valorEntrada > 0}">
+                    <span>Entrada: R$ </span><span th:text="${#numbers.formatDecimal(venda.valorEntrada, 1, 2, 'COMMA')}">0,00</span>
+                    <span th:if="${venda.valorRestante != null and venda.valorRestante > 0}"> | Restante: R$ <span th:text="${#numbers.formatDecimal(venda.valorRestante, 1, 2, 'COMMA')}">0,00</span></span>
+                </div>
+                <span th:if="${venda.observacao != null and !venda.observacao.isBlank()}" th:text="${venda.observacao}">Observação</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Pagamento -->
+            <div style="font-size:0.85em;">
+                <strong>PAGAMENTO:</strong>
+                <div th:if="${venda.pagamentos == null or #lists.isEmpty(venda.pagamentos)}" style="color:#555; font-style:italic;">
+                    Aguardando Pagamento / Aprovação
+                </div>
+                <div th:each="pag : ${venda.pagamentos}">
+                    <span th:text="${pag.formaPagamento.nome}">Forma</span>
+                    <span th:if="${pag.parcelas != null and pag.parcelas > 1}" th:text="' (' + ${pag.parcelas} + 'x)'" style="font-size:0.85em;"></span>
+                    <span style="float:right;"
+                          th:text="'R$ ' + ${#numbers.formatDecimal(pag.valor, 1, 2, 'COMMA')}"></span>
+                    <div th:if="${pag.troco != null and pag.troco > 0}" style="font-size:0.85em; text-align:right;">
+                        Troco: R$ <span th:text="${#numbers.formatDecimal(pag.troco, 1, 2, 'COMMA')}">0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider" style="margin-top:16px;"></div>
+            <div class="text-center" style="font-size:0.85em; font-weight:bold;">
+                OBRIGADO PELA PREFERENCIA!<br>
+                Volte Sempre &#9829;
+            </div>
+            <div class="divider"></div>
+
+        </div>
+    </div>
+</body>
+
+</html>

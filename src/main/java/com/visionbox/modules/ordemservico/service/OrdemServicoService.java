@@ -161,6 +161,11 @@ public class OrdemServicoService {
         if (efetivaArmacaoId != null && !produtosIdsParaReserva.contains(efetivaArmacaoId)) produtosIdsParaReserva.add(efetivaArmacaoId);
         if (efetivaLenteId != null && !produtosIdsParaReserva.contains(efetivaLenteId)) produtosIdsParaReserva.add(efetivaLenteId);
 
+        // Se vier com pagamentos registrados ou forma de pagamento do PDV, a venda foi concluída -> PEDIDO_CONFIRMADO
+        boolean ehVendaConcluida = (req.getPagamentos() != null && !req.getPagamentos().isEmpty())
+                || (req.getFormaPagamento() != null && !req.getFormaPagamento().isBlank());
+        StatusOS statusInicial = ehVendaConcluida ? StatusOS.PEDIDO_CONFIRMADO : StatusOS.ORCAMENTO;
+
         OrdemServico os = OrdemServico.builder()
                 .lojaId(lojaId)
                 .numero(numero)
@@ -169,7 +174,7 @@ public class OrdemServicoService {
                 .armacaoId(efetivaArmacaoId)
                 .lenteId(efetivaLenteId)
                 .laboratorioId(req.getLaboratorioId())
-                .status(StatusOS.ORCAMENTO)
+                .status(statusInicial)
                 .previsaoEntrega(previsao)
                 .build();
         os = repository.save(os);
@@ -178,14 +183,14 @@ public class OrdemServicoService {
                 .lojaId(lojaId)
                 .ordemServico(os)
                 .statusAnterior(null)
-                .statusNovo(StatusOS.ORCAMENTO)
+                .statusNovo(statusInicial)
                 .dataHora(OffsetDateTime.now(clock))
                 .responsavel("sistema")
-                .observacao(req.getObservacao()!=null?req.getObservacao():"OS criada")
+                .observacao(req.getObservacao() != null ? req.getObservacao() : (ehVendaConcluida ? "Venda PDV confirmada com pagamento" : "Orçamento criado"))
                 .build();
         os.addEvento(evento);
         os = repository.save(os);
-        log.info("OS criada loja={} numero={} cliente={} armacao={} lente={} itensSKU={}", lojaId, numero, req.getClienteId(), efetivaArmacaoId, efetivaLenteId, itens!=null?itens.size():0);
+        log.info("OS criada loja={} numero={} status={} cliente={} armacao={} lente={} itensSKU={}", lojaId, numero, statusInicial, req.getClienteId(), efetivaArmacaoId, efetivaLenteId, itens!=null?itens.size():0);
 
         // --- Integracao estoque: reservar 1 unidade de armacao/lente ou cada SKU do carrinho ---
         if (estoqueService != null && !produtosIdsParaReserva.isEmpty()) {
@@ -278,7 +283,8 @@ public class OrdemServicoService {
                     UUID prev = TenantContext.getCurrentLojaId().orElse(null);
                     try {
                         TenantContext.setCurrentLojaId(lojaId);
-                        contaReceberService.gerarAoFechar(req.getClienteId(), null, os.getId(), valorTotal, vencimento, "OS " + os.getNumero() + " - " + os.getStatus());
+                        String descTitulo = ehVendaConcluida ? ("Venda OS " + os.getNumero()) : ("Orçamento OS " + os.getNumero());
+                        contaReceberService.gerarAoFechar(req.getClienteId(), null, os.getId(), valorTotal, vencimento, descTitulo);
                     } finally {
                         if (prev == null) TenantContext.clear(); else TenantContext.setCurrentLojaId(prev);
                     }
