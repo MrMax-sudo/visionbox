@@ -2,7 +2,9 @@ import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { OfflineBanner } from '@/components/ui/offline-banner';
-import { ControleCaixaModal } from '@/components/caixa/ControleCaixaModal';
+import { ControleCaixaModal, type CaixaSessao } from '@/components/caixa/ControleCaixaModal';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { AutorizacaoDescontoModal } from '@/components/pdv/AutorizacaoDescontoModal';
 import { NovoClienteModal } from '@/components/pdv/NovoClienteModal';
 import { DadosClienteModal } from '@/components/pdv/DadosClienteModal';
@@ -66,6 +68,22 @@ export default function PDV() {
 
   // Modais
   const [caixaModalOpen, setCaixaModalOpen] = React.useState(false);
+
+  const caixaQuery = useQuery<CaixaSessao | null>({
+    queryKey: ['caixa-status-atual'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<CaixaSessao>('/v1/caixa/status-atual');
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+  const isCaixaAberto = !!(caixaQuery.data && caixaQuery.data.status === 'ABERTO');
+
   const [descontoModalOpen, setDescontoModalOpen] = React.useState(false);
   const [novoClienteOpen, setNovoClienteOpen] = React.useState(false);
   const [dadosClienteOpen, setDadosClienteOpen] = React.useState(false);
@@ -391,6 +409,14 @@ export default function PDV() {
 
   function handleFinalizar() {
     if (criarOrdem.isPending) return;
+    if (!isCaixaAberto) {
+      setFeedback({
+        tone: 'error',
+        msg: 'Venda bloqueada: o caixa físico está fechado! Abra o caixa antes de realizar vendas.',
+      });
+      setCaixaModalOpen(true);
+      return;
+    }
     if (cart.length === 0) {
       setFeedback({ tone: 'warning', msg: 'Carrinho vazio. Adicione ao menos um produto para finalizar.' });
       return;
@@ -498,6 +524,58 @@ export default function PDV() {
     <div className="flex min-h-full flex-col gap-2.5 xl:h-full">
       <OfflineBanner pendingCount={outboxCount} />
 
+      {/* Cabeçalho do PDV com Sinalizador de Caixa */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-3">
+          <h1 className="font-display text-base font-bold text-primary">
+            PDV — Frente de caixa
+          </h1>
+          <button
+            type="button"
+            onClick={() => setCaixaModalOpen(true)}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-sm',
+              isCaixaAberto
+                ? 'border-emerald-500/50 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                : 'border-rose-500/50 bg-rose-50 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 animate-pulse'
+            )}
+            title={
+              isCaixaAberto
+                ? `Caixa Aberto por ${caixaQuery.data?.operadorNome || 'Operador'}. Clique para movimentações ou fechar.`
+                : 'Caixa Fechado! Clique para abrir o caixa.'
+            }
+          >
+            <span className={cn('h-2 w-2 rounded-full', isCaixaAberto ? 'bg-emerald-500' : 'bg-rose-500 animate-ping')} />
+            <span>
+              {isCaixaAberto
+                ? `Caixa Aberto (${caixaQuery.data?.operadorNome || 'Operador'})`
+                : 'Caixa Fechado (Clique para abrir)'}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {!isCaixaAberto && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-card border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-200 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-rose-600 animate-ping" />
+            <strong className="font-bold">CAIXA FECHADO:</strong>
+            <span>É obrigatório abrir o caixa físico antes de registrar vendas.</span>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-xs font-bold bg-rose-600 hover:bg-rose-700 cursor-pointer"
+            onClick={() => setCaixaModalOpen(true)}
+          >
+            Abrir Caixa Agora
+          </Button>
+        </div>
+      )}
+
       {feedback && <FeedbackBanner feedback={feedback} onClose={() => setFeedback(null)} />}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(300px,340px)] xl:grid-rows-[minmax(0,1fr)]">
@@ -578,6 +656,8 @@ export default function PDV() {
             onAbrirCaixa={() => setCaixaModalOpen(true)}
             onOrcamento={gerarPrevia}
             onMaisAcoes={() => setMaisAcoesOpen(true)}
+            isCaixaAberto={isCaixaAberto}
+            caixaOperador={caixaQuery.data?.operadorNome}
           />
         </div>
       </div>

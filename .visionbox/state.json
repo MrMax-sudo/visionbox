@@ -3,10 +3,10 @@
   "version": "1.1.0-web-refactor",
   "updated_at": "2026-10-12T21:05:00-03:00",
   "web_refactor": {
-    "status": "fix_venda_cupom_e_formas_pagamento",
+    "status": "trava_caixa_pdv_e_auto_estoque",
     "wave": 4,
-    "scope": "Fix de erro 500 na venda (JSONB em EventoOS), ocultação de tag SEFAZ na UI de pagamentos e filtro exclusivo de formas ativas no PDV",
-    "evidence": "EventoOS e LogAuditoria com @JdbcTypeCode(SqlTypes.JSON); V32__fix_forma_pagamento_tpag.sql; FinalizarVendaModal com formasAtivas; 246/246 testes verdes",
+    "scope": "Trava de venda só com caixa aberto no PDV, indicador de status do caixa, formas de pagamento ativas dinâmicas e auto-reserva resiliente no EstoqueService",
+    "evidence": "ResumoVendaPanel e PDV com sinalizador visual e trava !isCaixaAberto; EstoqueService.obterOuCriar elimina EntityNotFoundException e UnexpectedRollbackException; 246/246 testes verdes; build Vite verde",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [

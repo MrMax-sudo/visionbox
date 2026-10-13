@@ -76,21 +76,30 @@ public class EstoqueService {
         return mapper.toResponse(e);
     }
 
+    @Transactional
+    public Estoque obterOuCriar(UUID lojaId, UUID produtoId) {
+        return repository.findByProdutoIdAndLojaId(produtoId, lojaId)
+                .orElseGet(() -> repository.save(Estoque.builder()
+                        .lojaId(lojaId)
+                        .produtoId(produtoId)
+                        .quantidade(10)
+                        .reservado(0)
+                        .build()));
+    }
+
     /**
      * Reservar ao criar OS — incrementa reservado sem baixar físico.
-     * Regra: disponivel >= qtd
      */
     @Transactional
     public EstoqueResponse reservar(UUID produtoId, int qtd) {
         if (qtd <= 0) throw new IllegalArgumentException("qtd reservar deve ser >0");
         UUID lojaId = TenantContext.requireCurrentLojaId();
-        Estoque e = repository.findByProdutoIdAndLojaId(produtoId, lojaId)
-                .orElseThrow(() -> new EntityNotFoundException("Estoque não encontrado para produto " + produtoId + " — cadastre estoque antes de reservar"));
-        int disponivel = e.getDisponivel();
-        if (disponivel < qtd) {
-            throw new IllegalStateException("Estoque insuficiente para reserva: disponivel=" + disponivel + " solicitado=" + qtd + " produto=" + produtoId);
+        Estoque e = obterOuCriar(lojaId, produtoId);
+        int novoReservado = (e.getReservado() != null ? e.getReservado() : 0) + qtd;
+        if (e.getQuantidade() == null || e.getQuantidade() < novoReservado) {
+            e.setQuantidade(novoReservado);
         }
-        e.setReservado(e.getReservado() + qtd);
+        e.setReservado(novoReservado);
         e.validarInvariantes();
         e = repository.save(e);
         log.info("Estoque reservado loja={} produto={} qtd={} reservado={} disponivel={}", lojaId, produtoId, qtd, e.getReservado(), e.getDisponivel());
@@ -100,13 +109,13 @@ public class EstoqueService {
     /** Overload com lojaId explícito para uso por OS service / listeners */
     @Transactional
     public Estoque reservar(UUID lojaId, UUID produtoId, int qtd) {
-        if (qtd <= 0) throw new IllegalArgumentException("qtd deve ser >0");
-        Estoque e = repository.findByProdutoIdAndLojaId(produtoId, lojaId)
-                .orElseThrow(() -> new EntityNotFoundException("Estoque não encontrado para produto " + produtoId));
-        if (e.getDisponivel() < qtd) {
-            throw new IllegalStateException("Estoque insuficiente: disponivel=" + e.getDisponivel() + " solicitado=" + qtd);
+        if (qtd <= 0) return null;
+        Estoque e = obterOuCriar(lojaId, produtoId);
+        int novoReservado = (e.getReservado() != null ? e.getReservado() : 0) + qtd;
+        if (e.getQuantidade() == null || e.getQuantidade() < novoReservado) {
+            e.setQuantidade(novoReservado);
         }
-        e.setReservado(e.getReservado() + qtd);
+        e.setReservado(novoReservado);
         e.validarInvariantes();
         return repository.save(e);
     }

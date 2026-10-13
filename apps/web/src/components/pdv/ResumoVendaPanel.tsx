@@ -25,6 +25,26 @@ function PixIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/apiClient';
+
+interface FormaPagamentoDTO {
+  id: string;
+  nome: string;
+  tipo: string;
+  ativo: boolean;
+  padrao: boolean;
+}
+
+function getIconForForma(tipo: string): React.ElementType {
+  const t = (tipo || '').toUpperCase();
+  if (t === 'PIX') return PixIcon;
+  if (t === 'DINHEIRO') return Banknote;
+  if (t === 'DEBITO' || t === 'CREDITO') return CreditCard;
+  if (t === 'CREDIARIO') return ReceiptText;
+  return CreditCard;
+}
+
 type ResumoVendaPanelProps = {
   subtotal: number;
   desconto: number;
@@ -46,15 +66,10 @@ type ResumoVendaPanelProps = {
   onAbrirCaixa: () => void;
   onOrcamento: () => void;
   onMaisAcoes: () => void;
+  isCaixaAberto?: boolean;
+  caixaOperador?: string;
   className?: string;
 };
-
-const METODOS: Array<{ label: string; icon: React.ElementType }> = [
-  { label: 'Dinheiro', icon: Banknote },
-  { label: 'Cartão', icon: CreditCard },
-  { label: 'PIX', icon: PixIcon },
-  { label: 'Outros', icon: MoreHorizontal },
-];
 
 /**
  * Coluna 3 — resumo, desconto, forma de pagamento e o botão Finalizar (F8).
@@ -82,8 +97,21 @@ export function ResumoVendaPanel({
   onAbrirCaixa,
   onOrcamento,
   onMaisAcoes,
+  isCaixaAberto = true,
+  caixaOperador,
   className,
 }: ResumoVendaPanelProps) {
+  const formasQuery = useQuery({
+    queryKey: ['formas-pagamento-pdv'],
+    queryFn: async () => {
+      const res = await apiClient.get<FormaPagamentoDTO[]>('/v1/financeiro/formas-pagamento');
+      return (res.data ?? []).filter((f) => f.ativo);
+    },
+    staleTime: 30_000,
+  });
+
+  const formas = formasQuery.data ?? [];
+
   return (
     <aside
       className={cn(
@@ -97,9 +125,20 @@ export function ResumoVendaPanel({
           <ReceiptText className="h-[18px] w-[18px] text-brand" strokeWidth={1.8} aria-hidden />
           Resumo da venda
         </h2>
-        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onAbrirCaixa}>
-          <Banknote className="h-3.5 w-3.5" /> Caixa
-        </Button>
+        <button
+          type="button"
+          onClick={onAbrirCaixa}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer',
+            isCaixaAberto
+              ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+              : 'border-rose-500/40 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 animate-pulse'
+          )}
+          title={isCaixaAberto ? `Caixa aberto por ${caixaOperador || 'Operador'}. Clique para gerenciar.` : 'Caixa fechado! Clique para abrir o caixa.'}
+        >
+          <span className={cn('h-2 w-2 rounded-full', isCaixaAberto ? 'bg-emerald-500' : 'bg-rose-500')} />
+          {isCaixaAberto ? 'Caixa Aberto' : 'Caixa Fechado'}
+        </button>
       </header>
 
       {/* Totais */}
@@ -158,33 +197,60 @@ export function ResumoVendaPanel({
 
       {/* Pagamento */}
       <section className="mt-4 border-t border-[var(--color-pdv-border-soft)] pt-3.5">
-        <h3 className="flex items-center gap-2 font-display text-sm font-bold text-[var(--color-pdv-text)]">
-          <Wallet className="h-4 w-4 text-brand" strokeWidth={1.8} aria-hidden />
-          Pagamento
-        </h3>
-
-        <div className="mt-2.5 grid grid-cols-4 gap-1" role="group" aria-label="Forma de pagamento">
-          {METODOS.map((method) => {
-            const ativa = formaPagamento === method.label;
-            return (
-              <button
-                key={method.label}
-                type="button"
-                aria-pressed={ativa}
-                onClick={() => onFormaPagamento(method.label)}
-                className={cn(
-                  'flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-[9px] border px-1 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
-                  ativa
-                    ? 'border-transparent bg-[var(--color-login-button)] text-[var(--color-text-on-action)]'
-                    : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
-                )}
-              >
-                <method.icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-                <span className="text-[11px] font-semibold leading-tight">{method.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 font-display text-sm font-bold text-[var(--color-pdv-text)]">
+            <Wallet className="h-4 w-4 text-brand" strokeWidth={1.8} aria-hidden />
+            Pagamento
+          </h3>
+          <span className="text-[10px] text-muted">
+            {formas.length > 0 ? `${formas.length} ativos` : 'Sem métodos'}
+          </span>
         </div>
+
+        {formas.length === 0 ? (
+          <p className="mt-2.5 rounded-card border border-dashed border-border px-2 py-3 text-center text-xs text-muted">
+            Nenhuma forma de pagamento ativa.
+          </p>
+        ) : (
+          <div
+            className={cn(
+              'mt-2.5 grid gap-1.5',
+              formas.length === 1 && 'grid-cols-1',
+              formas.length === 2 && 'grid-cols-2',
+              formas.length === 3 && 'grid-cols-3',
+              formas.length >= 4 && 'grid-cols-4',
+            )}
+            role="group"
+            aria-label="Forma de pagamento"
+          >
+            {formas.map((f) => {
+              const ativa =
+                formaPagamento.toLowerCase() === f.nome.toLowerCase() ||
+                formaPagamento.toLowerCase() === f.tipo.toLowerCase();
+              const Icon = getIconForForma(f.tipo);
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={ativa}
+                  onClick={() => onFormaPagamento(f.nome)}
+                  className={cn(
+                    'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[9px] border px-1 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                    ativa
+                      ? 'border-transparent bg-[var(--color-login-button)] text-[var(--color-text-on-action)] font-bold shadow-sm'
+                      : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
+                  )}
+                  title={f.nome}
+                >
+                  <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+                  <span className="text-[11px] font-semibold leading-tight truncate max-w-full px-0.5">
+                    {f.nome}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <label htmlFor="pdv-valor-recebido" className="text-sm text-[var(--color-pdv-text)]">
@@ -269,24 +335,37 @@ export function ResumoVendaPanel({
         </div>
       </section>
 
-      {/* Finalizar — sempre disponível (F8 / offline-first) */}
-      <Button
-        id="pdv-finalizar"
-        onClick={onFinalizar}
-        disabled={!temItens || finalizando}
-        aria-busy={finalizando}
-        className={cn(
-          'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
-          'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
-          'disabled:opacity-100',
-        )}
-      >
-        <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-        {finalizando ? 'Enviando...' : 'Finalizar'}
-      </Button>
+      {/* Finalizar */}
+      {!isCaixaAberto ? (
+        <Button
+          id="pdv-abrir-caixa-bloqueado"
+          type="button"
+          onClick={onAbrirCaixa}
+          className="mt-4 h-12 w-full gap-2 rounded-[9px] text-base bg-rose-600 hover:bg-rose-700 text-white font-bold animate-pulse shadow-md cursor-pointer"
+        >
+          <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+          Abrir Caixa para Vender
+        </Button>
+      ) : (
+        <Button
+          id="pdv-finalizar"
+          onClick={onFinalizar}
+          disabled={!temItens || finalizando}
+          aria-busy={finalizando}
+          className={cn(
+            'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
+            'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
+            'disabled:opacity-100',
+          )}
+        >
+          <LockKeyhole className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+          {finalizando ? 'Enviando...' : 'Finalizar'}
+        </Button>
+      )}
       <p className="mt-1.5 text-center text-[11px] text-muted">
-        Atalho <kbd className="rounded border border-border bg-page px-1 font-mono">F8</kbd> — funciona offline
-        (venda entra na fila).
+        {!isCaixaAberto
+          ? 'O caixa físico deve estar aberto para registrar vendas.'
+          : 'Atalho F8 — funciona offline (venda entra na fila).'}
       </p>
 
       <div className="mt-auto grid grid-cols-[1fr_1fr_44px] gap-2 pt-3">
