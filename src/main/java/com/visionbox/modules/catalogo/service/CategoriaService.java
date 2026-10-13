@@ -23,17 +23,19 @@ public class CategoriaService {
     private final CategoriaRepository repository;
     private final CategoriaMapper mapper;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<CategoriaResponse> listar(String termo, Pageable pageable) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
+        garantirCategoriasPadrao(lojaId);
         String filtro = (termo == null || termo.isBlank()) ? null : termo.trim();
         Page<Categoria> page = repository.buscarFiltrado(lojaId, filtro, pageable);
         return page.map(mapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<CategoriaResponse> listarTodas() {
         UUID lojaId = TenantContext.requireCurrentLojaId();
+        garantirCategoriasPadrao(lojaId);
         return repository.findAllByLojaIdOrderByNomeAsc(lojaId)
                 .stream()
                 .map(mapper::toResponse)
@@ -108,5 +110,17 @@ public class CategoriaService {
                         .nome(nomeLimpo)
                         .descricao(descricao)
                         .build()));
+    }
+
+    @Transactional
+    public void garantirCategoriasPadrao(UUID lojaId) {
+        if (repository.countByLojaId(lojaId) == 0) {
+            obterOuCriar(lojaId, "Armações", "Armações de grau e receituário");
+            obterOuCriar(lojaId, "Lentes", "Lentes oftálmicas monofocais e multifocais");
+            obterOuCriar(lojaId, "Óculos de Sol", "Óculos solares com proteção UV");
+            obterOuCriar(lojaId, "Lentes de Contato", "Lentes de contato gelatinosas e descartáveis");
+            obterOuCriar(lojaId, "Acessórios", "Estojos, flanelas, cordões e soluções higienizadoras");
+            obterOuCriar(lojaId, "Serviços", "Montagem, ajustes, solda e coloração");
+        }
     }
 }

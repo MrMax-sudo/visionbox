@@ -3,10 +3,10 @@
   "version": "1.1.0-web-refactor",
   "updated_at": "2026-10-12T21:05:00-03:00",
   "web_refactor": {
-    "status": "categorias_crud_e_tipos_cupom_concluidos",
+    "status": "seed_categorias_padrao_e_fix_rotas",
     "wave": 4,
-    "scope": "CRUD completo de Categorias no Banco e UI, Filtros dinâmicos no Catálogo, Tipos de Cupom (Cupom/NFC-e/DANFE) e Carga de Demonstração em 1 clique",
-    "evidence": "CategoriaController e Service com soft-delete e multi-tenant; CategoriasModal.tsx; 246/246 testes unitários backend verdes; frontend build verde (2.36s)",
+    "scope": "Persistência no banco das 6 categorias oficiais de ótica, auto-seed em runtime no CategoriaService e correção de rota /v1/categorias no frontend",
+    "evidence": "V31__seed_categorias_padrao.sql; CategoriaService com garantirCategoriasPadrao; categoriaService.ts corrigido com /v1/; build vite verde (5.48s)",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [
