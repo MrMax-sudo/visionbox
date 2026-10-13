@@ -19,44 +19,17 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient, ApiError } from '@/lib/apiClient';
+import {
+  sangria as sangriaCaixa,
+  suprimento as suprimentoCaixa,
+} from '@/lib/caixaService';
+import type { CaixaSessao } from '@/lib/caixaService';
 
 import { useAuthStore } from '@/stores/authStore';
 
-export interface CaixaMovimento {
-  id: string;
-  tipo:
-    | 'ABERTURA'
-    | 'SUPRIMENTO'
-    | 'SANGRIA'
-    | 'VENDA_DINHEIRO'
-    | 'VENDA_OUTROS'
-    | 'ESTORNO'
-    | 'FECHAMENTO';
-  valor: number;
-  formaPagamento?: string;
-  motivo?: string;
-  usuarioNome?: string;
-  criadoEm: string;
-}
-
-export interface CaixaSessao {
-  id: string;
-  lojaId: string;
-  usuarioId: string;
-  operadorNome?: string;
-  identificacaoCaixa: string;
-  status: 'ABERTO' | 'FECHADO';
-  abertoEm: string;
-  fechadoEm?: string;
-  saldoInicial: number;
-  totalEntradas: number;
-  totalSaidas: number;
-  saldoEsperado: number;
-  saldoInformadoFechamento?: number;
-  diferencaFechamento?: number;
-  observacaoFechamento?: string;
-  movimentos: CaixaMovimento[];
-}
+// Tipos centralizados no caixaService (CaixaDTOs.java) — reexport mantém o
+// contrato de import do PDV (`import { type CaixaSessao } from .../ControleCaixaModal`).
+export type { CaixaMovimento, CaixaSessao } from '@/lib/caixaService';
 
 interface ControleCaixaModalProps {
   open: boolean;
@@ -79,9 +52,11 @@ const abaTriggerCls =
   'data-[state=inactive]:hover:text-primary';
 
 /**
- * Controle de Caixa Físico (PDV) — ONDA 2A.
- * Abertura, suprimento, sangria e fechamento cego inalterados; a camada visual
- * passou a UI kit (Tabs/Field/Skeleton/EmptyState/ErrorState + toasts).
+ * Controle de Caixa Físico (PDV) — ONDA 2A / Fase 2 Robustez ERP.
+ * Abertura, suprimento e sangria migram para os endpoints dedicados
+ * `/caixa/suprimento` e `/caixa/sangria` (motivo + valor obrigatórios,
+ * Idempotency-Key R4 no caixaService); fechamento cego segue em `/caixa/fechar`.
+ * A camada visual é a mesma (UI kit Tabs/Field/Skeleton/EmptyState/ErrorState + toasts).
  * Correção de estado: a query agora propaga erro de rede (antes virava “Caixa
  * Fechado” silencioso, levando o operador a reabrir uma sessão já aberta).
  */
@@ -89,6 +64,12 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const user = useAuthStore((s) => s.user);
+  /** RBAC fino (SecurityConfig): sangria/suprimento/fechar são ADMIN/GERENTE/FINANCEIRO. */
+  const podeMovimentarGaveta =
+    user?.perfil === 'ADMIN' ||
+    user?.perfil === 'GERENTE' ||
+    user?.perfil === 'FINANCEIRO' ||
+    user?.perfil === 'DESENVOLVEDOR';
   const [tab, setTab] = React.useState<Aba>('status');
 
   // Form states — sem valores inventados; operador vem do login real
@@ -144,6 +125,7 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['caixa-status-atual'] });
+      queryClient.invalidateQueries({ queryKey: ['caixa-historico'] });
       setTab('status');
       setFormError(null);
       const fundo = parseFloat(saldoInicialInput.replace(',', '.')) || 0;
@@ -162,17 +144,18 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
       const valor = parseFloat(valorMovimentoInput.replace(',', '.'));
       if (isNaN(valor) || valor <= 0) throw new Error('Valor da movimentação inválido');
       if (!motivoMovimentoInput.trim()) throw new Error('Motivo da movimentação é obrigatório');
-      const res = await apiClient.post<CaixaSessao>('/v1/caixa/movimentar', {
-        tipo,
+      // Endpoints dedicados /caixa/{sangria|suprimento} — motivo obrigatório para
+      // auditoria de gaveta; caixaService injeta Idempotency-Key (R4).
+      const payload = {
         valor,
-        motivo: motivoMovimentoInput,
-        formaPagamento: 'DINHEIRO',
-        usuarioNome: operadorNomeInput || 'Operador',
-      });
-      return res.data;
+        motivo: motivoMovimentoInput.trim(),
+        usuarioNome: operadorNomeInput || user?.nome || 'Operador',
+      };
+      return tipo === 'SANGRIA' ? sangriaCaixa(payload) : suprimentoCaixa(payload);
     },
     onSuccess: (sessao, vars) => {
       queryClient.invalidateQueries({ queryKey: ['caixa-status-atual'] });
+      queryClient.invalidateQueries({ queryKey: ['caixa-historico'] });
       setTab('status');
       setValorMovimentoInput('');
       setMotivoMovimentoInput('');
@@ -200,6 +183,8 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
     },
     onSuccess: (sessao) => {
       queryClient.invalidateQueries({ queryKey: ['caixa-status-atual'] });
+      queryClient.invalidateQueries({ queryKey: ['caixa-historico'] });
+      queryClient.invalidateQueries({ queryKey: ['caixa-relatorio-fechamento'] });
       setTab('status');
       setSaldoFechamentoInput('');
       setObsFechamentoInput('');
@@ -314,7 +299,7 @@ export function ControleCaixaModal({ open, onClose }: ControleCaixaModalProps) {
                 Abrir Caixa
               </TabsTrigger>
             )}
-            {isAberto && (
+            {isAberto && podeMovimentarGaveta && (
               <>
                 <TabsTrigger value="suprimento" className={abaTriggerCls}>
                   + Suprimento (Troco)

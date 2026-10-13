@@ -367,7 +367,7 @@ export default function PDV() {
       queryClient.invalidateQueries({ queryKey: ['pdv-produtos'] });
       setOutboxCount(getOutboxCount());
     },
-    onError: (err: unknown) => {
+    onError: (err: unknown, payloadEnviado: CriarOrdemServicoPayload) => {
       const apiErr = err as ApiError;
       if (!apiErr.status && !online) {
         const payload: CriarOrdemServicoPayload = {
@@ -376,6 +376,8 @@ export default function PDV() {
           desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
           senhaAutorizacao: descontoSenha || undefined,
           formaPagamento,
+          // preserva o rateio multi-forma + MDR (maquininha/parcelas) no outbox (§3.5)
+          pagamentos: payloadEnviado.pagamentos,
         };
         const armacao = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('arma'));
         const lente = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('lente'));
@@ -435,7 +437,16 @@ export default function PDV() {
     setFinalizarOpen(true);
   }
 
-  function confirmarVenda(pagamentos: Array<{ formaId: string; formaNome: string; valor: number }>) {
+  function confirmarVenda(
+    pagamentos: Array<{
+      formaId: string;
+      formaNome: string;
+      valor: number;
+      /** Cartão (§3.5): ausente → MDR pendente no backend (WARN). */
+      maquininhaId?: string;
+      parcelas?: number;
+    }>,
+  ) {
     if (!cliente) return;
     const armacao = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('arma'));
     const lente = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('lente'));
@@ -445,7 +456,12 @@ export default function PDV() {
       desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
       senhaAutorizacao: descontoSenha || undefined,
       formaPagamento: pagamentos.length === 1 ? pagamentos[0].formaNome : 'Múltiplo',
-      pagamentos: pagamentos.map((p) => ({ formaPagamentoId: p.formaId, valor: p.valor })),
+      pagamentos: pagamentos.map((p) => ({
+        formaPagamentoId: p.formaId,
+        valor: p.valor,
+        ...(p.maquininhaId ? { maquininhaId: p.maquininhaId } : {}),
+        ...(p.parcelas != null ? { parcelas: p.parcelas } : {}),
+      })),
       armacaoId: armacao?.produtoId ?? cart[0]?.produtoId ?? null,
       lenteId: lente?.produtoId ?? (cart.length > 1 ? cart[1]?.produtoId : null),
     };

@@ -1,12 +1,42 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Cpu, Database, ExternalLink, RefreshCw, Server, Sparkles } from 'lucide-react';
+import {
+  Bell,
+  Banknote,
+  ClipboardList,
+  Code2,
+  Cpu,
+  Database,
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
+  FlaskConical,
+  Gift,
+  Lightbulb,
+  ListOrdered,
+  MapPin,
+  MessageCircle,
+  Package,
+  Receipt,
+  RefreshCw,
+  Server,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Star,
+  Tag,
+  Wallet,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
+import { Label } from '@/components/ui/label';
 import { LoadingRows } from '@/components/ui/loading-state';
+import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -34,6 +64,58 @@ type EmpresaInfo = {
   cidade?: string;
   uf?: string;
   logoUrl?: string;
+};
+
+/* ===================== Fase 5 — Gestor SaaS de Módulos & Planos ===================== */
+
+type LojaResumo = { id: string; nome: string };
+
+type ModuloStatusItem = {
+  codigo: string;
+  nome: string;
+  descricao: string;
+  rotas: string[];
+  ativo: boolean;
+  fonte: 'PADRAO' | 'REGISTRO';
+};
+
+type ModulosStatus = {
+  lojaId: string;
+  planoAtual: string;
+  registrosExistem: boolean;
+  modulos: ModuloStatusItem[];
+};
+
+type PlanoRapido = 'START' | 'PRO' | 'ENTERPRISE' | 'PERSONALIZADO';
+
+const PLANOS_RAPIDOS: Array<{ valor: PlanoRapido; rotulo: string }> = [
+  { valor: 'START', rotulo: 'Start' },
+  { valor: 'PRO', rotulo: 'Pro' },
+  { valor: 'ENTERPRISE', rotulo: 'Enterprise' },
+  { valor: 'PERSONALIZADO', rotulo: 'Personalizado' },
+];
+
+/** Ícone por módulo (spec §4.1) — lucide + tokens, zero hex (R5). */
+const ICONES_MODULO: Record<string, React.ElementType> = {
+  PDV_BALCAO: ShoppingCart,
+  ORDEM_SERVICO: ClipboardList,
+  RECEITAS_CLINICAS: Eye,
+  CENTRAL_VENDAS: Receipt,
+  CAIXA_TURNOS: Wallet,
+  FINANCEIRO_COMPLETO: Banknote,
+  FISCAL_FLOWBOX: FileText,
+  COMPRAS_XML: Download,
+  ESTOQUE_LOTES: Package,
+  ETIQUETAS: Tag,
+  SUGESTAO_COMPRAS: Lightbulb,
+  SCANNER_MOVEL: Smartphone,
+  TABELAS_PRECO: ListOrdered,
+  FIDELIDADE_PONTOS: Star,
+  ORCAMENTO_ONLINE: MessageCircle,
+  KITS_COMBOS: Gift,
+  LAB_PORTAL: FlaskConical,
+  RASTREIO_CLIENTE: MapPin,
+  ALERTAS_TELEGRAM: Bell,
 };
 
 function InfoCard({
@@ -88,6 +170,96 @@ export default function PainelDesenvolvedor() {
   const [seedMsg, setSeedMsg] = React.useState<string | null>(null);
 
   const podeAcessar = user?.perfil === 'DESENVOLVEDOR' || user?.perfil === 'ADMIN';
+
+  /* ---------------- Fase 5: Gestor SaaS de Módulos & Planos ---------------- */
+  const [lojas, setLojas] = React.useState<LojaResumo[]>([]);
+  const [lojaSel, setLojaSel] = React.useState<string>(user?.lojaId ?? '');
+  const [modulos, setModulos] = React.useState<ModulosStatus | null>(null);
+  const [modulosLoading, setModulosLoading] = React.useState(false);
+  const [modulosErro, setModulosErro] = React.useState<string | null>(null);
+  const [salvando, setSalvando] = React.useState<string | null>(null);
+  const [aviso, setAviso] = React.useState<string | null>(null);
+
+  const carregarLojas = React.useCallback(async () => {
+    if (!podeAcessar) return;
+    try {
+      const res = await apiClient.get<LojaResumo[]>('/v1/dev/lojas');
+      setLojas(res.data);
+      setLojaSel((atual) => atual || res.data[0]?.id || '');
+    } catch {
+      setLojas([]);
+    }
+  }, [podeAcessar]);
+
+  const carregarModulos = React.useCallback(
+    async (lojaId: string) => {
+      if (!podeAcessar || !lojaId) return;
+      setModulosLoading(true);
+      setModulosErro(null);
+      try {
+        const res = await apiClient.get<ModulosStatus>(`/v1/dev/lojas/${lojaId}/modulos`);
+        setModulos(res.data);
+      } catch (e) {
+        setModulos(null);
+        setModulosErro(
+          e instanceof ApiError ? e.message : 'Falha ao carregar os módulos da loja.',
+        );
+      } finally {
+        setModulosLoading(false);
+      }
+    },
+    [podeAcessar],
+  );
+
+  React.useEffect(() => {
+    void carregarLojas();
+  }, [carregarLojas]);
+
+  React.useEffect(() => {
+    if (lojaSel) void carregarModulos(lojaSel);
+  }, [lojaSel, carregarModulos]);
+
+  const alternarModulo = async (codigo: string, ativo: boolean) => {
+    if (!lojaSel) return;
+    setSalvando(codigo);
+    setAviso(null);
+    setModulosErro(null);
+    try {
+      const res = await apiClient.put<ModulosStatus>(`/v1/dev/lojas/${lojaSel}/modulos`, {
+        modulos: [{ codigo, ativo }],
+      });
+      setModulos(res.data);
+      setAviso(`Módulo ${codigo} ${ativo ? 'ativado' : 'desativado'} — alteração gravada com auditoria.`);
+    } catch (e) {
+      setModulosErro(
+        e instanceof ApiError ? e.message : `Falha ao alterar o módulo ${codigo}.`,
+      );
+    } finally {
+      setSalvando(null);
+    }
+  };
+
+  const aplicarPlano = async (plano: PlanoRapido) => {
+    if (!lojaSel) return;
+    if (plano === 'PERSONALIZADO') {
+      setAviso('Plano Personalizado: ligue/desligue cada módulo individualmente pelos switches abaixo.');
+      return;
+    }
+    setSalvando('PLANO');
+    setAviso(null);
+    setModulosErro(null);
+    try {
+      const res = await apiClient.put<ModulosStatus>(`/v1/dev/lojas/${lojaSel}/modulos/plano`, {
+        plano,
+      });
+      setModulos(res.data);
+      setAviso(`Plano ${plano} aplicado — 19 módulos atualizados com auditoria.`);
+    } catch (e) {
+      setModulosErro(e instanceof ApiError ? e.message : `Falha ao aplicar o plano ${plano}.`);
+    } finally {
+      setSalvando(null);
+    }
+  };
 
   const executarSeed = async () => {
     setSeedLoading(true);
@@ -273,6 +445,136 @@ export default function PainelDesenvolvedor() {
           </p>
         </InfoCard>
       </div>
+
+      {/* ===== Fase 5 — Gestor SaaS de Módulos & Planos (spec §4.3) ===== */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Package className="h-4 w-4 text-brand" aria-hidden />
+            Módulos & Planos (SaaS)
+          </CardTitle>
+          <p className="text-xs text-secondary">
+            Libere ou bloqueie recursos por loja (feature flagging). Toda alteração é gravada com
+            auditoria (quem alterou, quando) e vale imediatamente para backend e navegação.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[16rem] flex-1 space-y-1">
+              <Label htmlFor="dev-loja-sel" className="text-xs">
+                Loja (tenant)
+              </Label>
+              <Select
+                id="dev-loja-sel"
+                value={lojaSel}
+                onChange={(e) => setLojaSel(e.target.value)}
+                disabled={lojas.length === 0}
+              >
+                {lojas.length === 0 ? (
+                  <option value={lojaSel || '—'}>Carregando lojas…</option>
+                ) : (
+                  lojas.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nome}
+                    </option>
+                  ))
+                )}
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Plano rápido</Label>
+              <div className="flex flex-wrap gap-2">
+                {PLANOS_RAPIDOS.map((p) => (
+                  <Button
+                    key={p.valor}
+                    size="sm"
+                    variant={modulos?.planoAtual === p.valor ? 'primary' : 'outline'}
+                    onClick={() => void aplicarPlano(p.valor)}
+                    disabled={salvando !== null || !lojaSel}
+                    className="text-xs"
+                  >
+                    {salvando === 'PLANO' && modulos?.planoAtual !== p.valor ? 'Aplicando…' : p.rotulo}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge variant={modulos?.planoAtual === 'PADRAO' ? 'info' : 'success'}>
+                Plano atual: {modulos?.planoAtual ?? '—'}
+              </Badge>
+              <Badge variant="outline">
+                {modulos?.registrosExistem
+                  ? 'configuração materializada'
+                  : 'sem registro — padrão todos ativos'}
+              </Badge>
+            </div>
+          </div>
+
+          {modulosErro && (
+            <div className="rounded-card border border-danger-light bg-danger-light p-3 text-xs font-medium text-danger-dark">
+              {modulosErro}
+            </div>
+          )}
+          {aviso && (
+            <div className="rounded-card border border-success-light bg-success-light p-3 text-xs font-medium text-success-dark">
+              {aviso}
+            </div>
+          )}
+
+          {modulosLoading ? (
+            <LoadingRows rows={4} />
+          ) : modulos ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {modulos.modulos.map((m) => {
+                const Icone = ICONES_MODULO[m.codigo] ?? Package;
+                const ocupado = salvando !== null;
+                return (
+                  <div
+                    key={m.codigo}
+                    className="flex items-start justify-between gap-3 rounded-card border border-border bg-card p-3"
+                  >
+                    <div className="flex min-w-0 items-start gap-2">
+                      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-primary/10">
+                        <Icone className="h-4 w-4 text-brand" aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-primary">{m.nome}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-secondary">{m.descricao}</p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <Badge variant={m.ativo ? 'success' : 'warning'} className="text-[10px]">
+                            {m.ativo ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {m.codigo}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={m.ativo}
+                      disabled={ocupado}
+                      onCheckedChange={(checked) => void alternarModulo(m.codigo, checked)}
+                      aria-label={`${m.ativo ? 'Desativar' : 'Ativar'} módulo ${m.nome}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-secondary">
+              Selecione uma loja para carregar os módulos contratados.
+            </p>
+          )}
+
+          <p className="text-[11px] text-muted">
+            Start = PDV + Central de Vendas + Caixa · Pro = núcleo ótico (OS, Receitas, Lab,
+            Rastreio, Financeiro, Fiscal, Lotes) · Enterprise = todos os 19 módulos ·
+            Personalizado = configure módulo a módulo (add-on avulso).
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

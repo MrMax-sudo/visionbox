@@ -1,12 +1,14 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, AlertCircle, Plus, Trash2, Wallet } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Plus, Trash2, Wallet } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { LoadingState } from '@/components/ui/loading-state';
 import { apiClient } from '@/lib/apiClient';
+import { listarMaquininhas, type TipoCartao } from '@/lib/maquininhaService';
+import { MdrPreview } from '@/components/pdv/MdrPreview';
 
 export type FormaPagamentoDTO = {
   id: string;
@@ -25,6 +27,19 @@ type PagamentoLinha = {
   formaId: string;
   formaNome: string;
   valor: number;
+  /** Só cartão (§3.5): maquininha que processou; vazio → MDR pendente (WARN backend). */
+  maquininhaId?: string;
+  /** Só crédito (§3.5): 1–12. Débito força 1 no payload. */
+  parcelas?: number;
+};
+
+/** Linha pronta para o payload de finalizar (PDV monta o POST com estes campos). */
+export type PagamentoConfirmado = {
+  formaId: string;
+  formaNome: string;
+  valor: number;
+  maquininhaId?: string;
+  parcelas?: number;
 };
 
 type CartItem = { sku: string; nome: string; qtd: number; preco: number };
@@ -32,7 +47,7 @@ type CartItem = { sku: string; nome: string; qtd: number; preco: number };
 interface FinalizarVendaModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirmar: (pagamentos: PagamentoLinha[]) => void;
+  onConfirmar: (pagamentos: PagamentoConfirmado[]) => void;
   itens: CartItem[];
   subtotal: number;
   desconto: number;
@@ -48,8 +63,14 @@ function currency(value: number): string {
 }
 
 /**
- * Finalizar Venda (PDV) — ONDA 2A: só camada visual.
- * Rateio de pagamentos, validação de saldo e contrato `onConfirmar` inalterados.
+ * Finalizar Venda (PDV) — rateio multi-forma + MDR (§3.5).
+ *
+ * Linhas de cartão (débito/crédito) ganham seleção de maquininha e, no crédito,
+ * de parcelas (1–12), com preview de taxa/líquido em tempo real (`calcular-liquido`,
+ * debounced + abort). O preview é só exibição: o backend recalcula e persiste a
+ * verdade no finalizar — o front NUNCA persiste taxa.
+ * Sem maquininha selecionada em loja com POS: envia sem `maquininhaId` (o pagamento
+ * fica com MDR pendente e o backend registra WARN) — hint discreto, venda nunca trava.
  */
 export function FinalizarVendaModal({
   open,
@@ -78,17 +99,52 @@ export function FinalizarVendaModal({
     retry: 1,
   });
 
+  // Mesma chave da tela Financeiro → invalidações de cadastro refletem aqui (§3.5).
+  const maquininhasQuery = useQuery({
+    queryKey: ['maquininhas'],
+    queryFn: listarMaquininhas,
+    staleTime: 60_000,
+    enabled: open,
+    retry: 1,
+  });
+
   const formasAtivas = React.useMemo(
     () => (formasQuery.data ?? []).filter((f) => f.ativo),
     [formasQuery.data],
   );
+
+  const maquininhasAtivas = React.useMemo(
+    () => (maquininhasQuery.data ?? []).filter((m) => m.ativo !== false),
+    [maquininhasQuery.data],
+  );
+
+  const formasById = React.useMemo(
+    () => new Map(formasAtivas.map((f) => [f.id, f] as const)),
+    [formasAtivas],
+  );
+
+  function tipoDaLinha(formaId: string): FormaPagamentoDTO['tipo'] | undefined {
+    return formasById.get(formaId)?.tipo;
+  }
+
+  function ehCartao(tipo: FormaPagamentoDTO['tipo'] | undefined): boolean {
+    return tipo === 'DEBITO' || tipo === 'CREDITO';
+  }
+
+  /** Defaults de linha de cartão: pré-seleciona a primeira maquininha ativa (teclado-first). */
+  function defaultsDeCartao(tipo: FormaPagamentoDTO['tipo'] | undefined) {
+    if (!ehCartao(tipo)) return {};
+    return { maquininhaId: maquininhasAtivas[0]?.id ?? '', parcelas: 1 };
+  }
 
   React.useEffect(() => {
     if (open) {
       setErro(null);
       if (formasAtivas.length > 0) {
         const padrao = formasAtivas.find((f) => f.padrao) ?? formasAtivas[0];
-        setPagamentos([{ formaId: padrao.id, formaNome: padrao.nome, valor: total }]);
+        setPagamentos([
+          { formaId: padrao.id, formaNome: padrao.nome, valor: total, ...defaultsDeCartao(padrao.tipo) },
+        ]);
       } else {
         setPagamentos([]);
       }
@@ -108,7 +164,12 @@ export function FinalizarVendaModal({
     }
     setPagamentos((prev) => [
       ...prev,
-      { formaId: disponivel.id, formaNome: disponivel.nome, valor: Math.max(0, restante) },
+      {
+        formaId: disponivel.id,
+        formaNome: disponivel.nome,
+        valor: Math.max(0, restante),
+        ...defaultsDeCartao(disponivel.tipo),
+      },
     ]);
     setErro(null);
   }
@@ -125,9 +186,36 @@ export function FinalizarVendaModal({
 
   function trocarForma(index: number, formaId: string) {
     const forma = formasAtivas.find((f) => f.id === formaId);
+    const anterior = pagamentos[index];
+    const eraCartao = anterior ? ehCartao(tipoDaLinha(anterior.formaId)) : false;
     setPagamentos((prev) =>
-      prev.map((p, i) => (i === index ? { ...p, formaId, formaNome: forma?.nome ?? p.formaNome } : p)),
+      prev.map((p, i) => {
+        if (i !== index) return p;
+        const tipo = forma?.tipo;
+        if (!ehCartao(tipo)) {
+          // forma não-cartão: nunca envia maquininhaId/parcelas
+          return { ...p, formaId, formaNome: forma?.nome ?? p.formaNome, maquininhaId: undefined, parcelas: undefined };
+        }
+        return {
+          ...p,
+          formaId,
+          formaNome: forma?.nome ?? p.formaNome,
+          // preserva a maquininha se a linha já era cartão; senão pré-seleciona a primeira
+          maquininhaId: eraCartao && p.maquininhaId ? p.maquininhaId : maquininhasAtivas[0]?.id ?? '',
+          parcelas: tipo === 'DEBITO' ? 1 : eraCartao && p.parcelas ? p.parcelas : 1,
+        };
+      }),
     );
+    setErro(null);
+  }
+
+  function atualizarMaquininha(index: number, maquininhaId: string) {
+    setPagamentos((prev) => prev.map((p, i) => (i === index ? { ...p, maquininhaId } : p)));
+    setErro(null);
+  }
+
+  function atualizarParcelas(index: number, parcelas: number) {
+    setPagamentos((prev) => prev.map((p, i) => (i === index ? { ...p, parcelas } : p)));
     setErro(null);
   }
 
@@ -148,8 +236,23 @@ export function FinalizarVendaModal({
       setErro('Todos os pagamentos devem ter valor maior que zero.');
       return;
     }
+    const linhas: PagamentoConfirmado[] = pagamentos.map((p) => {
+      const tipo = tipoDaLinha(p.formaId);
+      if (!ehCartao(tipo)) {
+        return { formaId: p.formaId, formaNome: p.formaNome, valor: p.valor };
+      }
+      return {
+        formaId: p.formaId,
+        formaNome: p.formaNome,
+        valor: p.valor,
+        // sem seleção → envia sem maquininhaId: backend deixa MDR pendente (WARN) e concilia depois
+        ...(p.maquininhaId ? { maquininhaId: p.maquininhaId } : {}),
+        // débito força 1x (§3.5); crédito usa o selecionado (default 1)
+        parcelas: tipo === 'DEBITO' ? 1 : (p.parcelas ?? 1),
+      };
+    });
     setErro(null);
-    onConfirmar(pagamentos);
+    onConfirmar(linhas);
   }
 
   return (
@@ -222,39 +325,118 @@ export function FinalizarVendaModal({
             </p>
           ) : (
             <div className="space-y-2">
-              {pagamentos.map((pag, index) => (
-                <div key={`${pag.formaId}-${index}`} className="flex items-center gap-2">
-                  <Select
-                    value={pag.formaId}
-                    onChange={(e) => trocarForma(index, e.target.value)}
-                    className="min-w-0 flex-1"
-                    aria-label={`Forma de pagamento ${index + 1}`}
-                  >
-                    {formasAtivas.map((forma) => (
-                      <option key={forma.id} value={forma.id}>
-                        {forma.nome}
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={pag.valor}
-                    onChange={(e) => atualizarValor(index, Number(e.target.value) || 0)}
-                    className="w-32 text-right"
-                    aria-label={`Valor ${pag.formaNome}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removerForma(index)}
-                    className="rounded p-1.5 text-muted transition-colors hover:bg-danger-light hover:text-danger-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    aria-label={`Remover ${pag.formaNome}`}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              ))}
+              {pagamentos.map((pag, index) => {
+                const tipo = tipoDaLinha(pag.formaId);
+                const isCartao = ehCartao(tipo);
+                const isCredito = tipo === 'CREDITO';
+
+                const linhaBasica = (
+                  <>
+                    <Select
+                      value={pag.formaId}
+                      onChange={(e) => trocarForma(index, e.target.value)}
+                      className="min-w-0 flex-1"
+                      aria-label={`Forma de pagamento ${index + 1}`}
+                    >
+                      {formasAtivas.map((forma) => (
+                        <option key={forma.id} value={forma.id}>
+                          {forma.nome}
+                        </option>
+                      ))}
+                    </Select>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={pag.valor}
+                      onChange={(e) => atualizarValor(index, Number(e.target.value) || 0)}
+                      className="w-32 text-right"
+                      aria-label={`Valor ${pag.formaNome}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removerForma(index)}
+                      className="rounded p-1.5 text-muted transition-colors hover:bg-danger-light hover:text-danger-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      aria-label={`Remover ${pag.formaNome}`}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </>
+                );
+
+                // Formas não-cartão: linha idêntica ao fluxo original (zero regressão)
+                if (!isCartao) {
+                  return (
+                    <div key={`${pag.formaId}-${index}`} className="flex items-center gap-2">
+                      {linhaBasica}
+                    </div>
+                  );
+                }
+
+                // Linha de cartão: maquininha + parcelas (crédito) + preview MDR
+                return (
+                  <div key={`${pag.formaId}-${index}`} className="rounded border border-border bg-page p-2">
+                    <div className="flex items-center gap-2">{linhaBasica}</div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {maquininhasAtivas.length > 0 ? (
+                        <Select
+                          value={pag.maquininhaId ?? ''}
+                          onChange={(e) => atualizarMaquininha(index, e.target.value)}
+                          className="min-w-[150px] flex-1"
+                          aria-label={`Maquininha da forma ${pag.formaNome}`}
+                        >
+                          <option value="">Sem maquininha — conciliar depois</option>
+                          {maquininhasAtivas.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nome ?? 'Maquininha'}{m.adquirente ? ` (${m.adquirente})` : ''}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate text-[11px] text-muted">
+                          {maquininhasQuery.isError
+                            ? 'Maquininhas indisponíveis.'
+                            : 'Loja sem maquininha cadastrada.'}
+                        </span>
+                      )}
+                      {isCredito && (
+                        <Select
+                          value={String(pag.parcelas ?? 1)}
+                          onChange={(e) => atualizarParcelas(index, Number(e.target.value))}
+                          className="w-28"
+                          aria-label={`Parcelas da forma ${pag.formaNome}`}
+                        >
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                            <option key={n} value={n}>
+                              {n}x{n === 1 ? ' (à vista)' : ''}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </div>
+
+                    {/* Preview de taxa/líquido — só exibição; o backend é a verdade (§3.5) */}
+                    {pag.maquininhaId ? (
+                      <div className="mt-1">
+                        <MdrPreview
+                          maquininhaId={pag.maquininhaId}
+                          valor={pag.valor}
+                          tipo={tipo as TipoCartao}
+                          parcelas={pag.parcelas ?? 1}
+                        />
+                      </div>
+                    ) : (
+                      <p
+                        className="mt-1 flex items-center justify-end gap-1 text-[11px] text-warning-dark"
+                        title="Pagamento sem maquininha: o MDR fica pendente e a taxa será conciliada depois (o backend registra WARN)."
+                      >
+                        <Info className="h-3 w-3 shrink-0" aria-hidden /> Taxa será conciliada depois
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 

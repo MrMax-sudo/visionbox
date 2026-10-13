@@ -8,9 +8,10 @@ import {
   Lock,
   Printer,
   Share2,
+  Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ import { OsTimelineCard } from '@/components/os/OsTimeline';
 import { ShareLinkDialog } from '@/components/os/ShareLinkDialog';
 import { PrintingOsDialog } from '@/components/os/PrintingOsDialog';
 import { ClientePanel, ProducaoPanel, ReceitaPanel } from '@/components/os/OsInfoPanels';
+import { PagamentosTable } from '@/components/os/PagamentosTable';
 import {
   GRAU_OCULTO,
   clienteDe,
@@ -294,6 +296,21 @@ export default function OSDetail() {
           <ProducaoPanel os={os} />
         </div>
       </div>
+
+      {/* ---------------- Pagamentos (§3.5 MDR) ----------------
+          Campo `pagamentos` ausente (backend antigo/erro parcial) → seção oculta. */}
+      {os.pagamentos !== undefined && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Wallet className="h-4 w-4 text-brand" aria-hidden /> Pagamentos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PagamentosTable pagamentos={os.pagamentos} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* ---------------- Impressão ---------------- */}
       <PrintingOsDialog

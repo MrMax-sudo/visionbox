@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, User } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { useAuthStore } from '@/stores/authStore';
+import { useModulosStore } from '@/stores/modulosStore';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import s from './Login.module.css';
@@ -46,6 +47,8 @@ export default function Login() {
         },
       });
       nav('/', { replace: true });
+      // Fase 5 (R11): pré-carrega os módulos SaaS da loja para o GuardaModulo/AppShell
+      void useModulosStore.getState().carregar(true);
     } catch (err: unknown) {
       const msg =
         err instanceof ApiError

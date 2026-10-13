@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useEmpresaStore } from '@/stores/empresaStore';
 import { VendaView } from '@/types/vendas';
+import { PagamentosTable } from '@/components/os/PagamentosTable';
 import {
   executarImpressao,
   gerarHtmlNfce,
@@ -291,26 +292,17 @@ export function DetalhesVendaModal({
             {/* Formas de Pagamento */}
             <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4">
               <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                <Wallet className="h-3.5 w-3.5" /> Formas de Pagamento
+                <Wallet className="h-3.5 w-3.5" /> Pagamentos
               </div>
-              <div className="space-y-2">
-                {venda.pagamentos.length === 0 ? (
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    Forma registrada: <span className="font-semibold text-[var(--color-text-primary)]">{venda.formaPagamento}</span>
-                  </p>
-                ) : (
-                  venda.pagamentos.map((pg, idx) => (
-                    <div key={idx} className="flex justify-between text-xs">
-                      <span className="text-[var(--color-text-secondary)]">
-                        {pg.formaPagamentoNome || 'Pagamento'}
-                      </span>
-                      <span className="font-semibold text-[var(--color-text-primary)]">
-                        {currency(pg.valor)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
+              {venda.pagamentos.length === 0 ? (
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Forma registrada: <span className="font-semibold text-[var(--color-text-primary)]">{venda.formaPagamento}</span>
+                </p>
+              ) : (
+                // Tabela compartilhada com OSDetail (§3.5): colunas de taxa/líquido/parcelas
+                // só aparecem quando o DTO traz; senão degrada para Forma + Valor.
+                <PagamentosTable pagamentos={venda.pagamentos} />
+              )}
             </div>
 
             {/* Resumo Financeiro */}

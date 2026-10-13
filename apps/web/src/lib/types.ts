@@ -172,6 +172,11 @@ export type OrdemServicoDTO = {
   vendedor?: string;
   valor?: number;
   total?: number;
+  /**
+   * Pagamentos da OS (§3.5 MDR) — OrdemServicoResponse.pagamentos.
+   * Campo AUSENTE (backend antigo/falha parcial) → seção de pagamentos oculta.
+   */
+  pagamentos?: OrdemServicoPagamentoView[];
   itens?: Array<{ sku: string; nome: string; qtd: number; preco: number }>;
   historico?: Array<{
     id?: string;
@@ -183,13 +188,37 @@ export type OrdemServicoDTO = {
   }>;
 };
 
+/**
+ * Pagamento exibido no detalhe da OS (§3.5 MDR):
+ * `{"id","formaPagamentoId","formaPagamentoNome","valor","taxaValor","valorLiquido","maquininhaId","parcelas"}`
+ * `taxaValor`/`valorLiquido` null → taxa pendente de conciliação da maquininha.
+ * BigDecimal chega como number|string conforme serialização — nunca calcular no front.
+ */
+export type OrdemServicoPagamentoView = {
+  id: string;
+  formaPagamentoId?: string | null;
+  formaPagamentoNome?: string | null;
+  valor: number | string;
+  taxaValor?: number | string | null;
+  valorLiquido?: number | string | null;
+  maquininhaId?: string | null;
+  parcelas?: number | null;
+};
+
 export type CriarOrdemServicoPayload = {
   clienteId: string;
   itens: Array<{ sku: string; quantidade: number; produtoId?: string }>;
   desconto?: number;
   senhaAutorizacao?: string;
   formaPagamento?: string;
-  pagamentos?: Array<{ formaPagamentoId: string; valor: number }>;
+  pagamentos?: Array<{
+    formaPagamentoId: string;
+    valor: number;
+    /** Cartão (§3.5): maquininha que processou; ausente → MDR pendente (WARN backend). */
+    maquininhaId?: string;
+    /** Cartão: débito força 1; crédito 1–12. Não enviado por formas não-cartão. */
+    parcelas?: number;
+  }>;
   observacao?: string;
   receitaId?: string | null;
   armacaoId?: string | null;

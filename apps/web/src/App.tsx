@@ -5,6 +5,7 @@ import Login from '@/pages/Login';
 import { useAuthStore } from '@/stores/authStore';
 import { apiClient } from '@/lib/apiClient';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import GuardaModulo from '@/components/GuardaModulo';
 
 const DashboardKanban = React.lazy(() => import('@/pages/DashboardKanban'));
 const Clientes = React.lazy(() => import('@/pages/Clientes'));
@@ -12,6 +13,10 @@ const Receitas = React.lazy(() => import('@/pages/Receitas'));
 const Catalogo = React.lazy(() => import('@/pages/Catalogo'));
 const PDV = React.lazy(() => import('@/pages/PDV'));
 const Vendas = React.lazy(() => import('@/pages/Vendas'));
+const CaixaTurnos = React.lazy(() => import('@/pages/CaixaTurnos'));
+const Compras = React.lazy(() => import('@/pages/Compras'));
+const Maquininhas = React.lazy(() => import('@/pages/Maquininhas'));
+const Comissoes = React.lazy(() => import('@/pages/Comissoes'));
 const OSDetail = React.lazy(() => import('@/pages/OSDetail'));
 const Financeiro = React.lazy(() => import('@/pages/Financeiro'));
 const UserManagement = React.lazy(() => import('@/pages/UserManagement'));
@@ -106,13 +111,17 @@ export default function App() {
         >
           <Route index element={<LazyPage><DashboardKanban /></LazyPage>} />
           <Route path="clientes" element={<LazyPage><Clientes /></LazyPage>} />
-          <Route path="receitas" element={<LazyPage><Receitas /></LazyPage>} />
+          <Route path="receitas" element={<LazyPage><GuardaModulo modulo="RECEITAS_CLINICAS"><Receitas /></GuardaModulo></LazyPage>} />
           <Route path="catalogo" element={<LazyPage><Catalogo /></LazyPage>} />
-          <Route path="pdv" element={<LazyPage><PDV /></LazyPage>} />
-          <Route path="vendas" element={<LazyPage><Vendas /></LazyPage>} />
-          <Route path="os" element={<LazyPage><DashboardKanban /></LazyPage>} />
-          <Route path="os/:id" element={<LazyPage><OSDetail /></LazyPage>} />
-          <Route path="financeiro" element={<LazyPage><Financeiro /></LazyPage>} />
+          <Route path="pdv" element={<LazyPage><GuardaModulo modulo="PDV_BALCAO"><PDV /></GuardaModulo></LazyPage>} />
+          <Route path="vendas" element={<LazyPage><GuardaModulo modulo="CENTRAL_VENDAS"><Vendas /></GuardaModulo></LazyPage>} />
+          <Route path="caixas" element={<LazyPage><GuardaModulo modulo="CAIXA_TURNOS"><CaixaTurnos /></GuardaModulo></LazyPage>} />
+          <Route path="compras" element={<LazyPage><GuardaModulo modulo="COMPRAS_XML"><Compras /></GuardaModulo></LazyPage>} />
+          <Route path="maquininhas" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Maquininhas /></GuardaModulo></LazyPage>} />
+          <Route path="comissoes" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Comissoes /></GuardaModulo></LazyPage>} />
+          <Route path="os" element={<LazyPage><GuardaModulo modulo="ORDEM_SERVICO"><DashboardKanban /></GuardaModulo></LazyPage>} />
+          <Route path="os/:id" element={<LazyPage><GuardaModulo modulo="ORDEM_SERVICO"><OSDetail /></GuardaModulo></LazyPage>} />
+          <Route path="financeiro" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Financeiro /></GuardaModulo></LazyPage>} />
           <Route path="usuarios" element={<LazyPage><UserManagement /></LazyPage>} />
           <Route path="desenvolvedor" element={<DevOnly><LazyPage><PainelDesenvolvedor /></LazyPage></DevOnly>} />
           <Route path="*" element={<Navigate to="/" replace />} />

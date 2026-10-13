@@ -14,6 +14,14 @@ export interface VendaPagamentoView {
   formaPagamentoId?: string;
   formaPagamentoNome?: string;
   valor: number;
+  /**
+   * MDR (§3.5) — só preenchidos quando o backend enriquecer o DTO.
+   * Ausentes → PagamentosTable degrada para Forma + Valor (nenhum campo inventado).
+   */
+  taxaValor?: number | string | null;
+  valorLiquido?: number | string | null;
+  maquininhaId?: string | null;
+  parcelas?: number | null;
 }
 
 export interface VendaView {

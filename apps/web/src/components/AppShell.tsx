@@ -6,10 +6,12 @@ import {
   useOutlet,
 } from 'react-router-dom';
 import {
+  Banknote,
   Bell,
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  CreditCard,
   Eye,
   FolderKanban,
   Headphones,
@@ -18,6 +20,8 @@ import {
   Menu,
   Moon,
   Package,
+  PackagePlus,
+  Percent,
   Receipt,
   Settings,
   ShoppingCart,
@@ -45,6 +49,7 @@ import { apiClient } from '@/lib/apiClient';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useEmpresaStore, whatsappSuporteUrl } from '@/stores/empresaStore';
+import { useModulosStore } from '@/stores/modulosStore';
 
 /* -------------------------------------------------------------------------
    Tipos / dados de navegação
@@ -57,21 +62,31 @@ type NavItem = {
   end?: boolean;
   /** chip de atalho de teclado (ex.: F8 no PDV) */
   shortcut?: string;
+  /** código do módulo SaaS (R11) — item some do menu quando o módulo está desligado */
+  modulo?: string;
 };
 
 const mainNav: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutGrid, end: true },
-  { label: 'PDV', to: '/pdv', icon: ShoppingCart, shortcut: 'F8' },
-  { label: 'Vendas', to: '/vendas', icon: Receipt },
-  { label: 'Receitas', to: '/receitas', icon: Eye },
-  { label: 'OS', to: '/os', icon: ClipboardList },
-  { label: 'Financeiro', to: '/financeiro', icon: Wallet },
+  { label: 'PDV', to: '/pdv', icon: ShoppingCart, shortcut: 'F8', modulo: 'PDV_BALCAO' },
+  { label: 'Vendas', to: '/vendas', icon: Receipt, modulo: 'CENTRAL_VENDAS' },
+  { label: 'Caixas', to: '/caixas', icon: Banknote, modulo: 'CAIXA_TURNOS' },
+  { label: 'Receitas', to: '/receitas', icon: Eye, modulo: 'RECEITAS_CLINICAS' },
+  { label: 'OS', to: '/os', icon: ClipboardList, modulo: 'ORDEM_SERVICO' },
+  { label: 'Financeiro', to: '/financeiro', icon: Wallet, modulo: 'FINANCEIRO_COMPLETO' },
+  { label: 'Compras', to: '/compras', icon: PackagePlus, modulo: 'COMPRAS_XML' },
+  { label: 'Maquininhas', to: '/maquininhas', icon: CreditCard, modulo: 'FINANCEIRO_COMPLETO' },
+  { label: 'Comissões', to: '/comissoes', icon: Percent, modulo: 'FINANCEIRO_COMPLETO' },
 ];
 
 const routeTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/pdv': 'PDV — Frente de caixa',
   '/vendas': 'Central de Vendas',
+  '/caixas': 'Gestão de Caixa & Turnos',
+  '/compras': 'Compras — XML NF-e',
+  '/maquininhas': 'Maquininhas & Taxas MDR',
+  '/comissoes': 'Comissões de Vendedores',
   '/clientes': 'Clientes',
   '/receitas': 'Receitas',
   '/catalogo': 'Catálogo',
@@ -423,6 +438,11 @@ function SidebarContent({
   const user = useAuthStore((s) => s.user);
   const isDev = user?.perfil === 'DESENVOLVEDOR';
   const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
+  const temModulo = useModulosStore((s) => s.temModulo);
+  const itensVisiveis = React.useMemo(
+    () => mainNav.filter((item) => !item.modulo || temModulo(item.modulo)),
+    [temModulo],
+  );
 
   const adminSubmenuItems: NavItem[] = [
     { label: 'Clientes', to: '/clientes', icon: Users },
@@ -456,7 +476,7 @@ function SidebarContent({
         className={cn('flex-1 space-y-1 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}
         aria-label="Navegação principal"
       >
-        {mainNav.map((item) => (
+        {itensVisiveis.map((item) => (
           <SidebarNavLink
             key={item.to}
             item={item}
@@ -559,6 +579,7 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
   const isDev = user?.perfil === 'DESENVOLVEDOR';
   const isAdmin = user?.perfil === 'ADMIN' || isDev;
   const carregarEmpresa = useEmpresaStore((s) => s.carregar);
+  const carregarModulos = useModulosStore((s) => s.carregar);
 
   const [collapsed, setCollapsed] = React.useState(
     () => localStorage.getItem(SIDEBAR_KEY) === 'true',
@@ -586,6 +607,11 @@ export function AppShell({ title, actions, contentClassName, children }: AppShel
   React.useEffect(() => {
     carregarEmpresa().catch(() => undefined);
   }, [carregarEmpresa]);
+
+  React.useEffect(() => {
+    // módulos SaaS da loja (R11) — filtra o menu; guard de rota carrega de novo se preciso
+    carregarModulos().catch(() => undefined);
+  }, [carregarModulos]);
 
   React.useEffect(() => {
     // fecha o overlay ao trocar de rota
