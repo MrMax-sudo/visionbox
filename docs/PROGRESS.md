@@ -32,6 +32,96 @@
 
 **Pendências sinalizadas:** `components/Layout.tsx` (antigo, não roteado) permanece no repo — não removido sem ordem explícita; `nextStatusByCurrent` do front diverge de `TransicaoOSRegistry` (backend) — requer alinhamento; impressão do DANFE sem isolamento `@media print` (fiscal-engineer).
 
+## Fase 4 — Onda Simultânea Robustez ERP Fases 2–5 + P1 (2026-10-13, ✅ concluída)
+
+> **Objetivo:** executar em paralelo as Fases 2–5 do `docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md` + finalização do draft P1. Slots de migration aplicados sem colisão: **V33** caixa, **V34** financeiro, **V35** compras/MDR/comissões, **V36** modulo_configuracao_loja. Arquivos compartilhados (`SecurityConfig`, `App.tsx`, `AppShell.tsx`) integrados pelo orquestrador.
+
+| Frente | Escopo | Status | Evidência |
+|---|---|---|---|
+| Fase 2 | Caixa & Turnos: extrato, fechamento cego, apuração por forma, `CaixaTurnos.tsx` (V33) | ✅ Concluído | `V33` (valor_fechamento_sistema + CHECK motivo + índices); `CaixaService` sangria/suprimento/extrato/relatório + fechamento cego SOBRA/QUEBRA/EXATO; endpoints `/api/v1/caixa/{sangria,suprimento,extrato,fechamento,historico,fechar}`; frontend `CaixaTurnos.tsx` + 5 modais (`AbrirCaixa`, `SangriaSuprimento`, `FecharCaixa` 2 etapas, `ExtratoCaixa`) + `caixaPrint.ts` 80mm iframe isolado; `ControleCaixaModal` migrado para endpoints dedicados com Idempotency-Key; `CaixaServiceTest` 9 novos |
+| Fase 3 | Financeiro: `ContaReceberPagamento` baixas parciais, Fornecedores (CNPJ cipher), Contas a Pagar (V34) | ✅ Concluído | `V34` (conta_receber_pagamento + fornecedor cnpj_cipher/hash + valor_aberto GENERATED + conta_pagar fornecedor/competencia + CHECK caixa_movimento ENTRADA/RECEBIMENTO_FIADO); `baixar` parcial→PARCIAL/total→PAGO com movimento no caixa aberto + histórico `GET /{id}/pagamentos`; CRUD `/fornecedores` CNPJ AES-GCM+HMAC mascarado; frontend hub `Financeiro.tsx` (toggle A Receber/A Pagar/Crediário/Fornecedores/DRE) + `BaixaContaModal` (Idempotency-Key estável entre retries) + `PagamentosTimeline` + `FornecedorPanel` + `ContaPagarFormModal`; 20 testes novos |
+| Fase 4 | Compras XML NF-e + Maquininhas MDR + Comissões (V35) | ✅ Concluído | `V35` (compra/compra_item/maquininha_cartao/comissao_config/comissao_lancamento, RLS FORCE, idempotência por chave 44); parser XML DOM JDK **zero dependência nova** com hardening XXE; de-para EAN→SKU→pré-cadastro + entrada estoque + ContaPagar por duplicata; MDR `calcular-liquido` HALF_EVEN por faixa 1x/2-6x/7-12x; comissão GERAL/CATEGORIA com apuração idempotente; frontend `Compras.tsx` (upload drag&drop) + `Maquininhas.tsx` (CRUD+simulador) + `Comissoes.tsx` (regras+fechamento); 4 testes + fixture NF-e |
+| Fase 5 | `ModuloSistema` 19 códigos + `modulo_configuracao_loja` + `@RequerModulo`/interceptor + `GuardaModulo.tsx` + Painel Dev planos (V36) | ✅ Concluído | `V36` (modulo_configuracao_loja RLS); enum 19 módulos + `PlanoSaaS` START⊂PRO⊂ENTERPRISE; interceptor 403 `MODULO_NAO_CONTRATADO` fail-closed sem TenantContext; `/api/v1/dev/lojas/{id}/modulos` + `/modulos/plano` com auditoria; `GET /api/v1/modulos` (loja do JWT); default sem registro = tudo ativo (D-014); frontend `GuardaModulo.tsx` + `modulosStore.ts` + Painel Dev com seletor loja/planos/19 toggles; **rotas `App.tsx` envoltas em GuardaModulo (pdv/vendas/caixas/receitas/os/compras/maquininhas/comissoes/financeiro) + menu `AppShell.tsx` filtrado por módulo** |
+| P1 | db-admin finaliza `docs/p1-migrations-draft/` (sem execução — sem Docker) | ✅ Concluído | Draft validado 1:1 contra entidades JPA (zero divergência colunas/tipos); `item_pedido` sem loja_id = impedimento técnico documentado (ItemPedido não estende EntidadeBase; mitigação: RLS policy parent-join); CHECK usuario.perfil **já resolvido pela V27** (doc `CORRECAO_CHECK_USUARIO_PERFIL.md`); cenários banco limpo (V1→V1_1→V2→V3-V5→V11+) vs existente (`flyway repair` + `outOfOrder=true` one-shot); zero SQL executado |
+| Integração | SecurityConfig + rotas + menu | ✅ Concluído | `SecurityConfig` +`/api/v1/compras/**` (ADMIN/GERENTE/FINANCEIRO) +`/api/v1/modulos/**` (authenticated); `App.tsx` 4 rotas novas com `GuardaModulo`; `AppShell.tsx` 4 itens (Caixas/Compras/Maquininhas/Comissões) filtráveis por `useModulosStore` |
+
+**Validação da onda:** `mvn -q test -Punit-only` → **344/344 verdes** (era 246; +98 testes) · `npm run typecheck` ✅ 0 erros · `npm run build` ✅ (2.29s, code split; CaixaTurnos 41.56kB/Compras 20.09kB/Maquininhas 14.72kB/Comissoes 23.17kB gzip) · hex fora do tema = 0 (só templates de impressão 80mm `caixaPrint`/`reciboPrint`, papel térmico — exceção documentada) · `docs/decisions.md` +D-012/D-013/D-014/D-015/D-016.
+
+**Pendências sinalizadas (pós-onda):** estorno de baixa/reabertura de título (D-012); OFX conciliar via `baixar`; MDR ainda não plugado no pagamento do PDV; apuração de comissão automática no `PedidoVendaService` (hoje explícita); `CompraResponse` sem flag `preCadastrado` por item; fechamento de comissões agrega por vendedor (sem linha por venda); select de vendedores indisponível p/ GERENTE/FINANCEIRO (`/v1/usuarios` é ADMIN-only — sugerir `/v1/financeiro/comissoes/vendedores`); baixa sem desconto/juros; fornecedor sem reativação; métricas financeiras sobre 1 página (size=100); `flyway outOfOrder` p/ V35 em banco já na V36; `nextStatusByCurrent` front × `TransicaoOSRegistry` (pré-existente); DANFE `@media print` (pré-existente).
+
+## Fase 4 — Onda 2: Fechamento das Pendências Robustez (2026-10-13, ✅ concluída)
+
+> 3 agentes simultâneos + orquestrador. Migrations: **V37** MDR/comissão no fluxo de venda; **V38/V39 não necessárias** (ESTORNO já no CHECK V34; preCadastrado sem DDL — D-018/D-019).
+
+| Frente | Escopo | Status | Evidência |
+|---|---|---|---|
+| A — MDR + Comissão auto | `MdrCalculoService` plugado no pagamento do PDV + apuração automática na finalização | ✅ Concluído | `V37` (ordem_servico_pagamento +taxa_valor/valor_liquido/maquininha_id com FK real); resolução 3 níveis (`maquininhaId` explícito → auto-resolve 1 POS ativa → null+WARN, nunca chuta taxa); tipo de cartão do enum da forma + `parcelas` novo (débito força 1, clamp por `permiteParcelar`); tri-state: isento 0,00/valor, cartão taxa+líquido HALF_EVEN, pendente null/null; comissão apurada pós-ContaReceber com try/catch (falha nunca quebra venda) + desconto rateado por categoria; `OrdemServicoMdrComissaoTest` 8/8 (com `MdrCalculoServiceImpl` REAL); D-017 |
+| B — Estorno + OFX | Estorno de baixa (reabre título + `CaixaMovimento ESTORNO`) + OFX via `baixar` + botão estorno na UI | ✅ Concluído | `POST /contas-receber/{id}/pagamentos/{pagamentoId}/estornar` (ADMIN/GERENTE/FINANCEIRO + `@PreAuthorize`); SOFT-DELETE preserva evidência (D-019); `valor_aberto` GENERATED recalcula sozinho; 404 composto R1; 422 CANCELADA; OFX conciliado chama `baixar` na mesma transação (FITID na observação, forma: request→padrão da loja→DINHEIRO, lote nunca aborta); `ContaReceberServiceEstornoTest` 8/8 + OfxConciliacaoServiceTest +5; UI `PagamentosTimeline` botão Estornar com confirmação + Idempotency-Key |
+| C — Contratos | `preCadastrado` por item + fechamento por venda + endpoint vendedores + front | ✅ Concluído | flag `@Transient` sem DDL (recomputar é impossível — produto criado passa a casar; D-018): true/false na resposta da importação, null em listar/buscar; `CompraItensTable` coluna "Origem" com Badge; fechamento com `lancamentos[]` (venda/vendedor/categoria/base/%/valor/status) derivado da MESMA lista do agregado (totais batem garantidos); `GET /financeiro/comissoes/vendedores` (id+nome, VENDEDOR/OTICO ativos, LGPD mínimo) para ADMIN/GERENTE/FINANCEIRO — `useVendedores` sem degradação; `ApurarComissaoDialog` sem fallback manual; 4 testes novos |
+| Orquestrador — Caixa | RBAC fino + **correção de gap real nos agregados do turno** + gating front | ✅ Concluído | `SecurityConfig`: `POST /caixa/{sangria,suprimento,fechar}` → ADMIN/GERENTE/FINANCEIRO (matcher específico ANTES do wildcard); `CaixaService.movimentar`: **ENTRADA soma `saldoEsperado`** (baixa em dinheiro na gaveta — sem isso fechamento cego apurava QUEBRA falsa), RECEBIMENTO_FIADO só entradas, ESTORNO dinheiro tira da gaveta / não-dinheiro saída de papel (javadoc + D-019 corrigidos); +4 testes `CaixaServiceTest` (17 total); front `CaixaTurnos` + `ControleCaixaModal` escondem Sangria/Suprimento/Fechar de VENDEDOR; D-017 duplicado renumerado → **D-019** (decisions.md consistente) |
+
+**Validação da onda 2:** `mvn -q test -Punit-only` → **374/374 verdes** (era 344; +30) · `npm run typecheck` ✅ 0 erros · `npm run build` ✅ · decisions.md +D-017/D-018/D-019 sem duplicatas.
+
+## Fase 4 — Onda 3: Pendências Restantes Robustez (2026-10-13, ✅ concluída)
+
+> 3 agentes simultâneos. Migrations: **V40** parcelas (ordem_servico_pagamento) + **V41** desconto/juros (conta_receber_pagamento) — slots resolvidos sem colisão. P1 e Testcontainers seguem bloqueados (sem Docker).
+
+| Frente | Escopo | Status | Evidência |
+|---|---|---|---|
+| A — Contrato OS + comissão | `OrdemServicoResponse.pagamentos[]` (taxa/líquido/parcelas/maquininha) + cancelamento estorna comissão PENDENTE | ✅ Concluído | `pagamentos[]` no single sem N+1 (queries em lote `findByOrdemServicoIdIn`); V40 `parcelas INT NOT NULL` + backfill (fonte única MDR: `aplicarMdr` lê `osp.getParcelas()`); `ComissaoService.cancelarPorVenda` plugado nos DOIS caminhos de cancelamento (OS + Central de Vendas) com try/catch WARN — falha nunca quebra cancelamento; PAGO intocado; D-020 |
+| B — Financeiro completo | Baixa com desconto/juros (V41), reativação de fornecedor, endpoint de totais agregados + front | ✅ Concluído | Semântica (D-021): `valorPago+desconto` abate `valor_aberto` (via `valor_pago` GENERATED), `juros` só entra no caixa junto com `valorPago`; estorno simétrico; validações 400 (`pago+desconto>aberto`, negativos); `POST /fornecedores/{id}/reativar` idempotente (404 R1, 409 CNPJ ativo, cifra intacta) + `?incluirInativos=true`; `GET /financeiro/totais` 5 SUMs (fim do workaround size=100) e `Financeiro.tsx` consome com fallback; `BaixaContaModal` +Desconto/Juros com preview; `FornecedorPanel` toggle inativos + Reativar; `PagamentosTimeline` badges; +22 testes (`ContaReceberServiceBaixaTest` 7, `EstornoTest` 3, `FornecedorServiceTest` 6, `FinanceiroTotaisServiceTest` 6); D-021 |
+| C — Front PDV/OS/Vendas | `FinalizarVendaModal` maquininha/parcelas + preview `calcular-liquido`; OS detalhe e Central de Vendas exibem pagamentos com taxa/líquido | ✅ Concluído | `MdrPreview.tsx` (debounce+abort) por linha de cartão; select Maquininha (ativas, placeholder "Sem maquininha — conciliar depois") + Parcelas 1–12 só crédito; payload: cartão → `maquininhaId`/`parcelas` (débito força 1); `PagamentosTable.tsx` compartilhado OS/Vendas com badge "Taxa pendente"; `PDV.tsx` copia pagamentos MDR p/ outbox offline; typecheck 0 erros |
+
+**Validação da onda 3:** `mvn -q test -Punit-only` → **418/418 verdes** (era 374; +44) · `npm run typecheck` ✅ 0 erros · `npm run build` ✅ 3.33s · decisions.md D-019/D-020/D-021 sem duplicatas · colisão de slots resolvida (A pegou V40, B deslocou p/ V41).
+
+**Correção de integração do orquestrador:** helper `pagamentoComDescontoJuros` (5 params) × 2 chamadas com 4 args — assinatura alinhada em `ContaReceberServiceEstornoTest`.
+
+## P1 — Aplicação das Migrations Ausentes em Postgres Real (2026-10-13, ✅ concluída)
+
+> Bloqueio histórico P1 destravado: servidor Postgres real `192.168.15.90:5432` (dev), banco novo `visionbox_p1`.
+
+| Etapa | Resultado |
+|---|---|
+| Draft movido p/ `db/migration` | `V1_1__legacy_foundation.sql`, `V3__catalogo.sql`, `V4__pedido_venda.sql`, `V5__ordem_servico_colunas.sql` |
+| `flyway migrate` (banco limpo) | ✅ **V1→V1_1→V2→V3→V4→V5→V11→…→V41 completa, 0 falhas** — warnings benignos (`IF NOT EXISTS`) |
+| `flyway validate` | ✅ 35 migrations validadas |
+| Verificação JDBC | history `1.1/3/4/5/37/40/41` success=true · 0 failed · RLS ENABLE+FORCE em produto/marca/categoria/pedido_venda/item_pedido/ordem_servico_pagamento/conta_receber_pagamento · colunas V37/V40/V41 presentes · 39 tabelas |
+| Bug 1ª execução | **V19** índice parcial `WHERE validade < CURRENT_DATE` → 42P17 (função não-IMMUTABLE em predicado de índice; e ficaria obsoleto todo dia) — linha removida (redundante com `idx_estoque_lote_validade`) |
+
+**Ainda pendente do checklist P1:** `mvn test -Pintegration` (Testcontainers = Docker); adoção out-of-order em banco legado real (quando houver um apontar o host).
+
+### Boot real da aplicação × schema Flyway (2026-10-13, ✅)
+
+Primeira validação do contrato Hibernate (`ddl-auto: validate`) × cadeia Flyway em Postgres real. Subida contra `visionbox_p1` expôs e corrigiu **4 divergências entidade × schema** (criadas as migrations aditivas — V23/V1/V2 já têm checksum em bancos legados):
+
+| Divergência (1ª falha do validate) | Correção |
+|---|---|
+| `caixa_sessao` sem `ativo` (entity estende `EntidadeBase` + `@SQLRestriction`) | **V42** ADD COLUMN ativo |
+| `cliente.uf` `CHAR(2)` × entity espera `VARCHAR(2)` | **V43** ALTER TYPE |
+| `loja` sem `flowbox_url/api_key/web_url` (R9/ADR-004) | **V44** ADD COLUMN ×3 |
+| `ordem_servico_pagamento` sem `ativo` (`extends EntidadeBase`) | **V44** ADD COLUMN ativo |
+
+Metodologia: varredura completa entities × `information_schema` (script) + boot iterativo. Resultado final: **`Started VisionBoxApplication in 33.063s`, Tomcat :8080, 0 ERROR no log**, porta liberada após teste (R10). Redis/Rabbit ausentes na máquina não bloquearam o boot (conexões lazy).
+
+### Docker Compose ajustado ao uso real (2026-10-13, ✅)
+
+Investigado a pedido do cliente: **zero uso de Redis/RabbitMQ/MinIO no código** (grep: sem `RedisTemplate`/`@Cacheable`/`RabbitTemplate`/`@RabbitListener`; outbox é 100% banco — tabela `outbox_message`; anexos de receita em storage local `data/uploads`, não S3). Composes reescritos:
+
+| Arquivo | Mudança |
+|---|---|
+| `docker-compose.dev.yml` | −redis/−rabbitmq/−minio; `app` depende só do PG; serviço `app` perde `SPRING_PROFILES_ACTIVE: dev` (perfil dev = `ddl-auto: create` + flyway off, caminho obsoleto pós-P1 — app agora migra/valida via Flyway no boot); observability (Prometheus/Grafana) mantido opt-in (implementado de verdade); YAML validado |
+| `docker-compose.yml` (deploy) | −redis/−rabbitmq/−minio + envs correspondentes; app/web/cloudflared mantidos; YAML validado |
+| `AGENTS.md` §5.3 | DoD atualizado (compose sobe só PG) |
+
+`application.yml` mantém `spring.data.redis/rabbitmq` como preparo (lazy, inofensivo — re-adicionar containers quando a camada de eventos existir). Stack congelada (`AGENTS.md` §3 / PROJECT_CONTEXT) intocada — mudar exigiria ADR.
+
+**Pendências remanescentes (pós-onda 3 + P1):** `nextStatusByCurrent` × `TransicaoOSRegistry` (pré-existente); DANFE `@media print` (pré-existente); Testcontainers/Docker; adoção out-of-order no banco legado real; 409 de CNPJ na reativação retorna detail genérico (mensagem específica só no log WARN — handler ProblemDetail compartilhado fora de escopo).
+
+
+
+
+
+
 ## Fase 3.6 — Enforcement Alçada Server-Side & Rastreio US17 (2026-10-10)
 
 | Frente | Status | Evidência |

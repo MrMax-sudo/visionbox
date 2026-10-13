@@ -1,28 +1,49 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-13T01:57:00-03:00",
+  "updated_at": "2026-10-13T05:40:00-03:00",
   "web_refactor": {
-    "status": "fase_1_vendas_concluida",
-    "wave": 4,
-    "scope": "Central de Vendas e Histórico (/vendas) completo com KPIs, filtros, modal de detalhes, cancelamento com estorno e impressão 80mm",
-    "evidence": "VendaHistoricoService + PedidoVendaController + Vendas.tsx + DetalhesVendaModal; mvn test-compile verde; build Vite verde (2.02s)",
-    "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
+    "status": "ondas_2_5_robustez_concluidas",
+    "wave": 5,
+    "scope": "Fases 2-5 Robustez ERP simultâneas: Caixa & Turnos (/caixas), Financeiro baixas parciais + fornecedores, Compras XML NF-e + Maquininhas MDR + Comissões, Gestor SaaS de Módulos (Painel Dev) + P1 draft finalizado",
+    "evidence": "V33/V34/V35/V36 migrations; mvn 344/344 verdes; typecheck 0 erros; build Vite 2.29s; App.tsx com GuardaModulo; AppShell filtrado por useModulosStore",
+    "pending": "MDR plug no pagamento PDV; estorno de baixa (D-012); apuração comissão automática no PedidoVendaService; endpoint vendedores p/ comissões; flag preCadastrado por item na importação; outOfOrder V35 em banco legado; Layout.tsx antigo; nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "erp_robustness": {
-    "status": "fase_1_concluida",
+    "status": "fases_1_5_concluidas",
     "benchmark_ref": "D:\\TECHBOXBR\\CLIENTES\\I LOVE MIMOS\\OUTBOX ERP\\sistema\\src",
     "spec_file": "docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md",
     "waves": [
       "Fase 1: Central de Vendas & Histórico (/vendas) - CONCLUÍDO",
-      "Fase 2: Gestão de Caixa & Turnos (/caixas)",
-      "Fase 3: Financeiro Completo com Baixas Parciais (/financeiro)",
-      "Fase 4: Compras (XML NF-e), Maquininhas & Comissões"
+      "Fase 2: Gestão de Caixa & Turnos (/caixas) - CONCLUÍDO",
+      "Fase 3: Financeiro Completo com Baixas Parciais (/financeiro) - CONCLUÍDO",
+      "Fase 4: Compras (XML NF-e), Maquininhas & Comissões - CONCLUÍDO",
+      "Fase 5: Gestor SaaS de Módulos & Planos (Painel Desenvolvedor) - CONCLUÍDO"
     ]
   },
-  "wave_in_progress": [
-    "Fase 2 - Gestão de Caixa & Turnos (/caixas)"
-  ],
+  "wave_in_progress": [],
+  "p1_aplicacao": {
+    "status": "concluida_2026_10_13",
+    "resumo": "Draft P1 (V1_1/V3/V4/V5) em db/migration aplicado em Postgres real novo (visionbox_p1 @192.168.15.90:5432): cadeia V1→V44 completa 0 falhas; validate ok; RLS ENABLE+FORCE verificado; boot real da app com hibernate validate passou após 4 correções contrato entity×schema (V42 caixa_sessao.ativo, V43 cliente.uf varchar, V44 loja flowbox×3 + ordem_servico_pagamento.ativo); Started em 33s, 0 ERROR",
+    "evidence": "flyway migrate/validate BUILD SUCCESS (35+ migrations); JDBC: 0 failed, RLS ok, colunas V37-V44 presentes; boot.log: Started VisionBoxApplication 33.063s, Tomcat 8080, 0 ERROR; porta liberada pós-teste",
+    "compose_ajuste_2026_10_13": "docker-compose.dev.yml e docker-compose.yml: removidos redis/rabbitmq/minio (grep confirma zero uso no código; outbox é DB-only; anexos em storage local); app depende só do PG; app dev sai do perfil dev obsoleto (ddl-auto create) p/ Flyway no boot; observability mantido opt-in; YAML validado; AGENTS.md §5.3 atualizado"
+  },
+  "onda3_pendencias": {
+    "status": "concluida_2026_10_13",
+    "resumo": "V40 parcelas (OrdemServicoResponse.pagamentos[] sem N+1 + fonte única MDR) + estorno de comissão no cancelamento (D-020); V41 baixa desconto/juros simétrica + reativar fornecedor + GET /financeiro/totais (D-021); front PDV maquininha/parcelas com preview calcular-liquido + PagamentosTable compartilhado OS/Vendas com badge taxa pendente",
+    "evidence": "mvn 418/418 verdes (+44); typecheck 0; build 3.33s; decisions D-019/D-020/D-021"
+  },
+  "onda2_pendencias": {
+    "status": "concluida_2026_10_13",
+    "resumo": "V37 MDR+comissão auto no PDV; estorno de baixa soft-delete + OFX via baixar; preCadastrado sem DDL + fechamento por venda + endpoint vendedores; RBAC fino caixa (POST sangria/suprimento/fechar = ADMIN/GERENTE/FINANCEIRO); fix crítico CaixaService.movimentar ENTRADA soma saldoEsperado (fechamento cego false-QUEBRA)",
+    "evidence": "mvn 374/374 verdes (+30); typecheck 0; build web verde; decisions D-017/D-018/D-019"
+  },
+  "migration_slots": {
+    "fase2_caixa": "V33 (aplicada no código; validação em banco exige Postgres/Docker)",
+    "fase3_financeiro": "V34 (aplicada no código)",
+    "fase4_compras_mdr_comissoes": "V35 (aplicada no código)",
+    "fase5_modulo_sistema": "V36 (aplicada no código)"
+  },
   "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (246/246 verdes)",
   "phase": "Fase 4 — Saneamento de Mocks & Operação Real",
   "current_sprint": "S3-WAVE-PARALELA",
@@ -56,15 +77,20 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fase 2 Robustez ERP (docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md): Gestão de Caixa & Turnos (/caixas) com fechamento cego, sangria, suprimento e extrato",
-    "Fase 3 Robustez ERP: Baixas parciais em ContaReceberPagamento e Contas a Pagar de Fornecedores",
-    "Fase 4 Robustez ERP: Entrada de Notas por XML, Cadastro Automático de Fornecedores e MDR de Maquininhas",
-    "P1 (db-admin + Postgres real): reconstruir migrations V3-V10 e validar com flyway migrate/validate"
+    "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
+    "Adoção out-of-order do P1 (V1_1/V3/V4/V5) em banco LEGADO real: apontar host/backup do banco existente p/ repair + migrate -Dflyway.outOfOrder=true (procedimento p1-migrations-draft/README §5.2, backup obrigatório)",
+    "Backend: handler ProblemDetail expor mensagem específica de conflito de CNPJ na reativação de fornecedor (hoje só log WARN)",
+    "Backend/pre-existente: alinhar nextStatusByCurrent (front) × TransicaoOSRegistry (backend)",
+    "Front/pre-existente: @media print no DANFE"
   ],
   "last_evidence": {
+    "onda_simultanea_2026_10_13": "Fases 2-5 Robustez ERP simultâneas + P1: V33 caixa (fechamento cego SOBRA/QUEBRA/EXATO, sangria/suprimento motivo obrigatório, extrato, relatório por modalidade) + V34 financeiro (conta_receber_pagamento, fornecedor CNPJ AES-GCM+HMAC, valor_aberto GENERATED, conta_pagar fornecedor/competencia) + V35 compras (parser XML NF-e XXE-safe zero dependências, de-para EAN, ContaPagar por duplicata, maquininha MDR HALF_EVEN, comissão GERAL/CATEGORIA idempotente) + V36 modulo_configuracao_loja (19 módulos, @RequerModulo interceptor 403 MODULO_NAO_CONTRATADO, planos START/PRO/ENTERPRISE, GuardaModulo + AppShell filtrado) + P1 draft validado 1:1 entidades JPA; SecurityConfig +compras +modulos; App.tsx rotas com GuardaModulo; mvn 344/344 verdes; typecheck 0 erros; build 2.29s",
+    "onda2_pendencias_2026_10_13": "MDR plugado no pagamento do PDV (V37: ordem_servico_pagamento +taxa_valor/valor_liquido/maquininha_id; resolução maquininhaId→auto-resolve→null+WARN; tri-state isento/calculado/pendente) + comissão automática na finalização (try/catch nunca quebra venda, desconto rateado por categoria, OrdemServicoMdrComissaoTest 8/8); estorno de baixa soft-delete (POST .../pagamentos/{id}/estornar ADMIN/GERENTE/FINANCEIRO, valor_aberto GENERATED recalcula, CaixaMovimento ESTORNO) + OFX conciliado via baixar (FITID, lote nunca aborta) + botão estorno na PagamentosTimeline; preCadastrado @Transient sem DDL (badge Origem no modal de importação), fechamento de comissões com lancamentos[] por venda (totais derivados da mesma lista), GET /financeiro/comissoes/vendedores (VENDEDOR/OTICO ativos) e useVendedores sem degradação; RBAC fino caixa POST sangria/suprimento/fechar = ADMIN/GERENTE/FINANCEIRO no SecurityConfig (matcher antes do wildcard) + front esconde ações de VENDEDOR; FIX CRÍTICO: CaixaService.movimentar ENTRADA agora soma saldoEsperado (baixa em dinheiro na gaveta — antes fechamento cego apurava QUEBRA falsa), RECEBIMENTO_FIADO só entradas, ESTORNO simétrico (D-019 corrigido no javadoc/decisions); +4 testes CaixaServiceTest; decisions renumeradas D-017/D-018/D-019; mvn 374/374 verdes, typecheck 0, build verde",
+    "onda3_pendencias_2026_10_13": "OrdemServicoResponse.pagamentos[] (id, formaPagamentoId/Nome, valor, taxaValor, valorLiquido, maquininhaId, parcelas; null = taxa pendente) sem N+1 + V40 parcelas INT NOT NULL backfill (fonte única MDR: aplicarMdr lê osp.getParcelas()); ComissaoService.cancelarPorVenda plugado nos dois caminhos de cancelamento (OS e Central de Vendas) com try/catch WARN, PAGO intocado (D-020); baixa com desconto/juros (valorPago+desconto abate valor_aberto via valor_pago GENERATED, juros só entra no caixa, estorno simétrico, 400 em excesso/negativos) + V41 colunas; POST /fornecedores/{id}/reativar idempotente (404 R1, 409 CNPJ ativo, cifra intacta) + ?incluirInativos=true; GET /financeiro/totais 5 SUMs e Financeiro.tsx consome com fallback (fim do size=100); BaixaContaModal +Desconto/Juros com preview; FornecedorPanel toggle inativos + Reativar; PagamentosTimeline badges desc/juros; front PDV: MdrPreview debounce+abort, select Maquininha/Parcelas, payload cartão com maquininhaId/parcelas (débito força 1), outbox offline copia MDR; PagamentosTable compartilhado OS/Vendas com badge Taxa pendente; fix orquestrador: helper pagamentoComDescontoJuros 5 args × 2 chamadas de 4; mvn 418/418 verdes (+44), typecheck 0, build 3.33s, D-019/D-020/D-021",
+    "p1_aplicacao_2026_10_13": "Draft P1 movido p/ db/migration (V1_1/V3/V4/V5) e aplicado em Postgres real novo visionbox_p1 @192.168.15.90:5432: cadeia V1→V44 completa 0 falhas (bug V19 índice parcial CURRENT_DATE=42P17 corrigido na 1ª execução); boot real com hibernate validate: 4 divergências entity×schema encontradas e corrigidas (V42 caixa_sessao.ativo, V43 cliente.uf CHAR→VARCHAR, V44 loja flowbox_url/api_key/web_url + ordem_servico_pagamento.ativo); Started VisionBoxApplication 33.063s, Tomcat 8080, 0 ERROR no log, porta liberada; p1_blocker resolvido",
     "p8_alcada_rastreio_2026_10_10": "Enforcement server-side de desconto (>15% exige autorização de gerente em OrdemServicoService.criar) + Endpoint e enriquecimento de token de rastreio US17 (GET /api/v1/ordens-servico/{id}/rastreio-token) + OSDetail modal e envio WhatsApp wa.me de rastreio cliente vs link lab + D-011 + 230/230 testes unitários verdes",
     "wave_paralela_2026_10_08": "8 frentes: P6/P7 alcada desconto backend (D-010, sem migration) + US13 OFX/DRE (V29) + US11 producao/CQ (V28) + US16 BI (V30, ADR-006) + US17 Portal PWA + devops observabilidade/CI + reescopo US12/14/15 sob D-009; orquestracao corrigiu ProducaoService, SlaMetrics, OutboxRepository, 2 testes getStatus, ProducaoServiceTest, RelatorioBiServiceTest, CurvaAbcClassifier, OfxParser; mvn 225/225 + typecheck + build verdes",
-    "p1_blocker": "V3-V10 nunca existiram no git; V2__cliente_receita.sql referencia sequencia_numeracao/perfil/usuario/usuario_loja/fn_next_sequencia/fn_set_atualizado_em que nenhuma migration cria; V13 cria fn_set_atualizado_em e usuario depois de V2. Requer migracao nova + flyway repair em Postgres real",
+    "p1_blocker": "RESOLVIDO 2026-10-13: draft P1 (V1_1/V3/V4/V5) movido p/ db/migration e aplicado em Postgres real (visionbox_p1 @192.168.15.90:5432): cadeia V1→V41 completa 0 falhas, flyway validate ok, RLS ENABLE+FORCE verificado, V19 índice parcial CURRENT_DATE corrigido (42P17)",
     "p1_draft_2026_10_08": "draft de reconstrucao (NAO validado) em docs/p1-migrations-draft/: V1_1 (versao 1.1, roda antes da V2) cria fn_set_atualizado_em/sequencia_numeracao/fn_next_sequencia/perfil/usuario/usuario_loja; V3 cria produto/marca/categoria; V4 pedido_venda/item_pedido; V5 ALTER ordem_servico ADD cliente_id/receita_id/armacao_id/lente_id/laboratorio_id; README com decisoes pendentes (item_pedido sem loja_id viola R1; CHECK usuario.perfil sem DESENVOLVEDOR na V13 = bug latente; flyway repair em banco existente); zero SQL executado",
     "fase2_backend": "FormaPagamento module (domain/dto/mapper/service/controller) + OrdemServico pagamentos multi-forma (OrdemServicoPagamento + V26) + V25 RLS FORCE padrão V11/V23 + seeds 5 formas; FormaPagamentoServiceTest 6/6",
     "fase3_config_empresa": "Perfil.DESENVOLVEDOR no enum; V27__empresa_config.sql (12 colunas na loja + CHECK usuario_perfil_check com DESENVOLVEDOR); modules/pessoa/empresaconfig (EmpresaRequest/EmpresaResponse/EmpresaConfigService/EmpresaController GET+PUT /api/v1/empresa); SecurityConfig rotas empresa/** (authenticated) + PUT empresa (ADMIN/GERENTE/DESENVOLVEDOR) + dev/** (ADMIN/DESENVOLVEDOR); EmpresaConfigServiceTest 6/6",
