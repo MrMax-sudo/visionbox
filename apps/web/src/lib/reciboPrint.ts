@@ -314,9 +314,10 @@ export function gerarHtmlNfce(dados: DadosImpressao): string {
     dados.empresa?.uf ? ` - ${dados.empresa.uf}` : ' - SP',
   ].join('');
 
-  const chave = dados.chaveNfce || '35261000000000019165001000000123100000123456';
-  const chaveFormatada = chave.replace(/(\d{4})/g, '$1 ').trim();
-  const protocolo = dados.protocoloNfce || `135260098765432 - ${formatarData(dados.data)}`;
+  const temChaveReal = !!(dados.chaveNfce && dados.chaveNfce.trim().length === 44);
+  const chave = temChaveReal ? dados.chaveNfce!.trim() : null;
+  const chaveFormatada = chave ? chave.replace(/(\d{4})/g, '$1 ').trim() : null;
+  const protocolo = dados.protocoloNfce ? dados.protocoloNfce.trim() : null;
   const cliNome = dados.cliente?.nome ? dados.cliente.nome.toUpperCase() : 'CONSUMIDOR FINAL';
   const cliDoc = dados.cliente?.cpf ? formatarCpfCnpj(dados.cliente.cpf) : 'CONSUMIDOR NÃO IDENTIFICADO';
   const dataStr = formatarData(dados.data);
@@ -428,11 +429,19 @@ export function gerarHtmlNfce(dados: DadosImpressao): string {
   <div class="text-center" style="font-size:9px;">
     <strong>EMISSÃO: ${dataStr}</strong><br>
     Número: ${dados.osNumero.replace(/\D/g, '') || '001'} &nbsp; Série: 001<br>
-    <div style="margin-top:4px; font-weight:bold;">CONSULTA PELA CHAVE DE ACESSO EM:</div>
-    <div style="font-size:8px;">http://nfce.fazenda.sp.gov.br/consulta</div>
-    <div style="margin:4px 0; font-size:9px; font-weight:bold; letter-spacing:0.5px; word-break:break-all;">
-      ${chaveFormatada}
-    </div>
+    ${
+      temChaveReal
+        ? `<div style="margin-top:4px; font-weight:bold;">CONSULTA PELA CHAVE DE ACESSO EM:</div>
+           <div style="font-size:8px;">http://nfce.fazenda.sp.gov.br/consulta</div>
+           <div style="margin:4px 0; font-size:9px; font-weight:bold; letter-spacing:0.5px; word-break:break-all;">
+             ${chaveFormatada}
+           </div>`
+        : `<div style="margin-top:4px; font-weight:bold; color:#b91c1c;">DOCUMENTO PENDENTE DE AUTORIZAÇÃO SEFAZ</div>
+           <div style="font-size:8px;">Transmissão fiscal em processamento ou não finalizada.</div>
+           <div style="margin:4px 0; font-size:8.5px; font-weight:bold; letter-spacing:0.5px; color:#6b7280;">
+             [ CHAVE DE ACESSO GERADA APÓS AUTORIZAÇÃO ]
+           </div>`
+    }
   </div>
 
   <div class="divider"></div>
@@ -446,7 +455,7 @@ export function gerarHtmlNfce(dados: DadosImpressao): string {
 
   <div class="text-center" style="font-size:8.5px;">
     Protocolo de Autorização:<br>
-    <strong>${protocolo}</strong>
+    <strong>${temChaveReal && protocolo ? protocolo : 'AGUARDANDO RETORNO SEFAZ'}</strong>
   </div>
 </body>
 </html>`;

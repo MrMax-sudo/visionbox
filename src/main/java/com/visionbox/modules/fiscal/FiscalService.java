@@ -51,6 +51,11 @@ public class FiscalService {
         String ambiente = req.getAmbiente() != null ? req.getAmbiente() : "2";
         String tpEmis = "1"; // normal
 
+        UUID osId = req.getOrdemServicoId();
+        if (osId == null && req.getPedidoId() != null) {
+            osId = req.getPedidoId();
+        }
+
         DocumentoFiscal doc = DocumentoFiscal.builder()
                 .lojaId(lojaId)
                 .modelo(modelo)
@@ -61,7 +66,7 @@ public class FiscalService {
                 .ambiente(ambiente)
                 .tpEmis(tpEmis)
                 .pedidoId(req.getPedidoId())
-                .ordemServicoId(req.getOrdemServicoId())
+                .ordemServicoId(osId)
                 .dhEmissao(OffsetDateTime.now())
                 .build();
         // prePersist will set dhEmissao if null

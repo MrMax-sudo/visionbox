@@ -19,7 +19,12 @@
       "Fase 3: Financeiro Completo com Baixas Parciais (/financeiro) - CONCLUÍDO",
       "Fase 4: Compras (XML NF-e), Maquininhas & Comissões - CONCLUÍDO",
       "Fase 5: Gestor SaaS de Módulos & Planos (Painel Desenvolvedor) - CONCLUÍDO"
-    ]
+    ],
+    "fix_fiscal_pdv_flowbox": {
+      "status": "em_andamento",
+      "updated_at": "2026-10-13T13:24:00-03:00",
+      "scope": "Auto-emissão no PDV ao concluir venda fiscal, eliminação de fallback mock de chave de acesso em reciboPrint.ts, vinculação de ordemServicoId em FiscalService e alinhamento do FlowboxFiscalProvider com /api/v1/nfce/emitir e chave de produção real"
+    }
   },
   "wave_in_progress": [],
   "p1_aplicacao": {

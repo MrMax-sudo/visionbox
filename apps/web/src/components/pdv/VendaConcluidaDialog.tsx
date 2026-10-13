@@ -77,7 +77,9 @@ export function VendaConcluidaDialog({
                   <p className="truncate text-xs text-secondary">
                     {venda.chaveNfce
                       ? `Autorizada! Chave: ${venda.chaveNfce.slice(0, 16)}...`
-                      : `Emitir ${venda.tipoDocumento === 'DANFE' ? 'NF-e completa' : 'cupom fiscal'} na SEFAZ via Flowbox`}
+                      : emitindo
+                        ? 'Transmitindo para a SEFAZ via Flowbox...'
+                        : `Aguardando transmissão para a SEFAZ via Flowbox`}
                   </p>
                 </div>
               </div>

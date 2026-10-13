@@ -92,7 +92,7 @@ export default function PDV() {
   const [vendaConcluida, setVendaConcluida] = React.useState<VendaConcluida | null>(null);
 
   const emitirNfceMutation = useMutation({
-    mutationFn: async ({ pedidoId }: { pedidoId: string }) => {
+    mutationFn: async ({ pedidoId, modelo }: { pedidoId: string; modelo?: string }) => {
       const res = await apiClient.post<{
         chaveAcesso?: string;
         protocolo?: string;
@@ -101,29 +101,40 @@ export default function PDV() {
         autorizado?: boolean;
       }>('/v1/fiscal/nfce/emitir', {
         pedidoId,
+        ordemServicoId: pedidoId,
         serie: '001',
-        modelo: '65',
+        modelo: modelo || (tipoCupom === 'DANFE' ? '55' : '65'),
       });
       return res.data;
     },
     onSuccess: (data) => {
-      if (vendaConcluida) {
-        setVendaConcluida({
-          ...vendaConcluida,
+      setVendaConcluida((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
           chaveNfce: data.chaveAcesso,
           protocoloNfce: data.protocolo,
+        };
+      });
+      if (data.autorizado) {
+        setFeedback({
+          tone: 'success',
+          msg: `NFC-e autorizada com sucesso na SEFAZ! Chave: ${data.chaveAcesso?.slice(0, 16)}...`,
+        });
+      } else {
+        setFeedback({
+          tone: 'warning',
+          msg: `NFC-e processada com retorno: ${data.xMotivo || 'cStat ' + data.cStat}`,
         });
       }
-      setFeedback({
-        tone: 'success',
-        msg: `NFC-e emitida com sucesso! Protocolo: ${data.protocolo ?? 'Autorizado'}`,
-      });
+      queryClient.invalidateQueries({ queryKey: ['vendas-historico'] });
+      queryClient.invalidateQueries({ queryKey: ['vendas-kpis'] });
     },
     onError: (err: unknown) => {
       const apiErr = err as ApiError;
       setFeedback({
         tone: 'error',
-        msg: `Erro ao emitir NFC-e: ${apiErr.problem?.detail || apiErr.message || 'Falha na SEFAZ'}`,
+        msg: `Falha ao emitir documento fiscal na SEFAZ: ${apiErr.problem?.detail || apiErr.message || 'Erro de comunicação'}`,
       });
     },
   });
@@ -366,6 +377,14 @@ export default function PDV() {
       queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
       queryClient.invalidateQueries({ queryKey: ['pdv-produtos'] });
       setOutboxCount(getOutboxCount());
+
+      // Se venda configurada como Fiscal (NFC-e ou DANFE), dispara a transmissão automaticamente
+      if (tipoCupom === 'NFCE' || tipoCupom === 'DANFE') {
+        emitirNfceMutation.mutate({
+          pedidoId: data.id,
+          modelo: tipoCupom === 'DANFE' ? '55' : '65',
+        });
+      }
     },
     onError: (err: unknown, payloadEnviado: CriarOrdemServicoPayload) => {
       const apiErr = err as ApiError;

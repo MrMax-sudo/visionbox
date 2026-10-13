@@ -64,7 +64,9 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
 
-        String url = baseUrl + "/api/v1/fiscal/emitir";
+        boolean isNfe = documento.getModelo() == DocumentoFiscal.ModeloFiscal.NFE_55;
+        String endpoint = isNfe ? "/api/v1/nfe/emitir" : "/api/v1/nfce/emitir";
+        String url = baseUrl + endpoint;
         log.info("Enviando documento fiscal para Flowbox: loja={} modelo={} serie={} numero={} url={}",
                 documento.getLojaId(), documento.getModelo(), documento.getSerie(), documento.getNumero(), url);
 
@@ -88,12 +90,12 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map body = response.getBody();
-                boolean autorizado = Boolean.TRUE.equals(body.get("autorizado"));
+                boolean autorizado = Boolean.TRUE.equals(body.get("sucesso")) || Boolean.TRUE.equals(body.get("autorizado"));
                 String chave = (String) body.getOrDefault("chaveAcesso", documento.getChaveAcesso());
                 String protocolo = (String) body.get("protocolo");
-                String cStat = (String) body.getOrDefault("cStat", autorizado ? "100" : "999");
-                String xMotivo = (String) body.getOrDefault("xMotivo", autorizado ? "Autorizado o uso da NFC-e" : "Rejeição");
-                String xmlRetorno = (String) body.get("xmlRetorno");
+                String cStat = (String) body.getOrDefault("statusSefaz", body.getOrDefault("cStat", autorizado ? "100" : "999"));
+                String xMotivo = (String) body.getOrDefault("motivoSefaz", body.getOrDefault("xMotivo", autorizado ? "Autorizado o uso da NFC-e" : (String) body.getOrDefault("erro", "Rejeição")));
+                String xmlRetorno = (String) body.getOrDefault("xmlAutorizado", body.get("xmlRetorno"));
 
                 return new ResultadoFiscal(autorizado, chave, protocolo, cStat, xMotivo, xmlRetorno, OffsetDateTime.now());
             }
@@ -108,19 +110,22 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
     @Override
     public Optional<ResultadoFiscal> consultar(String chaveAcesso) {
-        String url = flowboxBaseUrl + "/api/v1/fiscal/status/" + chaveAcesso;
+        String url = flowboxBaseUrl + "/api/v1/documentos/" + chaveAcesso;
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Flowbox-Api-Key", flowboxApiKey);
+            headers.set("X-API-KEY", flowboxApiKey);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map body = response.getBody();
-                boolean autorizado = Boolean.TRUE.equals(body.get("autorizado"));
+                boolean autorizado = Boolean.TRUE.equals(body.get("sucesso"))
+                        || "AUTORIZADO".equalsIgnoreCase((String) body.get("status"))
+                        || "100".equals(body.get("statusSefaz"));
                 String protocolo = (String) body.get("protocolo");
-                String cStat = (String) body.getOrDefault("cStat", "100");
-                String xMotivo = (String) body.getOrDefault("xMotivo", "Autorizado");
+                String cStat = (String) body.getOrDefault("statusSefaz", body.getOrDefault("cStat", "100"));
+                String xMotivo = (String) body.getOrDefault("motivoSefaz", body.getOrDefault("xMotivo", "Autorizado"));
                 return Optional.of(new ResultadoFiscal(autorizado, chaveAcesso, protocolo, cStat, xMotivo, null, OffsetDateTime.now()));
             }
         } catch (Exception e) {
@@ -131,11 +136,14 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
     @Override
     public ResultadoFiscal cancelar(DocumentoFiscal documento, String justificativa) {
-        String url = flowboxBaseUrl + "/api/v1/fiscal/cancelar";
+        boolean isNfe = documento.getModelo() == DocumentoFiscal.ModeloFiscal.NFE_55;
+        String endpoint = isNfe ? "/api/v1/nfe/cancelar" : "/api/v1/nfce/cancelar";
+        String url = flowboxBaseUrl + endpoint;
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Flowbox-Api-Key", flowboxApiKey);
+            headers.set("X-API-KEY", flowboxApiKey);
             headers.set("X-Loja-Id", documento.getLojaId().toString());
 
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -147,7 +155,7 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map body = response.getBody();
-                boolean cancelado = Boolean.TRUE.equals(body.get("cancelado")) || "135".equals(body.get("cStat"));
+                boolean cancelado = Boolean.TRUE.equals(body.get("sucesso")) || Boolean.TRUE.equals(body.get("cancelado")) || "135".equals(body.get("cStat"));
                 String protocolo = (String) body.get("protocolo");
                 return new ResultadoFiscal(cancelado, documento.getChaveAcesso(), protocolo, "135", "Cancelamento homologado pelo Flowbox", null, OffsetDateTime.now());
             }

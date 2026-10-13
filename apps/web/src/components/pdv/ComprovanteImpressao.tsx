@@ -190,7 +190,11 @@ export function ComprovanteImpressao({
 
           <div className="my-2 border-b border-dashed border-black" />
           <h4 className="font-bold text-xs text-center uppercase tracking-wider">
-            {formato === 'CUPOM' ? 'CUPOM NÃO FISCAL' : formato === 'NFCE' ? 'DANFE NFC-e (MOD. 65)' : 'DANFE NF-e (MOD. 55)'}
+            {formato === 'CUPOM'
+              ? 'CUPOM NÃO FISCAL'
+              : formato === 'NFCE'
+                ? (chaveNfce ? 'DANFE NFC-e (MOD. 65)' : 'NFC-e (MOD. 65) — PENDENTE SEFAZ')
+                : (chaveNfce ? 'DANFE NF-e (MOD. 55)' : 'NF-e (MOD. 55) — PENDENTE SEFAZ')}
           </h4>
           <div className="my-2 border-b border-dashed border-black" />
 
