@@ -30,7 +30,10 @@ CREATE INDEX IF NOT EXISTS idx_estoque_lote_produto ON estoque_lote(produto_id);
 CREATE INDEX IF NOT EXISTS idx_estoque_lote_loja_produto ON estoque_lote(loja_id, produto_id);
 CREATE INDEX IF NOT EXISTS idx_estoque_lote_validade ON estoque_lote(loja_id, validade) WHERE validade IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_estoque_lote_bloqueado ON estoque_lote(loja_id, bloqueado) WHERE bloqueado = true;
-CREATE INDEX IF NOT EXISTS idx_estoque_lote_vencido ON estoque_lote(loja_id, validade) WHERE validade < CURRENT_DATE AND ativo = true;
+-- idx_estoque_lote_vencido removido: predicado com CURRENT_DATE viola a regra
+-- "functions in index predicate must be marked IMMUTABLE" (42P17) e ficaria
+-- obsoleto a cada virada do dia. A query de vencidos (validade < CURRENT_DATE
+-- AND ativo = true) é servida por idx_estoque_lote_validade com filtro.
 
 DROP TRIGGER IF EXISTS trg_estoque_lote_atualizado ON estoque_lote;
 CREATE TRIGGER trg_estoque_lote_atualizado

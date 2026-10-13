@@ -9,6 +9,18 @@
 -- 1 < 1.1 < 2, resolvendo o requisito SEM alterar a V2 (preserva checksum).
 --
 -- NÃO contém GRANTs/roles (criados na V2) nem o schema `app` (V11).
+--
+-- RELAÇÃO COM MIGRATIONS EXISTENTES (verificado 2026-10-13):
+--   V2  (pos. 2)  -> usa fn_set_atualizado_em, sequencia_numeracao, fn_next_sequencia,
+--                    perfil, usuario, usuario_loja (trigger/RLS/GRANT). Tudo nasce AQUI.
+--   V13 (pos. 13) -> CREATE TABLE IF NOT EXISTS usuario = no-op (tabela já existe);
+--                    recria trg_usuario_atualizado + RLS/policy/grants (idempotente).
+--   V21 (pos. 21) -> usuario_refresh_token.usuario_id REFERENCES usuario(id): ok.
+--   V27 (pos. 27) -> DROP CONSTRAINT IF EXISTS usuario_perfil_check + ADD 8 valores.
+--                    O CHECK abaixo (sem nome) recebe auto-nome `usuario_perfil_check`
+--                    do PG — exatamente o nome que a V27 espera dropar. Sem conflito.
+--   V11 (pos. 11) -> usuario/usuario_loja ganham RLS+policy via lista explícita e
+--                    varredura dinâmica (ambas têm loja_id). Nada a fazer aqui.
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -85,8 +97,14 @@ ON CONFLICT (codigo) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- 4) usuario — mesma forma da V13 (que passa a ser no-op em CREATE TABLE).
---    ATENÇÃO: CHECK inclui DESENVOLVEDOR (8 valores) para casar com o enum.
---    A V13 tem só 7 — se o banco já existir, aplicar ALTER do CHECK (ver README §3.4).
+--    CHECK com 8 valores = enum Perfil (inclui DESENVOLVEDOR, Fase 3).
+--    O PG auto-nomeia o CHECK `usuario_perfil_check` — mesmo nome que a V27
+--    dropa/recria (idempotente). Bug latente da V13 (7 valores) e fix:
+--    ver CORRECAO_CHECK_USUARIO_PERFIL.md — bancos com V27 aplicada já estão imunes.
+--    Trigger trg_usuario_atualizado NÃO nasce aqui de propósito: a V13 o cria
+--    (pos. 13); entre 1.1 e 13 nenhuma migration escreve em usuario.
+--    DEFAULT 'ADMIN' = paridade com a V13 (a entidade usa builder default VENDEDOR
+--    e sempre escreve o valor explicitamente — o default do banco é raramente usado).
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuario (
   id          uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -125,3 +143,13 @@ CREATE TABLE IF NOT EXISTS usuario_loja (
 
 CREATE INDEX IF NOT EXISTS idx_usuario_loja_usuario ON usuario_loja(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_usuario_loja_loja    ON usuario_loja(loja_id);
+
+-- Nota de manutenção (db-admin): idx_usuario_loja_email duplica a cobertura da
+-- UNIQUE uq_usuario_loja_email (mesmas colunas). Mantido por paridade com a V13
+-- (que o cria de qualquer forma na posição 13); candidata a DROP INDEX em
+-- migration futura de index maintenance.
+
+COMMENT ON TABLE sequencia_numeracao IS 'Sequência por (loja, tipo, ano) — OS-YYYY-XXXXX / VD-YYYY-XXXXX via fn_next_sequencia(); upsert atômico ON CONFLICT (V2 dá RLS/policy, V11 canonicaliza)';
+COMMENT ON TABLE perfil IS 'Catálogo GLOBAL de perfis RBAC (sem loja_id/RLS) — autorização do app vem do enum Perfil; tabela satisfaz GRANT da V2 e futura UI de perfis';
+COMMENT ON TABLE usuario IS 'Usuário de acesso à loja — nasce aqui (1.1) para o contrato da V2; V13 reafirma forma/RLS; CHECK perfil com 8 valores (V27 normaliza o nome)';
+COMMENT ON TABLE usuario_loja IS 'Vínculo N:N usuário×loja (multi-loja futura) — sem entidade JPA hoje; criada para o GRANT da V2; RLS via varredura dinâmica da V11 (tem loja_id)';
