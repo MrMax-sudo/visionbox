@@ -1,5 +1,5 @@
 import type { ElementType } from 'react';
-import { ClipboardCopy, Trash2, UserRound, UserRoundX } from 'lucide-react';
+import { ClipboardCopy, Sparkles, Trash2, UserRound, UserRoundX } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -11,6 +11,8 @@ type MaisAcoesModalProps = {
   onLimparCarrinho: () => void;
   onRemoverCliente: () => void;
   onCopiarResumo: () => void;
+  onSeedDemonstracao?: () => void;
+  isSeeding?: boolean;
 };
 
 type AcaoProps = {
@@ -47,6 +49,8 @@ export function MaisAcoesModal({
   onLimparCarrinho,
   onRemoverCliente,
   onCopiarResumo,
+  onSeedDemonstracao,
+  isSeeding,
 }: MaisAcoesModalProps) {
   return (
     <Dialog
@@ -78,6 +82,15 @@ export function MaisAcoesModal({
           disabled={!temItens}
           onClick={onCopiarResumo}
         />
+        {onSeedDemonstracao && (
+          <Acao
+            icon={Sparkles}
+            titulo={isSeeding ? 'Carregando demonstração...' : '⚡ Carregar dados de demonstração'}
+            descricao="Insere produtos ópticos (Ray-Ban, Oakley, Zeiss) e clientes de teste com receitas."
+            disabled={isSeeding}
+            onClick={onSeedDemonstracao}
+          />
+        )}
       </div>
 
       <div className="mt-4 flex justify-end border-t border-border pt-3">

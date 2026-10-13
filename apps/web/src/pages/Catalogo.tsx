@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { FileSpreadsheet, Filter, Plus, RefreshCw, Search } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { FileSpreadsheet, Filter, FolderTree, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,19 +20,18 @@ import { useDebounce } from '@/hooks/useOnline';
 import { ProdutoCard } from '@/components/catalogo/ProdutoCard';
 import { ProdutoFormDialog } from '@/components/catalogo/ProdutoFormDialog';
 import { ProdutoExcluirDialog } from '@/components/catalogo/ProdutoExcluirDialog';
+import { CategoriasModal } from '@/components/catalogo/CategoriasModal';
 import { categoriaDeProduto } from '@/components/catalogo/produtoForm';
 import { CsvImportDialog } from '@/components/pessoas/CsvImportDialog';
+import { listarTodasCategorias } from '@/services/categoriaService';
 
 type ProdutosPage = PageResponse<ProdutoDTO>;
-type FiltroCategoria = 'Todos' | 'Armação' | 'Lente';
-
-const CATEGORIA_FILTERS: ReadonlyArray<FiltroCategoria> = ['Todos', 'Armação', 'Lente'];
 
 export default function Catalogo() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = React.useState('');
   const [marca, setMarca] = React.useState('');
-  const [cat, setCat] = React.useState<FiltroCategoria>('Todos');
+  const [cat, setCat] = React.useState<string>('Todos');
   const debouncedQ = useDebounce(q, 350);
   const debouncedMarca = useDebounce(marca, 350);
   const [page, setPage] = React.useState(0);
@@ -41,7 +40,33 @@ export default function Catalogo() {
   const [produtoDialogOpen, setProdutoDialogOpen] = React.useState(false);
   const [produtoEditando, setProdutoEditando] = React.useState<ProdutoDTO | null>(null);
   const [produtoExcluindo, setProdutoExcluindo] = React.useState<ProdutoDTO | null>(null);
+  const [categoriasModalOpen, setCategoriasModalOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  const categoriasQuery = useQuery({
+    queryKey: ['categorias-todas'],
+    queryFn: listarTodasCategorias,
+  });
+
+  const filtrosCategorias = React.useMemo(() => {
+    const bd = (categoriasQuery.data ?? []).map((c) => c.nome);
+    if (bd.length > 0) {
+      return ['Todos', ...bd];
+    }
+    return ['Todos', 'Armação', 'Lente'];
+  }, [categoriasQuery.data]);
+
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<{ mensagem?: string }>('/v1/produtos/seed-demonstracao');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['produtos'] });
+      queryClient.invalidateQueries({ queryKey: ['pdv-produtos'] });
+    },
+  });
 
   const queryKey = ['produtos', { q: debouncedQ, marca: debouncedMarca, cat, page, size }] as const;
 
@@ -139,9 +164,21 @@ export default function Catalogo() {
             Armações e lentes • SKU único por loja • busca pg_trgm &lt;500ms
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => seedMutation.mutate()}
+            disabled={seedMutation.isPending}
+            className="text-xs"
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-brand" aria-hidden />
+            {seedMutation.isPending ? 'Carregando…' : 'Carga de Demonstração'}
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden /> Importar CSV
+            <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden /> Importar Planilha
+          </Button>
+          <Button variant="outline" onClick={() => setCategoriasModalOpen(true)}>
+            <FolderTree className="mr-2 h-4 w-4" aria-hidden /> Categorias
           </Button>
           <Button variant="primary" onClick={abrirNovoProduto}>
             <Plus className="mr-2 h-4 w-4" aria-hidden /> Novo produto
@@ -169,11 +206,11 @@ export default function Catalogo() {
           </div>
 
           <div
-            className="flex gap-1 rounded border border-border bg-page p-1"
+            className="flex flex-wrap gap-1 rounded border border-border bg-page p-1"
             role="group"
             aria-label="Filtrar por categoria"
           >
-            {CATEGORIA_FILTERS.map((c) => (
+            {filtrosCategorias.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -297,6 +334,15 @@ export default function Catalogo() {
         itemLabel="produtos"
         successVerb="processados com sucesso"
         errorLabel="linhas com erro"
+      />
+
+      <CategoriasModal
+        open={categoriasModalOpen}
+        onClose={() => setCategoriasModalOpen(false)}
+        onCategoriasChange={() => {
+          queryClient.invalidateQueries({ queryKey: ['categorias-todas'] });
+          queryClient.invalidateQueries({ queryKey: ['produtos'] });
+        }}
       />
     </div>
   );

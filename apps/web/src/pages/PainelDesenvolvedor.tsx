@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Cpu, Database, ExternalLink, RefreshCw, Server } from 'lucide-react';
+import { Code2, Cpu, Database, ExternalLink, RefreshCw, Server, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,8 +84,24 @@ export default function PainelDesenvolvedor() {
   const [empresa, setEmpresa] = React.useState<EmpresaInfo | null>(null);
   const [erro, setErro] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [seedLoading, setSeedLoading] = React.useState(false);
+  const [seedMsg, setSeedMsg] = React.useState<string | null>(null);
 
   const podeAcessar = user?.perfil === 'DESENVOLVEDOR' || user?.perfil === 'ADMIN';
+
+  const executarSeed = async () => {
+    setSeedLoading(true);
+    setSeedMsg(null);
+    try {
+      const res = await apiClient.post<{ mensagem?: string }>('/v1/produtos/seed-demonstracao');
+      setSeedMsg(res.data.mensagem || 'Carga de demonstração realizada com sucesso!');
+      await carregar();
+    } catch {
+      setSeedMsg('Falha ao executar carga de demonstração.');
+    } finally {
+      setSeedLoading(false);
+    }
+  };
 
   const carregar = React.useCallback(async () => {
     if (!podeAcessar) return;
@@ -129,11 +145,29 @@ export default function PainelDesenvolvedor() {
             <span className="font-semibold text-primary">ADMIN</span>.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
-          <RefreshCw className={loading ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} aria-hidden />{' '}
-          Recarregar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={executarSeed}
+            disabled={seedLoading}
+            className="text-xs gap-1.5"
+          >
+            <Sparkles className={seedLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} aria-hidden />{' '}
+            {seedLoading ? 'Carregando…' : 'Carga de Demonstração (Testes)'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
+            <RefreshCw className={loading ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} aria-hidden />{' '}
+            Recarregar
+          </Button>
+        </div>
       </div>
+
+      {seedMsg && (
+        <div className="rounded-card border border-primary/30 bg-primary/10 p-3 text-xs font-medium text-primary">
+          {seedMsg}
+        </div>
+      )}
 
       {erro && <ErrorState error={new ApiError(erro)} onRetry={carregar} compact />}
 

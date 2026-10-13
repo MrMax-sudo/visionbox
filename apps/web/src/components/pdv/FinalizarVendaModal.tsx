@@ -39,6 +39,8 @@ interface FinalizarVendaModalProps {
   total: number;
   clienteNome: string;
   isPending?: boolean;
+  tipoCupom?: import('@/components/pdv/pdvHelpers').TipoCupom;
+  onTipoCupomChange?: (tipo: import('@/components/pdv/pdvHelpers').TipoCupom) => void;
 }
 
 function currency(value: number): string {
@@ -59,6 +61,8 @@ export function FinalizarVendaModal({
   total,
   clienteNome,
   isPending,
+  tipoCupom,
+  onTipoCupomChange,
 }: FinalizarVendaModalProps) {
   const [pagamentos, setPagamentos] = React.useState<PagamentoLinha[]>([]);
   const [erro, setErro] = React.useState<string | null>(null);
@@ -280,6 +284,29 @@ export function FinalizarVendaModal({
           >
             <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             <span>{erro}</span>
+          </div>
+        )}
+
+        {/* Confirmação do Documento / Cupom */}
+        {tipoCupom && onTipoCupomChange && (
+          <div className="flex items-center justify-between rounded-card border border-border bg-page p-2.5 text-xs">
+            <span className="font-semibold text-secondary">Documento / Emissão:</span>
+            <div className="flex gap-1" role="group" aria-label="Tipo de documento">
+              {(['CUPOM', 'NFCE', 'DANFE'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onTipoCupomChange(t)}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                    tipoCupom === t
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-card border border-border text-secondary hover:text-primary'
+                  }`}
+                >
+                  {t === 'CUPOM' ? 'Cupom' : t === 'NFCE' ? 'NFC-e' : 'DANFE'}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

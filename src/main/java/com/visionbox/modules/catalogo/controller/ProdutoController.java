@@ -24,6 +24,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProdutoController {
 
     private final ProdutoService service;
+    private final com.visionbox.modules.catalogo.service.CargaDemonstracaoService cargaDemonstracaoService;
+
+    @PostMapping("/seed-demonstracao")
+    public ResponseEntity<java.util.Map<String, Object>> seedDemonstracao() {
+        return ResponseEntity.ok(cargaDemonstracaoService.executarCarga());
+    }
 
     @GetMapping
     public Page<ProdutoResponse> listar(@RequestParam(required = false) String q,

@@ -19,7 +19,8 @@ export const produtoSchema = z.object({
     .trim()
     .min(2, 'Nome deve ter pelo menos 2 caracteres')
     .max(200, 'Nome máximo 200 caracteres'),
-  categoria: z.enum(CATEGORIAS_PRODUTO, { errorMap: () => ({ message: 'Selecione a categoria' }) }),
+  categoria: z.string().min(1, 'Selecione ou informe a categoria'),
+  categoriaId: z.string().optional(),
   marca: z.string().max(100, 'Marca máxima 100 caracteres').optional().or(z.literal('')),
   custo: z.coerce.number({ invalid_type_error: 'Custo é obrigatório' }).min(0, 'Custo não pode ser negativo'),
   precoVenda: z.coerce

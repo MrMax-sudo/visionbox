@@ -27,6 +27,7 @@ import {
   type DescontoTipo,
   type Feedback,
   type ProdutoPdv,
+  type TipoCupom,
   type VendaConcluida,
 } from '@/components/pdv/pdvHelpers';
 
@@ -108,6 +109,70 @@ export default function PDV() {
       });
     },
   });
+
+  const [tipoCupom, setTipoCupom] = React.useState<TipoCupom>('CUPOM');
+
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<{ mensagem?: string; produtosCriados?: number; clientesCriados?: number }>(
+        '/v1/produtos/seed-demonstracao',
+      );
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setFeedback({
+        tone: 'success',
+        msg: data.mensagem || 'Carga inicial de teste realizada com sucesso!',
+      });
+      queryClient.invalidateQueries({ queryKey: ['pdv-produtos'] });
+      queryClient.invalidateQueries({ queryKey: ['pdv-clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['produtos'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      setMaisAcoesOpen(false);
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as ApiError;
+      setFeedback({
+        tone: 'error',
+        msg: `Erro na carga de teste: ${apiErr.problem?.detail || apiErr.message || 'Falha na requisição'}`,
+      });
+    },
+  });
+
+  function handleVisualizarCupom() {
+    if (cart.length > 0) {
+      setVendaConcluida({
+        osId: 'PREVIA',
+        osNumero: 'PRÉVIA-CUPOM',
+        itens: [...cart],
+        subtotal,
+        desconto: descontoAplicado,
+        total,
+        formaPagamento,
+        clienteNome: cliente?.nome ?? 'Consumidor',
+        clienteCpf: cliente?.cpf,
+        clienteTelefone: cliente?.telefone,
+        tipoDocumento: tipoCupom,
+      });
+    } else {
+      setVendaConcluida({
+        osId: 'DEMO',
+        osNumero: 'DEMO-001',
+        itens: [
+          { sku: 'PRD-000001', nome: 'Armação Ray-Ban Aviador RB3025 Dourado', qtd: 1, preco: 580.0 },
+          { sku: 'PRD-000004', nome: 'Lente Monofocal Antirreflexo Crizal', qtd: 1, preco: 250.0 },
+        ],
+        subtotal: 830.0,
+        desconto: 50.0,
+        total: 780.0,
+        formaPagamento: 'Cartão de Crédito',
+        clienteNome: cliente?.nome ?? 'Maria Eduarda Santos (Demonstração)',
+        clienteCpf: cliente?.cpf ?? '529.982.247-25',
+        clienteTelefone: cliente?.telefone ?? '(11) 98888-7777',
+        tipoDocumento: tipoCupom,
+      });
+    }
+  }
 
   const debouncedCliente = useDebounce(buscaCliente, 350);
   const debouncedSku = useDebounce(buscaSku, 350);
@@ -272,6 +337,7 @@ export default function PDV() {
         clienteNome: cliente?.nome ?? 'Consumidor',
         clienteCpf: cliente?.cpf,
         clienteTelefone: cliente?.telefone,
+        tipoDocumento: tipoCupom,
       });
 
       setCart([]);
@@ -388,6 +454,7 @@ export default function PDV() {
       clienteNome: cliente?.nome ?? 'Consumidor',
       clienteCpf: cliente?.cpf,
       clienteTelefone: cliente?.telefone,
+      tipoDocumento: tipoCupom,
     });
   }
 
@@ -505,6 +572,9 @@ export default function PDV() {
             onFinalizar={handleFinalizar}
             finalizando={criarOrdem.isPending}
             temItens={cart.length > 0}
+            tipoCupom={tipoCupom}
+            onTipoCupomChange={setTipoCupom}
+            onVisualizarCupom={handleVisualizarCupom}
             onAbrirCaixa={() => setCaixaModalOpen(true)}
             onOrcamento={gerarPrevia}
             onMaisAcoes={() => setMaisAcoesOpen(true)}
@@ -579,6 +649,8 @@ export default function PDV() {
           setFeedback({ tone: 'success', msg: 'Cliente removido da venda.' });
         }}
         onCopiarResumo={copiarResumo}
+        onSeedDemonstracao={() => seedMutation.mutate()}
+        isSeeding={seedMutation.isPending}
       />
 
       <FinalizarVendaModal
@@ -591,6 +663,8 @@ export default function PDV() {
         total={total}
         clienteNome={cliente?.nome ?? 'Consumidor'}
         isPending={criarOrdem.isPending}
+        tipoCupom={tipoCupom}
+        onTipoCupomChange={setTipoCupom}
       />
     </div>
   );

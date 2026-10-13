@@ -1,21 +1,21 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-12T20:20:00-03:00",
+  "updated_at": "2026-10-12T21:05:00-03:00",
   "web_refactor": {
-    "status": "documentacao_master_e_deploy_concluidos",
+    "status": "categorias_crud_e_tipos_cupom_concluidos",
     "wave": 4,
-    "scope": "Sidebar com submenu Administrativo, Topbar com Avatar Dropdown, Geração sequencial SKU/EAN-13, Suporte Excel (.xlsx)/CSV em carga, Deploy na VPS e Documentação Master unificada (Pitch/Arquitetura/MinIO)",
-    "evidence": "docs/MANUAL_GERAL_VISIONBOX.md criado; typecheck + build verdes (13.7s); PlanilhaImportHelperTest 2/2 verdes; ProdutoSkuEanTest 5/5 verdes; VPS up",
+    "scope": "CRUD completo de Categorias no Banco e UI, Filtros dinâmicos no Catálogo, Tipos de Cupom (Cupom/NFC-e/DANFE) e Carga de Demonstração em 1 clique",
+    "evidence": "CategoriaController e Service com soft-delete e multi-tenant; CategoriasModal.tsx; 246/246 testes unitários backend verdes; frontend build verde (2.36s)",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
   "wave_in_progress": [
     "Operação de Produção e Homologação Flowbox"
   ],
-  "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (232/232 verdes)",
+  "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (246/246 verdes)",
   "phase": "Fase 4 — Saneamento de Mocks & Operação Real",
   "current_sprint": "S3-WAVE-PARALELA",
-  "progress_pct": 96,
+  "progress_pct": 98,
   "milestones": [
     {"id": "M0", "name": "Kickoff docs", "status": "done", "evidence": "docs/"},
     {"id": "M1", "name": "S0 Foundation", "status": "done", "evidence": "V11 + CpfConverter 51/51 + CI", "done_at": "2026-09-05"},

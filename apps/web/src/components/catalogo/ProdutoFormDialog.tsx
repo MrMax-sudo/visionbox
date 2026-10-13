@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,13 +14,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { cn } from '@/lib/utils';
 import type { ProdutoDTO } from '@/lib/types';
+import { Categoria, listarTodasCategorias } from '@/services/categoriaService';
 import {
   CATEGORIAS_PRODUTO,
   PRODUTO_DEFAULT_VALUES,
   TIPO_POR_CATEGORIA,
   categoriaDeProduto,
   produtoSchema,
-  type CategoriaProduto,
   type ProdutoForm,
 } from '@/components/catalogo/produtoForm';
 
@@ -43,6 +43,18 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
     resolver: zodResolver(produtoSchema),
     defaultValues: PRODUTO_DEFAULT_VALUES,
   });
+
+  const categoriasQuery = useQuery({
+    queryKey: ['categorias-todas'],
+    queryFn: listarTodasCategorias,
+    enabled: open,
+  });
+
+  const opcoesCategorias = React.useMemo(() => {
+    const nomesBd = (categoriasQuery.data ?? []).map((c: Categoria) => c.nome);
+    const set = new Set<string>([...CATEGORIAS_PRODUTO, ...nomesBd]);
+    return Array.from(set);
+  }, [categoriasQuery.data]);
 
   const carregarSugestao = React.useCallback(async () => {
     try {
@@ -114,11 +126,14 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
 
   function onSalvarProduto(values: ProdutoForm) {
     setActionError(null);
+    const catBd = categoriasQuery.data?.find((c: Categoria) => c.nome.toLowerCase() === values.categoria.toLowerCase());
+    const tipo = (TIPO_POR_CATEGORIA as Record<string, string>)[values.categoria] ?? 'ARMACAO';
     const payload: Record<string, unknown> = {
       sku: values.sku,
       nome: values.nome,
       categoria: values.categoria,
-      tipoProduto: TIPO_POR_CATEGORIA[values.categoria],
+      categoriaId: values.categoriaId ?? catBd?.id ?? null,
+      tipoProduto: tipo,
       marca: values.marca?.trim() ? values.marca.trim() : null,
       custo: values.custo,
       precoVenda: values.precoVenda,
@@ -129,6 +144,12 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
     };
     saveMutation.mutate(payload);
   }
+
+  const handleCategoriaChange = (nomeEscolhido: string) => {
+    const catBd = categoriasQuery.data?.find((c: Categoria) => c.nome.toLowerCase() === nomeEscolhido.toLowerCase());
+    form.setValue('categoria', nomeEscolhido, { shouldValidate: true });
+    form.setValue('categoriaId', catBd?.id ?? undefined);
+  };
 
   const errors = form.formState.errors;
 
@@ -178,11 +199,9 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
           <Field label="Categoria" id="produto-categoria" required error={errors.categoria}>
             <Select
               value={form.watch('categoria')}
-              onChange={(e) =>
-                form.setValue('categoria', e.target.value as CategoriaProduto, { shouldValidate: true })
-              }
+              onChange={(e) => handleCategoriaChange(e.target.value)}
             >
-              {CATEGORIAS_PRODUTO.map((c) => (
+              {opcoesCategorias.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>

@@ -40,6 +40,9 @@ type ResumoVendaPanelProps = {
   onFinalizar: () => void;
   finalizando: boolean;
   temItens: boolean;
+  tipoCupom: import('@/components/pdv/pdvHelpers').TipoCupom;
+  onTipoCupomChange: (tipo: import('@/components/pdv/pdvHelpers').TipoCupom) => void;
+  onVisualizarCupom: () => void;
   onAbrirCaixa: () => void;
   onOrcamento: () => void;
   onMaisAcoes: () => void;
@@ -73,6 +76,9 @@ export function ResumoVendaPanel({
   onFinalizar,
   finalizando,
   temItens,
+  tipoCupom,
+  onTipoCupomChange,
+  onVisualizarCupom,
   onAbrirCaixa,
   onOrcamento,
   onMaisAcoes,
@@ -201,6 +207,68 @@ export function ResumoVendaPanel({
         </div>
       </section>
 
+      {/* Tipo de Documento / Emissão */}
+      <section className="mt-3.5 border-t border-[var(--color-pdv-border-soft)] pt-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold text-[var(--color-pdv-text)] flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-brand" /> Documento / Emissão
+          </span>
+          <span className="text-[10px] text-muted font-medium">
+            {tipoCupom === 'CUPOM' ? 'Sem envio SEFAZ' : tipoCupom === 'NFCE' ? 'SEFAZ Mod. 65' : 'SEFAZ Mod. 55'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1" role="group" aria-label="Tipo de documento">
+          <button
+            type="button"
+            aria-pressed={tipoCupom === 'CUPOM'}
+            onClick={() => onTipoCupomChange('CUPOM')}
+            className={cn(
+              'flex flex-col items-center justify-center py-1.5 px-1 rounded-md border text-center transition-colors',
+              tipoCupom === 'CUPOM'
+                ? 'border-primary bg-primary text-primary-foreground font-bold shadow-sm'
+                : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
+            )}
+            title="Cupom Não-Fiscal / Recibo de Venda"
+          >
+            <span className="text-xs font-bold leading-tight">Cupom</span>
+            <span className="text-[9px] opacity-80">Não-fiscal</span>
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={tipoCupom === 'NFCE'}
+            onClick={() => onTipoCupomChange('NFCE')}
+            className={cn(
+              'flex flex-col items-center justify-center py-1.5 px-1 rounded-md border text-center transition-colors',
+              tipoCupom === 'NFCE'
+                ? 'border-primary bg-primary text-primary-foreground font-bold shadow-sm'
+                : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
+            )}
+            title="NFC-e Modelo 65 (Cupom Fiscal do Consumidor)"
+          >
+            <span className="text-xs font-bold leading-tight">NFC-e</span>
+            <span className="text-[9px] opacity-80">Mod. 65</span>
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={tipoCupom === 'DANFE'}
+            onClick={() => onTipoCupomChange('DANFE')}
+            className={cn(
+              'flex flex-col items-center justify-center py-1.5 px-1 rounded-md border text-center transition-colors',
+              tipoCupom === 'DANFE'
+                ? 'border-primary bg-primary text-primary-foreground font-bold shadow-sm'
+                : 'border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-soft)] text-[var(--color-pdv-text)] hover:border-primary',
+            )}
+            title="DANFE NF-e Modelo 55 (Nota Fiscal Eletrônica)"
+          >
+            <span className="text-xs font-bold leading-tight">DANFE</span>
+            <span className="text-[9px] opacity-80">Mod. 55</span>
+          </button>
+        </div>
+      </section>
+
       {/* Finalizar — sempre disponível (F8 / offline-first) */}
       <Button
         id="pdv-finalizar"
@@ -210,7 +278,6 @@ export function ResumoVendaPanel({
         className={cn(
           'mt-4 h-12 w-full gap-2 rounded-[9px] text-base',
           'bg-[var(--color-login-button)] text-[var(--color-text-on-action)] hover:bg-primary hover:text-primary-foreground',
-          // mantém o visual "sempre ativo" mesmo com o carrinho vazio (aviso vem do banner)
           'disabled:opacity-100',
         )}
       >
@@ -223,11 +290,11 @@ export function ResumoVendaPanel({
       </p>
 
       <div className="mt-auto grid grid-cols-[1fr_1fr_44px] gap-2 pt-3">
-        <Button variant="outline" className="gap-1.5" onClick={onOrcamento}>
+        <Button variant="outline" className="gap-1.5 text-xs" onClick={onOrcamento}>
           <FileText className="h-4 w-4" /> Orçamento
         </Button>
-        <Button variant="outline" className="gap-1.5" onClick={onOrcamento}>
-          <Printer className="h-4 w-4" /> Imprimir
+        <Button variant="outline" className="gap-1.5 text-xs" onClick={onVisualizarCupom}>
+          <Printer className="h-4 w-4" /> Ver Cupom
         </Button>
         <Button variant="outline" size="icon" aria-label="Mais ações" onClick={onMaisAcoes}>
           <MoreHorizontal />

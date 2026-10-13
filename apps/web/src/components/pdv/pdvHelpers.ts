@@ -21,6 +21,8 @@ export type DescontoTipo = 'valor' | 'percentual';
 
 export type ProdutoPdv = ProdutoDTO & { tipoProduto?: string };
 
+export type TipoCupom = 'CUPOM' | 'NFCE' | 'DANFE';
+
 export type VendaConcluida = {
   osId: string;
   osNumero: string;
@@ -34,6 +36,7 @@ export type VendaConcluida = {
   clienteTelefone?: string;
   chaveNfce?: string;
   protocoloNfce?: string;
+  tipoDocumento?: TipoCupom;
 };
 
 /** Normaliza acento/caixa para comparar rótulo de categoria. */
