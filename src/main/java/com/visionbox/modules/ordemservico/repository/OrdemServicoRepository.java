@@ -49,4 +49,19 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, UUID
     Page<OrdemServico> findByLojaIdAndStatusIn(UUID lojaId, java.util.Collection<StatusOS> status, Pageable pageable);
 
     Page<OrdemServico> findByLojaIdAndStatusInAndLaboratorioId(UUID lojaId, java.util.Collection<StatusOS> status, UUID laboratorioId, Pageable pageable);
+
+    @Query("SELECT o FROM OrdemServico o WHERE o.lojaId = :lojaId AND o.ativo = true " +
+           "AND (cast(:inicio as string) IS NULL OR o.criadoEm >= :inicio) " +
+           "AND (cast(:fim as string) IS NULL OR o.criadoEm <= :fim) " +
+           "AND (:status IS NULL OR o.status = :status) " +
+           "AND (cast(:numero as string) IS NULL OR LOWER(o.numero) LIKE LOWER(CONCAT('%', cast(:numero as string), '%'))) " +
+           "AND (cast(:clienteId as string) IS NULL OR o.clienteId = :clienteId)")
+    Page<OrdemServico> buscarComFiltros(
+            @Param("lojaId") UUID lojaId,
+            @Param("inicio") OffsetDateTime inicio,
+            @Param("fim") OffsetDateTime fim,
+            @Param("status") StatusOS status,
+            @Param("numero") String numero,
+            @Param("clienteId") UUID clienteId,
+            Pageable pageable);
 }

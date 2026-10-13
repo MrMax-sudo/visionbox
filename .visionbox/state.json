@@ -1,16 +1,27 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-12T21:05:00-03:00",
+  "updated_at": "2026-10-13T01:57:00-03:00",
   "web_refactor": {
-    "status": "recibos_termicos_e_venda_pdv_confirmada",
+    "status": "fase_1_vendas_concluida",
     "wave": 4,
-    "scope": "Recibo térmico 80mm isolado fiel a recibo.html, OS PDV nascendo como PEDIDO_CONFIRMADO e indicador único de caixa no PDV",
-    "evidence": "reciboPrint.ts gerando HTML idêntico aos templates; iframe isolado eliminando vazamento visual; OrdemServicoService definindo PEDIDO_CONFIRMADO; 246/246 testes verdes; build Vite verde",
+    "scope": "Central de Vendas e Histórico (/vendas) completo com KPIs, filtros, modal de detalhes, cancelamento com estorno e impressão 80mm",
+    "evidence": "VendaHistoricoService + PedidoVendaController + Vendas.tsx + DetalhesVendaModal; mvn test-compile verde; build Vite verde (2.02s)",
     "pending": "Layout.tsx antigo nao roteado permanece no repo (sem ordem de exclusao); alinhamento nextStatusByCurrent vs TransicaoOSRegistry; media print DANFE"
   },
+  "erp_robustness": {
+    "status": "fase_1_concluida",
+    "benchmark_ref": "D:\\TECHBOXBR\\CLIENTES\\I LOVE MIMOS\\OUTBOX ERP\\sistema\\src",
+    "spec_file": "docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md",
+    "waves": [
+      "Fase 1: Central de Vendas & Histórico (/vendas) - CONCLUÍDO",
+      "Fase 2: Gestão de Caixa & Turnos (/caixas)",
+      "Fase 3: Financeiro Completo com Baixas Parciais (/financeiro)",
+      "Fase 4: Compras (XML NF-e), Maquininhas & Comissões"
+    ]
+  },
   "wave_in_progress": [
-    "Operação de Produção e Homologação Flowbox"
+    "Fase 2 - Gestão de Caixa & Turnos (/caixas)"
   ],
   "obs": "maquina sem Docker (permanente) — validacao real de Flyway/Testcontainers nao roda aqui; apenas unit tests (246/246 verdes)",
   "phase": "Fase 4 — Saneamento de Mocks & Operação Real",
@@ -45,8 +56,10 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "P1 (db-admin + Postgres real): reconstruir migrations V3-V10 e tornar V2 auto-suficiente (perfil/usuario/usuario_loja/sequencia_numeracao/fn_next_sequencia/fn_set_atualizado_em); validar com flyway migrate/validate",
-    "Smoke test runtime: GET/PUT /api/v1/empresa, GET /api/v1/dev/info, /api/v1/relatorios/**, /api/v1/autorizacoes-desconto, /api/v1/ordens-servico/rastreio/**"
+    "Fase 2 Robustez ERP (docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md): Gestão de Caixa & Turnos (/caixas) com fechamento cego, sangria, suprimento e extrato",
+    "Fase 3 Robustez ERP: Baixas parciais em ContaReceberPagamento e Contas a Pagar de Fornecedores",
+    "Fase 4 Robustez ERP: Entrada de Notas por XML, Cadastro Automático de Fornecedores e MDR de Maquininhas",
+    "P1 (db-admin + Postgres real): reconstruir migrations V3-V10 e validar com flyway migrate/validate"
   ],
   "last_evidence": {
     "p8_alcada_rastreio_2026_10_10": "Enforcement server-side de desconto (>15% exige autorização de gerente em OrdemServicoService.criar) + Endpoint e enriquecimento de token de rastreio US17 (GET /api/v1/ordens-servico/{id}/rastreio-token) + OSDetail modal e envio WhatsApp wa.me de rastreio cliente vs link lab + D-011 + 230/230 testes unitários verdes",

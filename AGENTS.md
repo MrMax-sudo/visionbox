@@ -5,14 +5,15 @@
 ## 1) Leia antes de fazer qualquer coisa
 
 ```
-1. docs/PROJECT_CONTEXT.md   — contexto 10 min (identidade, tese, stack, domínio)
-2. docs/PROGRESS.md          — onde estamos (fase, sprint, burndown)
-3. .visionbox/state.json     — estado máquina-legível (fonte para automação)
-4. arquivo.md                — plano executivo 8 especialistas (detalhe técnico)
-5. ADR relevante em docs/adrs/  — decisão já tomada (não re-derive)
+1. docs/PROJECT_CONTEXT.md                     — contexto 10 min (identidade, tese, stack, domínio)
+2. docs/PROGRESS.md                            — onde estamos (fase, sprint, burndown)
+3. .visionbox/state.json                       — estado máquina-legível (fonte para automação)
+4. docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md — GUIA OBRIGATÓRIO DE ROBUSTEZ ERP (referência Outbox ERP)
+5. arquivo.md                                  — plano executivo 8 especialistas (detalhe técnico)
+6. ADR relevante em docs/adrs/                 — decisão já tomada (não re-derive)
 ```
 
-> **Regra:** nunca comece a codar sem ler `PROJECT_CONTEXT.md:1` + `PROGRESS.md:1` + `state.json:1`. Stack já está congelada (`docs/PROJECT_CONTEXT.md:34`).
+> **Regra:** nunca comece a codar sem ler `PROJECT_CONTEXT.md:1` + `PROGRESS.md:1` + `state.json:1` + `PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md:1`. Stack já está congelada (`docs/PROJECT_CONTEXT.md:34`). Referência oficial para maturidade ERP: Outbox ERP (`D:\TECHBOXBR\CLIENTES\I LOVE MIMOS\OUTBOX ERP\sistema\src`).
 
 ## 2) O que é o VisionBox
 
@@ -33,6 +34,7 @@ VisionBox/
 ├── README.md
 ├── docs/
 │   ├── PROJECT_CONTEXT.md
+│   ├── PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md # referência de maturidade Outbox ERP
 │   ├── GOVERNANCE.md           # DoR/DoD, cerimônias, RACI
 │   ├── ROADMAP.md              # S0-S6 → Fase 4
 │   ├── BACKLOG.md              # 17 US MoSCoW
@@ -82,6 +84,8 @@ VisionBox/
 | R7 | LGPD: `consentimento_recall` + anonimização 5a fiscal, não DELETE com NF | `ADR-003` |
 | R8 | SEMPRE registrar o progresso em `docs/PROGRESS.md` e `.visionbox/state.json` antes de iniciar novas tarefas | `GOVERNANCE.md` |
 | R9 | Módulo Fiscal integra com a API centralizada Flowbox (`D:\TECHBOXBR\PRODUTOS\Flowbox`) | `ADR-004` / `PROJECT_CONTEXT.md` |
+| R10 | Proibido subir processos em segundo plano sem autorização e ocupar portas desnecessárias | `GOVERNANCE.md:9` |
+| R11 | Modulação SaaS: Todo novo módulo/recurso DEVE pertencer a `ModuloSistema` e ser controlado pelo Painel Desenvolvedor (`/desenvolvedor`) conforme plano do cliente | `PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md:4` |
 
 ## 7) Agentes disponíveis
 
@@ -131,6 +135,7 @@ curl -H "X-Loja-Id: $LOJA" http://localhost:8080/api/v1/fiscal/nfce/emitir -d @p
 ## 10) Onde tirar dúvidas
 
 - Contexto → `docs/PROJECT_CONTEXT.md:1`
+- Referência de Robustez ERP → `docs/PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md:1`
 - Onde estamos → `docs/PROGRESS.md:1` + `.visionbox/state.json:1`
 - Próximo sprint → `docs/sprints/S0.md`..`S6.md`
 - Riscos → `docs/RISK_REGISTER.md:1`

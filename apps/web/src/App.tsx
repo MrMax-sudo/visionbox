@@ -11,6 +11,7 @@ const Clientes = React.lazy(() => import('@/pages/Clientes'));
 const Receitas = React.lazy(() => import('@/pages/Receitas'));
 const Catalogo = React.lazy(() => import('@/pages/Catalogo'));
 const PDV = React.lazy(() => import('@/pages/PDV'));
+const Vendas = React.lazy(() => import('@/pages/Vendas'));
 const OSDetail = React.lazy(() => import('@/pages/OSDetail'));
 const Financeiro = React.lazy(() => import('@/pages/Financeiro'));
 const UserManagement = React.lazy(() => import('@/pages/UserManagement'));
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="receitas" element={<LazyPage><Receitas /></LazyPage>} />
           <Route path="catalogo" element={<LazyPage><Catalogo /></LazyPage>} />
           <Route path="pdv" element={<LazyPage><PDV /></LazyPage>} />
+          <Route path="vendas" element={<LazyPage><Vendas /></LazyPage>} />
           <Route path="os" element={<LazyPage><DashboardKanban /></LazyPage>} />
           <Route path="os/:id" element={<LazyPage><OSDetail /></LazyPage>} />
           <Route path="financeiro" element={<LazyPage><Financeiro /></LazyPage>} />

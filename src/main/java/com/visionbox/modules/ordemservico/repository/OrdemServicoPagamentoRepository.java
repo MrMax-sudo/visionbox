@@ -7,4 +7,8 @@ import java.util.UUID;
 
 public interface OrdemServicoPagamentoRepository extends JpaRepository<OrdemServicoPagamento, UUID> {
     void deleteAllByOrdemServicoIdAndLojaId(UUID ordemServicoId, UUID lojaId);
+
+    java.util.List<OrdemServicoPagamento> findAllByOrdemServicoIdAndLojaId(UUID ordemServicoId, UUID lojaId);
+
+    java.util.List<OrdemServicoPagamento> findAllByLojaIdAndOrdemServicoIdIn(UUID lojaId, java.util.Collection<UUID> ordemServicoIds);
 }

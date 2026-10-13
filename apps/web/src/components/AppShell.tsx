@@ -18,6 +18,7 @@ import {
   Menu,
   Moon,
   Package,
+  Receipt,
   Settings,
   ShoppingCart,
   Sun,
@@ -61,6 +62,7 @@ type NavItem = {
 const mainNav: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutGrid, end: true },
   { label: 'PDV', to: '/pdv', icon: ShoppingCart, shortcut: 'F8' },
+  { label: 'Vendas', to: '/vendas', icon: Receipt },
   { label: 'Receitas', to: '/receitas', icon: Eye },
   { label: 'OS', to: '/os', icon: ClipboardList },
   { label: 'Financeiro', to: '/financeiro', icon: Wallet },
@@ -69,6 +71,7 @@ const mainNav: NavItem[] = [
 const routeTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/pdv': 'PDV — Frente de caixa',
+  '/vendas': 'Central de Vendas',
   '/clientes': 'Clientes',
   '/receitas': 'Receitas',
   '/catalogo': 'Catálogo',
