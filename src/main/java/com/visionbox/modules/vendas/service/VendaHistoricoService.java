@@ -61,6 +61,7 @@ public class VendaHistoricoService {
     private final ProdutoRepository produtoRepository;
     private final TransicaoOSRegistry transicaoRegistry;
     private final EstoqueService estoqueService;
+    private final com.visionbox.modules.financeiro.comissao.service.ComissaoService comissaoService;
     private final Clock clock;
 
     @Autowired
@@ -73,6 +74,7 @@ public class VendaHistoricoService {
             @Autowired(required = false) ProdutoRepository produtoRepository,
             TransicaoOSRegistry transicaoRegistry,
             @Autowired(required = false) EstoqueService estoqueService,
+            @Autowired(required = false) com.visionbox.modules.financeiro.comissao.service.ComissaoService comissaoService,
             Clock clock) {
         this.ordemServicoRepository = ordemServicoRepository;
         this.pagamentoRepository = pagamentoRepository;
@@ -82,6 +84,7 @@ public class VendaHistoricoService {
         this.produtoRepository = produtoRepository;
         this.transicaoRegistry = transicaoRegistry;
         this.estoqueService = estoqueService;
+        this.comissaoService = comissaoService;
         this.clock = clock;
     }
 
@@ -284,6 +287,20 @@ public class VendaHistoricoService {
                 }
             } catch (Exception e) {
                 log.warn("Falha ao cancelar contas a receber da OS {}: {}", os.getNumero(), e.getMessage());
+            }
+        }
+
+        // Estorno de comissões PENDENTES da venda (follow-up D-017: "OS cancelada
+        // após venda deixa lançamento PENDENTE"). Falha NUNCA quebra o cancelamento
+        // (try/catch WARN — mesmo padrão do estoque/contas a receber acima).
+        if (comissaoService != null) {
+            try {
+                int estornadas = comissaoService.cancelarPorVenda(lojaId, os.getId(), request.getMotivo());
+                log.info("Comissões estornadas no cancelamento da OS {}: {} lançamento(s)",
+                        os.getNumero(), estornadas);
+            } catch (Exception e) {
+                log.warn("Falha ao estornar comissões da OS {} (cancelamento prossegue): {}",
+                        os.getNumero(), e.getMessage());
             }
         }
 

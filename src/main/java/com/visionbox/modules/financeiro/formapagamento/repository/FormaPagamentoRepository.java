@@ -10,4 +10,7 @@ import java.util.UUID;
     Optional<FormaPagamento> findByIdAndLojaId(UUID id, UUID lojaId);
     List<FormaPagamento> findByLojaIdAndAtivoTrue(UUID lojaId);
     Optional<FormaPagamento> findByLojaIdAndPadraoTrue(UUID lojaId);
+
+    /** Resolução em lote de nomes para resposta de OS (R1): snapshot ausente no pagamento. */
+    List<FormaPagamento> findByLojaIdAndIdIn(UUID lojaId, java.util.Collection<UUID> ids);
 }

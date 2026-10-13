@@ -81,7 +81,10 @@ class OrdemServicoDescontoTest {
                 null,
                 null,
                 rastreioTokenService,
-                autorizacaoDescontoService
+                autorizacaoDescontoService,
+                null,
+                null,
+                null
         );
 
         TenantContext.setCurrentLojaId(LOJA_ID);

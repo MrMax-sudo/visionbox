@@ -60,6 +60,13 @@ public class ContaReceber extends EntidadeBase {
     @lombok.Builder.Default
     private StatusConta status = StatusConta.PENDENTE;
 
+    /**
+     * V34 — "valorAberto" do §3.3 (Plano Robustez). Coluna DERIVADA no banco
+     * (GENERATED ALWAYS AS valor - valor_pago) — leitura apenas; fonte = valor/valor_pago.
+     */
+    @Column(name = "valor_aberto", precision = 12, scale = 2, insertable = false, updatable = false)
+    private BigDecimal valorAberto;
+
     @Column(name = "parcela")
     private Integer parcela;
 

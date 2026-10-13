@@ -5,15 +5,19 @@ import com.visionbox.modules.financeiro.domain.ConciliacaoOfx.StatusConciliacao;
 import com.visionbox.modules.financeiro.domain.ConciliacaoOfx.TipoContaConciliacao;
 import com.visionbox.modules.financeiro.domain.ContaPagar;
 import com.visionbox.modules.financeiro.domain.ContaReceber;
+import com.visionbox.modules.financeiro.dto.BaixaContaReceberRequest;
 import com.visionbox.modules.financeiro.dto.ConciliacaoOfxResponse;
 import com.visionbox.modules.financeiro.dto.OfxImportarRequest;
 import com.visionbox.modules.financeiro.dto.OfxImportarResponse;
+import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento;
+import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
 import com.visionbox.modules.financeiro.mapper.ConciliacaoOfxMapper;
 import com.visionbox.modules.financeiro.repository.ConciliacaoOfxRepository;
 import com.visionbox.modules.financeiro.repository.ContaPagarRepository;
 import com.visionbox.modules.financeiro.repository.ContaReceberRepository;
 import com.visionbox.shared.error.BusinessException;
 import com.visionbox.shared.tenant.TenantContext;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,9 +49,14 @@ import java.util.UUID;
  *    sem encaixe exato → DIVERGENTE com {@code diferenca_valor} e vínculo.
  * 4. Sem candidata → PENDENTE.
  * <p>
- * Conciliação é EVIDÊNCIA: não muda status/valorPago da conta (baixa continua
- * em /contas-receber/{id}/baixar e /contas-pagar/{id}/baixar) — evita dupla
- * contagem no DRE. Multi-tenant: toda query por loja_id do TenantContext.
+ * CONCILIADO de conta a receber agora PASSA PELO FLUXO DE BAIXA (pendência D-012,
+ * decisão D-017): chama {@code ContaReceberService.baixar} com o valor conciliado —
+ * nasce a linha em {@code conta_receber_pagamento} (rastreável pelo FITID na
+ * observação) e o movimento no caixa aberto, se houver. Baixa impossibilitada
+ * (conta já PAGO, saldo menor que o extrato etc.) NÃO quebra a importação: a linha
+ * permanece CONCILIADO como evidência e a observação registra o motivo.
+ * Contas a PAGAR conciliadas continuam como evidência (baixa manual) e o DRE não
+ * conta duas vezes. Multi-tenant: toda query por loja_id do TenantContext.
  */
 @Slf4j
 @Service
@@ -60,20 +69,30 @@ public class OfxConciliacaoService {
     private final ContaReceberRepository contaReceberRepository;
     private final ContaPagarRepository contaPagarRepository;
     private final ConciliacaoOfxMapper mapper;
+    private final FormaPagamentoRepository formaPagamentoRepository;
+    private final ContaReceberService contaReceberService;
 
     @Transactional
     public OfxImportarResponse importar(OfxImportarRequest request) {
-        return importarConteudo(request.getConteudo(), request.getToleranciaDias(), request.getConciliar());
+        return importarConteudo(request.getConteudo(), request.getToleranciaDias(),
+                request.getConciliar(), request.getFormaPagamentoId());
     }
 
     @Transactional
     public OfxImportarResponse importarConteudo(String conteudo, Integer toleranciaDias, Boolean conciliar) {
+        return importarConteudo(conteudo, toleranciaDias, conciliar, null);
+    }
+
+    @Transactional
+    public OfxImportarResponse importarConteudo(String conteudo, Integer toleranciaDias, Boolean conciliar,
+                                                UUID formaPagamentoId) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
         if (conteudo == null || conteudo.isBlank()) {
             throw new BusinessException("Conteúdo OFX vazio — envie o extrato em texto (OFX até 3.x).");
         }
         int tolerancia = toleranciaDias != null ? toleranciaDias : TOLERANCIA_PADRAO_DIAS;
         boolean comConciliacao = conciliar == null || conciliar;
+        UUID formaConciliacao = resolverFormaConciliacao(lojaId, formaPagamentoId);
 
         OfxParser.Resultado parse = OfxParser.parse(conteudo);
         if (parse.transacoes().isEmpty()) {
@@ -102,6 +121,14 @@ public class OfxConciliacaoService {
                     ? conciliar(lojaId, t, tolerancia, receberUsadas, pagarUsadas)
                     : Match.pendente("Importação sem conciliação (conciliar=false)");
 
+            // CONCILIADO a receber → baixa real do título (linha em conta_receber_pagamento
+            // + movimento no caixa quando aberto). Falha não aborta o lote (D-017).
+            String observacao = match.observacao();
+            if (comConciliacao && match.status() == StatusConciliacao.CONCILIADO
+                    && match.contaReceberId() != null) {
+                observacao = aplicarBaixaConciliada(lojaId, match, t, formaConciliacao);
+            }
+
             ConciliacaoOfx entidade = ConciliacaoOfx.builder()
                     .lojaId(lojaId)
                     .fitId(t.fitId())
@@ -114,7 +141,7 @@ public class OfxConciliacaoService {
                     .contaReceberId(match.contaReceberId())
                     .contaPagarId(match.contaPagarId())
                     .diferencaValor(match.diferenca())
-                    .observacao(match.observacao())
+                    .observacao(limitarObservacao(observacao))
                     .build();
             entidade.normalizarValor();
             conciliacaoRepository.save(entidade);
@@ -166,6 +193,64 @@ public class OfxConciliacaoService {
             page = conciliacaoRepository.findByLojaId(lojaId, pageable);
         }
         return page.map(mapper::toResponse);
+    }
+
+    // ---------------------------------------------------------------------
+    // Baixa da conta conciliada (D-017)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Resolve a forma de pagamento das baixas originadas da conciliação: a do
+     * request quando informada (404 se não existir na loja — erro do operador,
+     * falha rápido), senão a forma PADRÃO da loja, senão null (baixa sem forma —
+     * o caixa trata como DINHEIRO; configurar um padrão evita isso). Nenhuma
+     * forma é inventada em código (R3).
+     */
+    private UUID resolverFormaConciliacao(UUID lojaId, UUID informada) {
+        if (informada != null) {
+            return formaPagamentoRepository.findByIdAndLojaId(informada, lojaId)
+                    .orElseThrow(() -> new EntityNotFoundException("Forma de pagamento não encontrada"))
+                    .getId();
+        }
+        return formaPagamentoRepository.findByLojaIdAndPadraoTrue(lojaId)
+                .map(FormaPagamento::getId)
+                .orElse(null);
+    }
+
+    /**
+     * Baixa o título conciliado pelo fluxo canônico (ContaReceberService.baixar):
+     * nasce a linha em conta_receber_pagamento com observação rastreável ao FITID
+     * e o movimento no caixa aberto. Qualquer regra violada (conta já paga, valor
+     * do extrato acima do saldo, conta cancelada no instante da baixa) é capturada:
+     * a linha OFX permanece CONCILIADO como evidência e a observação registra o
+     * motivo — uma conta fora do padrão nunca aborta a importação inteira.
+     */
+    private String aplicarBaixaConciliada(UUID lojaId, Match match,
+                                          OfxParser.Transacao t, UUID formaPagamentoId) {
+        String base = match.observacao() != null ? match.observacao() : "";
+        BigDecimal valor = t.valor().abs().setScale(2, RoundingMode.HALF_EVEN);
+        try {
+            contaReceberService.baixar(match.contaReceberId(), BaixaContaReceberRequest.builder()
+                    .valorPago(valor)
+                    .formaPagamentoId(formaPagamentoId)
+                    .observacao("Baixa via conciliação OFX (FITID " + t.fitId() + ")")
+                    .build());
+            log.info("OFX baixa aplicada loja={} conta={} pagamento extrato={} valor={}",
+                    lojaId, match.contaReceberId(), t.fitId(), valor);
+            return base + " — baixa registrada via conciliação (FITID " + t.fitId() + ")";
+        } catch (RuntimeException ex) {
+            log.warn("OFX baixa não aplicada loja={} conta={} fitid={} valor={} motivo={}",
+                    lojaId, match.contaReceberId(), t.fitId(), valor, ex.getMessage());
+            return base + " — baixa NÃO aplicada: " + ex.getMessage();
+        }
+    }
+
+    /** observacao tem VARCHAR(300) — trunca preservando o começo (evidência do match). */
+    private String limitarObservacao(String observacao) {
+        if (observacao == null || observacao.length() <= 300) {
+            return observacao;
+        }
+        return observacao.substring(0, 297) + "...";
     }
 
     // ---------------------------------------------------------------------

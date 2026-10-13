@@ -3,6 +3,8 @@ package com.visionbox.modules.financeiro.service;
 import com.visionbox.modules.financeiro.domain.ContaPagar;
 import com.visionbox.modules.financeiro.dto.ContaPagarRequest;
 import com.visionbox.modules.financeiro.dto.ContaPagarResponse;
+import com.visionbox.modules.financeiro.fornecedor.domain.Fornecedor;
+import com.visionbox.modules.financeiro.fornecedor.repository.FornecedorRepository;
 import com.visionbox.modules.financeiro.mapper.ContaPagarMapper;
 import com.visionbox.modules.financeiro.repository.ContaPagarRepository;
 import com.visionbox.shared.tenant.TenantContext;
@@ -27,12 +29,20 @@ public class ContaPagarService {
 
     private final ContaPagarRepository repository;
     private final ContaPagarMapper mapper;
+    private final FornecedorRepository fornecedorRepository;
 
     @Transactional
     public ContaPagarResponse criar(ContaPagarRequest req) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
-        if (req.getFornecedor() == null || req.getFornecedor().isBlank()) {
-            throw new IllegalArgumentException("fornecedor é obrigatório");
+        // V34 — aceita fornecedorId (cadastro) ou texto livre; nome denormalizado p/ DRE/compat
+        String fornecedorNome = req.getFornecedor() != null ? req.getFornecedor().trim() : null;
+        if (req.getFornecedorId() != null) {
+            Fornecedor forn = fornecedorRepository.findByIdAndLojaId(req.getFornecedorId(), lojaId)
+                    .orElseThrow(() -> new EntityNotFoundException("Fornecedor não encontrado"));
+            fornecedorNome = forn.getNome();
+        }
+        if (fornecedorNome == null || fornecedorNome.isBlank()) {
+            throw new IllegalArgumentException("fornecedor ou fornecedorId é obrigatório");
         }
         BigDecimal valor = req.getValor().setScale(2, RoundingMode.HALF_EVEN);
         if (valor.compareTo(BigDecimal.ZERO) <= 0) {
@@ -40,10 +50,17 @@ public class ContaPagarService {
         }
         LocalDate venc = LocalDate.parse(req.getVencimento());
         if (venc == null) throw new IllegalArgumentException("vencimento obrigatório");
+        // V34 — competência opcional; default = vencimento (regime p/ DRE)
+        LocalDate competencia = req.getDataCompetencia() != null && !req.getDataCompetencia().isBlank()
+                ? LocalDate.parse(req.getDataCompetencia())
+                : venc;
 
         ContaPagar entity = ContaPagar.builder()
                 .lojaId(lojaId)
-                .fornecedor(req.getFornecedor().trim())
+                .fornecedor(fornecedorNome)
+                .fornecedorId(req.getFornecedorId())
+                .dataCompetencia(competencia)
+                .comprovanteUrl(req.getComprovanteUrl())
                 .descricao(req.getDescricao())
                 .numeroDocumento(req.getNumeroDocumento())
                 .ordemServicoId(req.getOrdemServicoId())
@@ -56,7 +73,7 @@ public class ContaPagarService {
                 .build();
         entity.normalizarValor();
         entity = repository.save(entity);
-        log.info("ContaPagar criada loja={} id={} fornecedor={} valor={} venc={}", lojaId, entity.getId(), entity.getFornecedor(), valor, venc);
+        log.info("ContaPagar criada loja={} id={} fornecedor={} valor={} venc={} compet={}", lojaId, entity.getId(), fornecedorNome, valor, venc, competencia);
         return mapper.toResponse(entity);
     }
 

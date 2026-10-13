@@ -9,6 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 /**
  * OfxImportarRequest — corpo JSON do POST /api/v1/financeiro/ofx/importar.
  * <p>
@@ -31,4 +33,12 @@ public class OfxImportarRequest {
 
     /** false = importa somente (tudo PENDENTE). Default true. */
     private Boolean conciliar;
+
+    /**
+     * Forma de pagamento usada na BAIXA das contas a receber conciliadas (D-017).
+     * OFX não informa forma — se ausente, usa a forma PADRÃO da loja
+     * (forma_pagamento.padrao); sem padrão cadastrado, baixa sem forma
+     * (caixa trata como DINHEIRO — configurar um padrão evita o WARN).
+     */
+    private UUID formaPagamentoId;
 }

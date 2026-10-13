@@ -30,4 +30,8 @@ public class ContaPagarResponse {
     private boolean vencida;
     /** US13 — vínculo opcional com ordem de serviço (custo direto da OS). */
     private UUID ordemServicoId;
+    /** V34 — vínculo com cadastro de fornecedor, competência e comprovante (§3.3). */
+    private UUID fornecedorId;
+    private LocalDate dataCompetencia;
+    private String comprovanteUrl;
 }

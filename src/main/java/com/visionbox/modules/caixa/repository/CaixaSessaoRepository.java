@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,4 +21,17 @@ public interface CaixaSessaoRepository extends JpaRepository<CaixaSessao, UUID> 
     Optional<CaixaSessao> findSessaoAbertaAtual(@Param("lojaId") UUID lojaId);
 
     Page<CaixaSessao> findByLojaIdOrderByAbertoEmDesc(UUID lojaId, Pageable pageable);
+
+    /** Histórico de turnos (aberturas/fechamentos) por operador e/ou período — filtros opcionais. */
+    @Query("SELECT s FROM CaixaSessao s WHERE s.lojaId = :lojaId " +
+           "AND (cast(:usuarioId as string) IS NULL OR s.usuarioId = :usuarioId) " +
+           "AND (cast(:inicio as string) IS NULL OR s.abertoEm >= :inicio) " +
+           "AND (cast(:fim as string) IS NULL OR s.abertoEm < :fim) " +
+           "ORDER BY s.abertoEm DESC")
+    Page<CaixaSessao> buscarHistorico(
+            @Param("lojaId") UUID lojaId,
+            @Param("usuarioId") UUID usuarioId,
+            @Param("inicio") OffsetDateTime inicio,
+            @Param("fim") OffsetDateTime fim,
+            Pageable pageable);
 }

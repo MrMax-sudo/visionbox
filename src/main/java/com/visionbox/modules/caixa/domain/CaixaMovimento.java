@@ -32,6 +32,10 @@ public class CaixaMovimento {
         SANGRIA,
         VENDA_DINHEIRO,
         VENDA_OUTROS,
+        /** V34 — baixa de título recebida em dinheiro no caixa (entra na gaveta). */
+        ENTRADA,
+        /** V34 — baixa de título liquidando fiado em PIX/cartão/crediário (total entradas, sem gaveta). */
+        RECEBIMENTO_FIADO,
         ESTORNO,
         FECHAMENTO
     }

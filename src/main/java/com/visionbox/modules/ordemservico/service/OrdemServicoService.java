@@ -1,8 +1,17 @@
 package com.visionbox.modules.ordemservico.service;
 
+import com.visionbox.modules.catalogo.domain.Produto;
 import com.visionbox.modules.catalogo.repository.ProdutoRepository;
 import com.visionbox.modules.estoque.service.EstoqueService;
+import com.visionbox.modules.financeiro.comissao.dto.ApurarComissaoRequest;
+import com.visionbox.modules.financeiro.comissao.service.ComissaoService;
+import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento;
 import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
+import com.visionbox.modules.financeiro.maquininha.domain.MaquininhaCartao;
+import com.visionbox.modules.financeiro.maquininha.domain.TipoCartao;
+import com.visionbox.modules.financeiro.maquininha.dto.ResultadoMdr;
+import com.visionbox.modules.financeiro.maquininha.repository.MaquininhaCartaoRepository;
+import com.visionbox.modules.financeiro.maquininha.service.MdrCalculoService;
 import com.visionbox.modules.financeiro.service.ContaReceberService;
 import com.visionbox.modules.ordemservico.domain.EventoOS;
 import com.visionbox.modules.ordemservico.domain.OrdemServico;
@@ -54,6 +63,9 @@ public class OrdemServicoService {
     private final SlaMetrics slaMetrics;
     private final RastreioTokenService rastreioTokenService;
     private final com.visionbox.modules.seguranca.desconto.service.AutorizacaoDescontoService autorizacaoDescontoService;
+    private final MaquininhaCartaoRepository maquininhaRepository;
+    private final MdrCalculoService mdrCalculoService;
+    private final ComissaoService comissaoService;
 
     public OrdemServicoMapper getMapper() {
         return mapper;
@@ -73,7 +85,10 @@ public class OrdemServicoService {
                                @Autowired(required = false) ClienteRepository clienteRepository,
                                @Autowired(required = false) SlaMetrics slaMetrics,
                                @Autowired(required = false) RastreioTokenService rastreioTokenService,
-                               @Autowired(required = false) com.visionbox.modules.seguranca.desconto.service.AutorizacaoDescontoService autorizacaoDescontoService) {
+                               @Autowired(required = false) com.visionbox.modules.seguranca.desconto.service.AutorizacaoDescontoService autorizacaoDescontoService,
+                               @Autowired(required = false) MaquininhaCartaoRepository maquininhaRepository,
+                               @Autowired(required = false) MdrCalculoService mdrCalculoService,
+                               @Autowired(required = false) ComissaoService comissaoService) {
         this.registry = registry;
         this.repository = repository;
         this.mapper = mapper;
@@ -87,6 +102,9 @@ public class OrdemServicoService {
         this.slaMetrics = slaMetrics;
         this.rastreioTokenService = rastreioTokenService;
         this.autorizacaoDescontoService = autorizacaoDescontoService;
+        this.maquininhaRepository = maquininhaRepository;
+        this.mdrCalculoService = mdrCalculoService;
+        this.comissaoService = comissaoService;
     }
 
     // Construtor legado para testes unitarios (4 args) — mantem compatibilidade
@@ -94,7 +112,7 @@ public class OrdemServicoService {
                                OrdemServicoRepository repository,
                                OrdemServicoMapper mapper,
                                Clock clock) {
-        this(registry, repository, mapper, clock, null, null, null, null, null, null, null, null, null);
+        this(registry, repository, mapper, clock, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     @Transactional
@@ -222,16 +240,20 @@ public class OrdemServicoService {
             }
         }
 
-        // --- Pagamentos multi-forma (PDV novo fluxo: FinalizarVendaModal) ---
+        // --- Pagamentos multi-forma (PDV novo fluxo: FinalizarVendaModal) + MDR (§3.5) ---
         if (pagamentoRepository != null && req.getPagamentos() != null && !req.getPagamentos().isEmpty()) {
             for (OrdemServicoRequest.PagamentoRequest pg : req.getPagamentos()) {
                 if (pg.getFormaPagamentoId() == null || pg.getValor() == null) continue;
+                BigDecimal valorPg = pg.getValor().setScale(2, RoundingMode.HALF_EVEN);
+                FormaPagamento forma = null;
                 String formaNome = null;
                 if (formaPagamentoRepository != null) {
                     try {
-                        formaNome = formaPagamentoRepository.findByIdAndLojaId(pg.getFormaPagamentoId(), lojaId)
-                                .map(com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento::getNome)
-                                .orElse(null);
+                        var opt = formaPagamentoRepository.findByIdAndLojaId(pg.getFormaPagamentoId(), lojaId);
+                        if (opt.isPresent()) {
+                            forma = opt.get();
+                            formaNome = forma.getNome();
+                        }
                     } catch (Exception e) {
                         log.warn("Forma de pagamento {} não resolvida loja={} erro={}", pg.getFormaPagamentoId(), lojaId, e.getMessage());
                     }
@@ -240,11 +262,15 @@ public class OrdemServicoService {
                         .lojaId(lojaId)
                         .ordemServicoId(os.getId())
                         .formaPagamentoId(pg.getFormaPagamentoId())
-                        .valor(pg.getValor().setScale(2, RoundingMode.HALF_EVEN))
+                        .valor(valorPg)
                         .formaPagamentoNome(formaNome)
+                        .parcelas(parcelasEfetivas(forma, pg, lojaId))
                         .build();
+                aplicarMdr(osp, forma, pg, lojaId);
                 pagamentoRepository.save(osp);
-                log.info("Pagamento OS {} forma={} valor={}", os.getNumero(), formaNome != null ? formaNome : pg.getFormaPagamentoId(), pg.getValor());
+                log.info("Pagamento OS {} forma={} valor={} parcelas={} taxa={} liquido={}", os.getNumero(),
+                        formaNome != null ? formaNome : pg.getFormaPagamentoId(), valorPg,
+                        osp.getParcelas(), osp.getTaxaValor(), osp.getValorLiquido());
             }
         }
 
@@ -292,6 +318,47 @@ public class OrdemServicoService {
                 }
             } catch (Exception e) {
                 log.warn("Falha ao gerar ContaReceber para OS {}: {}", os.getNumero(), e.getMessage());
+            }
+        }
+
+        // --- Comissão automática (§3.6): apura na finalização da venda (PEDIDO_CONFIRMADO com pagamento).
+        // Síncrona com try/catch (padrão do repo — não há barramento de eventos no fluxo):
+        // falha NUNCA quebra a venda; WARN e segue. Idempotente por (venda, vendedor) no ComissaoService.
+        if (ehVendaConcluida && comissaoService != null) {
+            try {
+                BigDecimal valorTotalVenda = valorBruto;
+                if (req.getDesconto() != null && req.getDesconto().compareTo(BigDecimal.ZERO) > 0) {
+                    valorTotalVenda = valorTotalVenda.subtract(req.getDesconto()).max(BigDecimal.ZERO)
+                            .setScale(2, RoundingMode.HALF_EVEN);
+                }
+                if (valorTotalVenda.compareTo(BigDecimal.ZERO) > 0) {
+                    UUID vendedorId = null;
+                    var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                    if (auth != null && auth.getPrincipal() instanceof com.visionbox.modules.usuario.domain.Usuario u) {
+                        vendedorId = u.getId();
+                    }
+                    if (vendedorId == null) {
+                        log.warn("Comissão não apurada para OS {}: venda sem vendedor identificado no contexto de segurança", os.getNumero());
+                    } else {
+                        ApurarComissaoRequest apurReq = ApurarComissaoRequest.builder()
+                                .vendaId(os.getId())
+                                .vendaNumero(os.getNumero())
+                                .vendedorId(vendedorId)
+                                .valorTotal(valorTotalVenda)
+                                .itens(montarItensApuracao(lojaId, req.getItens(), valorTotalVenda))
+                                .build();
+                        UUID prev = TenantContext.getCurrentLojaId().orElse(null);
+                        try {
+                            TenantContext.setCurrentLojaId(lojaId);
+                            var lancamentos = comissaoService.apurar(apurReq);
+                            log.info("Comissão apurada OS={} vendedor={} lancamentos={}", os.getNumero(), vendedorId, lancamentos.size());
+                        } finally {
+                            if (prev == null) TenantContext.clear(); else TenantContext.setCurrentLojaId(prev);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Falha ao apurar comissão da OS {} (venda persistida): {}", os.getNumero(), e.getMessage());
             }
         }
 
@@ -349,6 +416,146 @@ public class OrdemServicoService {
         return calcularValorTotal(lojaId, armacaoId, lenteId, null);
     }
 
+    /**
+     * MDR (§3.5) sobre um pagamento da venda — nunca lança exceção (falha não pode quebrar a venda).
+     * Padrão de persistência (V37):
+     * <ul>
+     *   <li>não-cartão identificado (DINHEIRO/PIX/CREDIARIO): taxaValor = 0, valorLiquido = valor (isento);</li>
+     *   <li>cartão com maquininha resolvida: taxa/liquido de {@link MdrCalculoService} (HALF_EVEN 2 casas);</li>
+     *   <li>cartão sem maquininha (0 ou >1 ativas sem id no payload) ou falha: campos null — MDR pendente
+     *       para a conciliação posterior. Nunca chuta taxa (R3: dado comercial vem do cadastro da loja).</li>
+     * </ul>
+     */
+    private void aplicarMdr(OrdemServicoPagamento osp, FormaPagamento forma,
+                            OrdemServicoRequest.PagamentoRequest pg, UUID lojaId) {
+        boolean ehCartao = forma != null
+                && (forma.getTipo() == FormaPagamento.TipoFormaPagamento.DEBITO
+                    || forma.getTipo() == FormaPagamento.TipoFormaPagamento.CREDITO);
+        if (!ehCartao) {
+            if (forma != null) {
+                // forma não-cartão identificada: isenta de MDR — líquido conhecido
+                osp.setTaxaValor(BigDecimal.ZERO);
+                osp.setValorLiquido(osp.getValor());
+            }
+            // forma não resolvida: sem MDR (campos null)
+            return;
+        }
+        try {
+            MaquininhaCartao maquininha = resolverMaquininha(pg.getMaquininhaId(), lojaId);
+            if (maquininha == null) {
+                log.warn("MDR pendente: maquininha não resolvida loja={} forma={} valor={} — pagamento cartão sem taxa aplicada",
+                        lojaId, forma.getNome(), osp.getValor());
+                return;
+            }
+            TipoCartao tipo = forma.getTipo() == FormaPagamento.TipoFormaPagamento.DEBITO
+                    ? TipoCartao.DEBITO : TipoCartao.CREDITO;
+            // parcelas efetivas já resolvidas e persistidas (V40) — fonte única do cálculo
+            int parcelas = osp.getParcelas() != null ? osp.getParcelas() : 1;
+            ResultadoMdr mdr = mdrCalculoService.calcular(osp.getValor(), maquininha, tipo, parcelas);
+            osp.setTaxaValor(mdr.getTaxaValor());
+            osp.setValorLiquido(mdr.getValorLiquido());
+            osp.setMaquininhaId(mdr.getMaquininhaId());
+        } catch (Exception e) {
+            log.warn("Falha ao calcular MDR loja={} formaPagamento={} erro={} — pagamento persistido sem taxa (pendente)",
+                    lojaId, pg.getFormaPagamentoId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Parcelas efetivas do pagamento (§3.5), persistidas desde V40 (default 1).
+     * Mesma regra do cálculo MDR: crédito parcelável usa o payload do PDV; crédito
+     * sem {@code permiteParcelar} é clampado a 1 com WARN; débito/não-cartão = 1.
+     */
+    private int parcelasEfetivas(FormaPagamento forma, OrdemServicoRequest.PagamentoRequest pg, UUID lojaId) {
+        if (forma == null || forma.getTipo() != FormaPagamento.TipoFormaPagamento.CREDITO) return 1;
+        if (pg.getParcelas() == null || pg.getParcelas() <= 1) return 1;
+        if (!forma.isPermiteParcelar()) {
+            log.warn("Forma {} não permite parcelar: parcelas {} ajustadas para 1 loja={}",
+                    forma.getNome(), pg.getParcelas(), lojaId);
+            return 1;
+        }
+        return pg.getParcelas();
+    }
+
+    /**
+     * Vinculação maquininha↔pagamento (§3.5):
+     * <ol>
+     *   <li>id explícito no payload do PDV ({@code PagamentoRequest.maquininhaId}), validado por loja (R1);</li>
+     *   <li>senão, auto-resolve quando a loja tem exatamente uma maquininha ativa;</li>
+     *   <li>zero ou mais de uma ativa sem id explícito → null (MDR pendente) — nunca escolhe taxa no escuro.</li>
+     * </ol>
+     */
+    private MaquininhaCartao resolverMaquininha(UUID maquininhaId, UUID lojaId) {
+        if (maquininhaRepository == null || mdrCalculoService == null) return null;
+        try {
+            if (maquininhaId != null) {
+                return maquininhaRepository.findByIdAndLojaId(maquininhaId, lojaId).orElse(null);
+            }
+            List<MaquininhaCartao> ativas = maquininhaRepository.findByLojaIdAndAtivoTrue(lojaId);
+            if (ativas.size() == 1) return ativas.get(0);
+            log.warn("MDR pendente: loja={} tem {} maquininha(s) ativa(s) e pagamento sem maquininhaId",
+                    lojaId, ativas.size());
+            return null;
+        } catch (Exception e) {
+            log.warn("Falha ao resolver maquininha loja={} erro={}", lojaId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Itens de apuração de comissão (§3.6): categoria + subtotal por item, com o desconto
+     * rateado proporcionalmente (fator liquido/bruto) para que a soma das bases nunca exceda
+     * o valorTotal — evita rejeição da validação de {@code ComissaoService.apurar} em vendas
+     * com desconto. O último item absorve o arredondamento.
+     * Sem itens resolvidos devolve null: apurar() aplica só a regra GERAL sobre o total.
+     */
+    private List<ApurarComissaoRequest.ItemApuracao> montarItensApuracao(UUID lojaId,
+                                                                         List<OrdemServicoRequest.ItemRequest> itens,
+                                                                         BigDecimal valorTotalVenda) {
+        if (produtoRepository == null || itens == null || itens.isEmpty()) return null;
+        try {
+            List<ApurarComissaoRequest.ItemApuracao> apuracao = new ArrayList<>();
+            BigDecimal bruto = BigDecimal.ZERO;
+            for (OrdemServicoRequest.ItemRequest it : itens) {
+                Produto p = null;
+                if (it.getProdutoId() != null) {
+                    p = produtoRepository.findByIdAndLojaId(it.getProdutoId(), lojaId).orElse(null);
+                }
+                if (p == null && it.getSku() != null && !it.getSku().isBlank()) {
+                    p = produtoRepository.findBySkuAndLojaId(it.getSku(), lojaId).orElse(null);
+                }
+                if (p == null || p.getPrecoVenda() == null || p.getCategoria() == null) continue;
+                int qtd = it.getQuantidade() != null && it.getQuantidade() > 0 ? it.getQuantidade() : 1;
+                BigDecimal subtotal = p.getPrecoVenda().multiply(BigDecimal.valueOf(qtd))
+                        .setScale(2, RoundingMode.HALF_EVEN);
+                if (subtotal.compareTo(BigDecimal.ZERO) <= 0) continue;
+                apuracao.add(new ApurarComissaoRequest.ItemApuracao(p.getCategoria(), subtotal));
+                bruto = bruto.add(subtotal);
+            }
+            if (apuracao.isEmpty() || bruto.compareTo(BigDecimal.ZERO) <= 0) return null;
+            BigDecimal liquido = valorTotalVenda.min(bruto).setScale(2, RoundingMode.HALF_EVEN);
+            if (liquido.compareTo(bruto) >= 0) return apuracao; // sem desconto efetivo
+            BigDecimal fator = liquido.divide(bruto, 6, RoundingMode.HALF_EVEN);
+            BigDecimal acumulado = BigDecimal.ZERO;
+            for (int i = 0; i < apuracao.size(); i++) {
+                ApurarComissaoRequest.ItemApuracao item = apuracao.get(i);
+                if (i == apuracao.size() - 1) {
+                    item.setSubtotal(liquido.subtract(acumulado).max(BigDecimal.ZERO)); // absorve arredondamento
+                } else {
+                    BigDecimal novo = item.getSubtotal().multiply(fator).setScale(2, RoundingMode.HALF_EVEN);
+                    acumulado = acumulado.add(novo);
+                    item.setSubtotal(novo);
+                }
+            }
+            return apuracao;
+        } catch (Exception e) {
+            log.warn("Falha ao montar itens de apuração de comissão loja={} erro={} — degradando para regra GERAL",
+                    lojaId, e.getMessage());
+            return null;
+        }
+    }
+
+
     @Transactional(readOnly = true)
     public Page<OrdemServicoResponse> listar(String status, Pageable pageable) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
@@ -380,6 +587,7 @@ public class OrdemServicoService {
 
     private OrdemServicoResponse enriquecer(OrdemServicoResponse resp, UUID lojaId) {
         if (resp == null) return null;
+        anexarPagamentos(List.of(resp), lojaId);
         if (rastreioTokenService != null && resp.getId() != null && lojaId != null) {
             try {
                 resp.setTokenRastreio(rastreioTokenService.gerar(lojaId, resp.getId()));
@@ -400,7 +608,10 @@ public class OrdemServicoService {
     }
 
     private Page<OrdemServicoResponse> enriquecerPagina(Page<OrdemServicoResponse> page, UUID lojaId) {
-        if (clienteRepository == null || page.getContent().isEmpty()) return page;
+        if (page.getContent().isEmpty()) return page;
+        // pagamentos da página em UMA query (lote por ids de OS — N+1 proibido)
+        anexarPagamentos(page.getContent(), lojaId);
+        if (clienteRepository == null) return page;
         try {
             Set<UUID> ids = page.getContent().stream()
                     .map(OrdemServicoResponse::getClienteId)
@@ -420,6 +631,72 @@ public class OrdemServicoService {
             log.warn("Falha ao enriquecer clientes da listagem de OS: {}", e.getMessage());
         }
         return page;
+    }
+
+    /**
+     * Anexa os pagamentos (§3.5) às respostas de OS em LOTE — uma única query de
+     * pagamento por chamada ({@code findAllByLojaIdAndOrdemServicoIdIn}) para 1 ou N
+     * OS (single e página), nunca por OS (N+1 proibido). {@code formaPagamentoNome}
+     * usa o snapshot da linha (V26, usado no relatório de caixa); snapshot ausente é
+     * resolvido em lote por {@code formaPagamentoId} (R1 — escopo por loja).
+     * Falha degrada para lista vazia com WARN (enriquecimento não quebra leitura).
+     */
+    private void anexarPagamentos(List<OrdemServicoResponse> resps, UUID lojaId) {
+        if (pagamentoRepository == null || resps == null || resps.isEmpty() || lojaId == null) return;
+        try {
+            List<UUID> osIds = resps.stream()
+                    .map(OrdemServicoResponse::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (osIds.isEmpty()) return;
+            Map<UUID, List<OrdemServicoPagamento>> porOs = pagamentoRepository
+                    .findAllByLojaIdAndOrdemServicoIdIn(lojaId, osIds).stream()
+                    .collect(Collectors.groupingBy(OrdemServicoPagamento::getOrdemServicoId));
+            // nomes faltantes (snapshot V26 nulo) resolvidos em UMA query por forma_pagamento_id
+            Set<UUID> formasSemNome = porOs.values().stream()
+                    .flatMap(List::stream)
+                    .filter(p -> (p.getFormaPagamentoNome() == null || p.getFormaPagamentoNome().isBlank())
+                            && p.getFormaPagamentoId() != null)
+                    .map(OrdemServicoPagamento::getFormaPagamentoId)
+                    .collect(Collectors.toSet());
+            Map<UUID, String> nomes = resolverNomesFormas(lojaId, formasSemNome);
+            for (OrdemServicoResponse resp : resps) {
+                List<OrdemServicoPagamento> pags = resp.getId() != null ? porOs.get(resp.getId()) : null;
+                resp.setPagamentos(pags == null
+                        ? List.of()
+                        : pags.stream().map(p -> toPagamentoResponse(p, nomes)).toList());
+            }
+        } catch (Exception e) {
+            log.warn("Falha ao anexar pagamentos à resposta de OS loja={}: {}", lojaId, e.getMessage());
+            resps.forEach(r -> r.setPagamentos(List.of()));
+        }
+    }
+
+    private Map<UUID, String> resolverNomesFormas(UUID lojaId, Set<UUID> formasIds) {
+        if (formasIds.isEmpty() || formaPagamentoRepository == null) return Map.of();
+        try {
+            return formaPagamentoRepository.findByLojaIdAndIdIn(lojaId, formasIds).stream()
+                    .collect(Collectors.toMap(FormaPagamento::getId, f -> f.getNome() != null ? f.getNome() : ""));
+        } catch (Exception e) {
+            log.warn("Falha ao resolver nomes de formas de pagamento em lote loja={}: {}", lojaId, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private OrdemServicoResponse.PagamentoResponse toPagamentoResponse(OrdemServicoPagamento p, Map<UUID, String> nomes) {
+        String nome = p.getFormaPagamentoNome() != null && !p.getFormaPagamentoNome().isBlank()
+                ? p.getFormaPagamentoNome()
+                : nomes.get(p.getFormaPagamentoId());
+        return OrdemServicoResponse.PagamentoResponse.builder()
+                .id(p.getId())
+                .formaPagamentoId(p.getFormaPagamentoId())
+                .formaPagamentoNome(nome)
+                .valor(p.getValor())
+                .taxaValor(p.getTaxaValor())      // null = MDR pendente (V37 tri-state)
+                .valorLiquido(p.getValorLiquido()) // null = MDR pendente
+                .maquininhaId(p.getMaquininhaId())  // null = MDR não aplicado
+                .parcelas(p.getParcelas() != null ? p.getParcelas() : 1) // default 1 (V40)
+                .build();
     }
 
     // método legado usado por testes unitários: avancar(lojaId, id, novo, responsavel, obs)
@@ -498,7 +775,31 @@ public class OrdemServicoService {
             }
         }
 
+        // --- Estorno de comissoes PENDENTES no cancelamento (follow-up D-017):
+        // a venda cancelada não pode deixar lançamento PENDENTE órfão. Falha NUNCA
+        // quebra a transição de status (try/catch WARN, mesmo padrão do estoque). ---
+        if (novoStatus == StatusOS.CANCELADO) {
+            safeCancelarComissao(lojaId, saved.getId(),
+                    observacao != null && !observacao.isBlank() ? observacao : "OS " + saved.getNumero() + " cancelada");
+        }
+
         return saved;
+    }
+
+    /**
+     * Estorna as comissões PENDENTES da venda (venda_id = OS id) no cancelamento —
+     * idempotente (segunda chamada não encontra PENDENTE). Falha é só WARN:
+     * o cancelamento da OS NUNCA é bloqueado por comissão (follow-up D-017).
+     */
+    private void safeCancelarComissao(UUID lojaId, UUID vendaId, String motivo) {
+        if (comissaoService == null || vendaId == null) return;
+        try {
+            int estornadas = comissaoService.cancelarPorVenda(lojaId, vendaId, motivo);
+            log.info("Comissões estornadas no cancelamento loja={} os/venda={} quantidade={}", lojaId, vendaId, estornadas);
+        } catch (Exception e) {
+            log.warn("Falha ao estornar comissões da OS/venda {} loja={} (cancelamento prossegue): {}",
+                    vendaId, lojaId, e.getMessage());
+        }
     }
 
     private void safeBaixarAoEntregue(UUID lojaId, UUID produtoId) {

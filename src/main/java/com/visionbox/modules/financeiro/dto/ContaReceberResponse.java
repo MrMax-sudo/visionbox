@@ -22,6 +22,8 @@ public class ContaReceberResponse {
     private String numeroDocumento;
     private BigDecimal valor;
     private BigDecimal valorPago;
+    /** V34 — valor em aberto (derivado: valor - valor_pago). */
+    private BigDecimal valorAberto;
     private BigDecimal saldo;
     private LocalDate vencimento;
     private OffsetDateTime dataPagamento;

@@ -11,6 +11,7 @@ public interface OrdemServicoMapper {
 
     @Mapping(target = "status", expression = "java(entity.getStatus()!=null?entity.getStatus().name():null)")
     @Mapping(target = "historico", expression = "java(toHistorico(entity))")
+    @Mapping(target = "pagamentos", ignore = true) // anexado em lote pelo OrdemServicoService (sem N+1)
     OrdemServicoResponse toResponse(OrdemServico entity);
 
     default java.util.List<OrdemServicoResponse.EventoOSResponse> toHistorico(OrdemServico entity) {

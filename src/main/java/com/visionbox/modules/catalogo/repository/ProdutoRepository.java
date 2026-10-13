@@ -16,6 +16,9 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
     Optional<Produto> findBySkuAndLojaId(String sku, UUID lojaId);
 
+    /** De-para da importação de XML NF-e: casa item por EAN/código de barras (R1: sempre com loja). */
+    Optional<Produto> findByCodigoBarrasAndLojaId(String codigoBarras, UUID lojaId);
+
     boolean existsBySkuAndLojaId(String sku, UUID lojaId);
 
     boolean existsByCodigoBarrasAndLojaId(String codigoBarras, UUID lojaId);

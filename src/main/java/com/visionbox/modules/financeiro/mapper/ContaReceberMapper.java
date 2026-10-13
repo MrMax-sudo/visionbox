@@ -19,6 +19,8 @@ public interface ContaReceberMapper {
                 .numeroDocumento(e.getNumeroDocumento())
                 .valor(e.getValor())
                 .valorPago(e.getValorPago())
+                // V34: valorAberto vem da coluna generated; fallback calculado em entidade não persistida (testes)
+                .valorAberto(e.getValorAberto() != null ? e.getValorAberto() : e.getSaldo())
                 .saldo(e.getSaldo())
                 .vencimento(e.getVencimento())
                 .dataPagamento(e.getDataPagamento())

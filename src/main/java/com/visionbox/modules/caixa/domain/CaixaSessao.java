@@ -71,6 +71,10 @@ public class CaixaSessao extends EntidadeBase {
     @Column(name = "saldo_informado_fechamento", precision = 12, scale = 2)
     private BigDecimal saldoInformadoFechamento;
 
+    /** Conferência cega: valor apurado pelo sistema, congelado no fechamento (V33). */
+    @Column(name = "valor_fechamento_sistema", precision = 12, scale = 2)
+    private BigDecimal valorFechamentoSistema;
+
     @Column(name = "diferenca_fechamento", precision = 12, scale = 2)
     private BigDecimal diferencaFechamento;
 

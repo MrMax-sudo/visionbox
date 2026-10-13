@@ -35,6 +35,18 @@ public class ContaPagar extends EntidadeBase {
     @Column(name = "fornecedor", length = 200, nullable = false)
     private String fornecedor;
 
+    /** V34 — vínculo opcional com cadastro de Fornecedor (§3.3). Nome denormalizado em "fornecedor" p/ DRE. */
+    @Column(name = "fornecedor_id")
+    private UUID fornecedorId;
+
+    /** V34 — data de competência (regime de competência para DRE). Vencimento continua em "vencimento". */
+    @Column(name = "data_competencia")
+    private LocalDate dataCompetencia;
+
+    /** V34 — chave/URL do comprovante de pagamento digitalizado (S3/MinIO). */
+    @Column(name = "comprovante_url", length = 500)
+    private String comprovanteUrl;
+
     /** Vínculo opcional com OS (custo direto da OS) — V29 / DRE por OS. */
     @Column(name = "ordem_servico_id")
     private UUID ordemServicoId;

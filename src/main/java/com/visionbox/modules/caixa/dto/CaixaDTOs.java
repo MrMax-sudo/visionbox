@@ -3,6 +3,7 @@ package com.visionbox.modules.caixa.dto;
 import com.visionbox.modules.caixa.domain.CaixaMovimento;
 import com.visionbox.modules.caixa.domain.CaixaSessao;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -31,6 +32,47 @@ public class CaixaDTOs {
             String observacao
     ) {}
 
+    /**
+     * Sangria (retirada) ou Suprimento (aporte) de gaveta — Fase 2 Plano de Robustez.
+     * Motivo e valor são obrigatórios (auditoria de movimentações de gaveta).
+     */
+    public record SangriaSuprimentoRequest(
+            @NotNull @DecimalMin(value = "0.01") BigDecimal valor,
+            @NotBlank String motivo,
+            String formaPagamento,
+            String usuarioNome
+    ) {}
+
+    /** Resumo por modalidade de pagamento vindas das vendas (formas de pagamento do banco). */
+    public record ResumoModalidadeDTO(
+            UUID formaPagamentoId,
+            String nome,
+            BigDecimal total
+    ) {}
+
+    /** Relatório consolidado de fechamento de turno — JSON base para cupom térmico 80mm. */
+    public record RelatorioFechamentoDTO(
+            UUID sessaoId,
+            String identificacaoCaixa,
+            String operadorNome,
+            CaixaSessao.StatusCaixa status,
+            OffsetDateTime abertoEm,
+            OffsetDateTime fechadoEm,
+            BigDecimal saldoInicial,
+            BigDecimal totalEntradas,
+            BigDecimal totalSaidas,
+            BigDecimal valorFechamentoSistema,
+            BigDecimal valorFechamentoInformado,
+            BigDecimal diferencaFechamento,
+            String classificacaoDiferenca,
+            String observacaoFechamento,
+            BigDecimal totalVendas,
+            BigDecimal totalSangrias,
+            BigDecimal totalSuprimentos,
+            List<ResumoModalidadeDTO> resumoPorModalidade,
+            List<CaixaMovimentoDTO> movimentos
+    ) {}
+
     public record CaixaMovimentoDTO(
             UUID id,
             CaixaMovimento.TipoMovimento tipo,
@@ -55,7 +97,9 @@ public class CaixaDTOs {
             BigDecimal totalSaidas,
             BigDecimal saldoEsperado,
             BigDecimal saldoInformadoFechamento,
+            BigDecimal valorFechamentoSistema,
             BigDecimal diferencaFechamento,
+            String classificacaoDiferenca,
             String observacaoFechamento,
             List<CaixaMovimentoDTO> movimentos
     ) {}

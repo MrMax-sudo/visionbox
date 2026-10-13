@@ -38,5 +38,15 @@ public class OrdemServicoRequest {
     public static class PagamentoRequest {
         private UUID formaPagamentoId;
         private java.math.BigDecimal valor;
+
+        /**
+         * Maquininha que processou o cartão (§3.5) — opcional.
+         * Ausente: auto-resolve quando a loja tem exatamente uma maquininha ativa;
+         * com 0 ou >1 ativas, o pagamento fica com MDR pendente (taxa/liquido null).
+         */
+        private UUID maquininhaId;
+
+        /** Parcelas do crédito (§3.5): faixa 1x / 2-6x / 7-12x. Débito ignora (sempre 1). */
+        private Integer parcelas;
     }
 }

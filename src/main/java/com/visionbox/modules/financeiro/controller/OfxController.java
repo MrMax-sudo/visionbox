@@ -16,6 +16,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * OfxController — US13 conciliação OFX.
@@ -49,8 +50,9 @@ public class OfxController {
     })
     public ResponseEntity<OfxImportarResponse> importarTexto(@RequestBody String conteudo,
                                                              @RequestParam(required = false) Integer toleranciaDias,
-                                                             @RequestParam(required = false) Boolean conciliar) {
-        OfxImportarResponse response = service.importarConteudo(conteudo, toleranciaDias, conciliar);
+                                                             @RequestParam(required = false) Boolean conciliar,
+                                                             @RequestParam(required = false) UUID formaPagamentoId) {
+        OfxImportarResponse response = service.importarConteudo(conteudo, toleranciaDias, conciliar, formaPagamentoId);
         return ResponseEntity.ok(response);
     }
 

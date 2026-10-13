@@ -44,4 +44,23 @@ public interface ContaPagarRepository extends JpaRepository<ContaPagar, UUID> {
 
     @Query("select coalesce(sum(c.valor), 0) from ContaPagar c where c.lojaId = :lojaId and c.status in ('PAGO','PENDENTE','PARCIAL','VENCIDO')")
     BigDecimal sumCustoTotal(@Param("lojaId") UUID lojaId);
+
+    /**
+     * §3.3 métricas do hub (V41) — soma o SALDO EM ABERTO (valor - valor_pago; conta_pagar
+     * não tem coluna generated) das contas a pagar com vencimento no período. Exclui
+     * CANCELADO; PAGO entra com aberto=0. R1: escopo loja_id. SUM no banco.
+     */
+    @Query("select coalesce(sum(coalesce(c.valor, 0) - coalesce(c.valorPago, 0)), 0) from ContaPagar c "
+            + "where c.lojaId = :lojaId and c.status <> 'CANCELADO' and c.vencimento between :inicio and :fim")
+    BigDecimal sumSaldoAbertoByLojaIdAndVencimentoBetween(@Param("lojaId") UUID lojaId,
+                                                           @Param("inicio") LocalDate inicio,
+                                                           @Param("fim") LocalDate fim);
+
+    /**
+     * §3.3 métricas (V41) — soma o saldo em aberto das contas a pagar vencidas até
+     * {@code hoje} (vencimento estritamente anterior). Exclui CANCELADO. R1: escopo loja_id.
+     */
+    @Query("select coalesce(sum(coalesce(c.valor, 0) - coalesce(c.valorPago, 0)), 0) from ContaPagar c "
+            + "where c.lojaId = :lojaId and c.status <> 'CANCELADO' and c.vencimento < :hoje")
+    BigDecimal sumSaldoAbertoVencidosAte(@Param("lojaId") UUID lojaId, @Param("hoje") LocalDate hoje);
 }

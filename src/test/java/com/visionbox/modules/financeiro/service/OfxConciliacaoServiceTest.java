@@ -5,14 +5,19 @@ import com.visionbox.modules.financeiro.domain.ConciliacaoOfx.StatusConciliacao;
 import com.visionbox.modules.financeiro.domain.ConciliacaoOfx.TipoContaConciliacao;
 import com.visionbox.modules.financeiro.domain.ContaPagar;
 import com.visionbox.modules.financeiro.domain.ContaReceber;
+import com.visionbox.modules.financeiro.dto.BaixaContaReceberRequest;
 import com.visionbox.modules.financeiro.dto.OfxImportarRequest;
 import com.visionbox.modules.financeiro.dto.OfxImportarResponse;
+import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento;
+import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento.TipoFormaPagamento;
+import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
 import com.visionbox.modules.financeiro.mapper.ConciliacaoOfxMapper;
 import com.visionbox.modules.financeiro.repository.ConciliacaoOfxRepository;
 import com.visionbox.modules.financeiro.repository.ContaPagarRepository;
 import com.visionbox.modules.financeiro.repository.ContaReceberRepository;
 import com.visionbox.shared.error.BusinessException;
 import com.visionbox.shared.tenant.TenantContext;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,17 +26,21 @@ import org.mockito.ArgumentCaptor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
  * OfxConciliacaoServiceTest — US13: match por valor+data (tolerância),
  * divergência, dedup por FITID, escopo por loja e direção receber/pagar.
+ * Fase 3 (D-017): CONCILIADO a receber baixa o título via ContaReceberService
+ * (linha em conta_receber_pagamento + movimento no caixa) sem quebrar o lote.
  */
 class OfxConciliacaoServiceTest {
 
@@ -41,6 +50,8 @@ class OfxConciliacaoServiceTest {
     private ContaReceberRepository contaReceberRepository;
     private ContaPagarRepository contaPagarRepository;
     private ConciliacaoOfxMapper mapper;
+    private FormaPagamentoRepository formaPagamentoRepository;
+    private ContaReceberService contaReceberService;
     private OfxConciliacaoService service;
 
     @BeforeEach
@@ -49,7 +60,10 @@ class OfxConciliacaoServiceTest {
         contaReceberRepository = mock(ContaReceberRepository.class);
         contaPagarRepository = mock(ContaPagarRepository.class);
         mapper = mock(ConciliacaoOfxMapper.class);
-        service = new OfxConciliacaoService(conciliacaoRepository, contaReceberRepository, contaPagarRepository, mapper);
+        formaPagamentoRepository = mock(FormaPagamentoRepository.class);
+        contaReceberService = mock(ContaReceberService.class);
+        service = new OfxConciliacaoService(conciliacaoRepository, contaReceberRepository,
+                contaPagarRepository, mapper, formaPagamentoRepository, contaReceberService);
         TenantContext.setCurrentLojaId(LOJA);
 
         when(conciliacaoRepository.findIdsContaReceberConciliadas(LOJA, StatusConciliacao.CONCILIADO))
@@ -63,6 +77,8 @@ class OfxConciliacaoServiceTest {
             }
             return c;
         });
+        // por padrão: loja sem forma padrão → baixa da conciliação sem forma (D-017)
+        when(formaPagamentoRepository.findByLojaIdAndPadraoTrue(LOJA)).thenReturn(Optional.empty());
     }
 
     @AfterEach
@@ -191,6 +207,8 @@ class OfxConciliacaoServiceTest {
         assertThat(salva.getTipoConta()).isEqualTo(TipoContaConciliacao.PAGAR);
         assertThat(salva.getContaPagarId()).isEqualTo(p1);
         assertThat(salva.getContaReceberId()).isNull();
+        // débito conciliado é evidência — NÃO baixa conta a receber
+        verify(contaReceberService, never()).baixar(any(UUID.class), any(BaixaContaReceberRequest.class));
     }
 
     @Test
@@ -256,6 +274,124 @@ class OfxConciliacaoServiceTest {
         ArgumentCaptor<ConciliacaoOfx> captor = ArgumentCaptor.forClass(ConciliacaoOfx.class);
         verify(conciliacaoRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    @Test
+    void conciliadoReceber_baixaTituloPeloFluxoDeBaixa_comFitIdRastreavel() {
+        UUID r1 = UUID.randomUUID();
+        when(contaReceberRepository.findByLojaIdAndValorAndStatusNot(
+                LOJA, new BigDecimal("100.00"), ContaReceber.StatusConta.CANCELADO))
+                .thenReturn(List.of(contaReceber(r1, "100.00", LocalDate.of(2026, 10, 5),
+                        ContaReceber.StatusConta.PENDENTE)));
+
+        OfxImportarResponse resp = service.importarConteudo(ofxCredito("100.00", "20261005", "F11"), 3, null);
+
+        // a linha de conta_receber_pagamento nasce DENTRO de baixar (mock aqui);
+        // status PAGO/PARCIAL é garantido pelo fluxo canônico (ContaReceberServiceBaixaTest)
+        verify(contaReceberService).baixar(eq(r1), argThat((BaixaContaReceberRequest req) ->
+                req.getValorPago().compareTo(new BigDecimal("100.00")) == 0
+                        && req.getFormaPagamentoId() == null
+                        && req.getObservacao() != null && req.getObservacao().contains("F11")));
+        assertThat(resp.getConciliados()).isEqualTo(1);
+        assertThat(capturarLinhaSalva().getObservacao()).contains("baixa registrada");
+    }
+
+    @Test
+    void conciliadoReceber_usaFormaPadraoDaLoja_quandoRequestNaoInforma() {
+        UUID r1 = UUID.randomUUID();
+        FormaPagamento padrao = forma(TipoFormaPagamento.PIX, true);
+        when(contaReceberRepository.findByLojaIdAndValorAndStatusNot(
+                LOJA, new BigDecimal("100.00"), ContaReceber.StatusConta.CANCELADO))
+                .thenReturn(List.of(contaReceber(r1, "100.00", LocalDate.of(2026, 10, 5),
+                        ContaReceber.StatusConta.PENDENTE)));
+        when(formaPagamentoRepository.findByLojaIdAndPadraoTrue(LOJA)).thenReturn(Optional.of(padrao));
+
+        service.importarConteudo(ofxCredito("100.00", "20261005", "F12"), 3, null);
+
+        verify(contaReceberService).baixar(eq(r1), argThat((BaixaContaReceberRequest req) ->
+                padrao.getId().equals(req.getFormaPagamentoId())));
+    }
+
+    @Test
+    void conciliadoReceber_formaDoRequestTemPrecedenciaSobrePadrao() {
+        UUID r1 = UUID.randomUUID();
+        FormaPagamento informada = forma(TipoFormaPagamento.CREDITO, false);
+        when(contaReceberRepository.findByLojaIdAndValorAndStatusNot(
+                LOJA, new BigDecimal("100.00"), ContaReceber.StatusConta.CANCELADO))
+                .thenReturn(List.of(contaReceber(r1, "100.00", LocalDate.of(2026, 10, 5),
+                        ContaReceber.StatusConta.PENDENTE)));
+        when(formaPagamentoRepository.findByIdAndLojaId(informada.getId(), LOJA))
+                .thenReturn(Optional.of(informada));
+
+        OfxImportarRequest req = OfxImportarRequest.builder()
+                .conteudo(ofxCredito("100.00", "20261005", "F13"))
+                .formaPagamentoId(informada.getId())
+                .build();
+        service.importar(req);
+
+        verify(contaReceberService).baixar(eq(r1), argThat((BaixaContaReceberRequest b) ->
+                informada.getId().equals(b.getFormaPagamentoId())));
+    }
+
+    @Test
+    void formaDoRequestInexistente_falhaImportacaoSemGravarNada() {
+        UUID formaInexistente = UUID.randomUUID();
+        when(formaPagamentoRepository.findByIdAndLojaId(formaInexistente, LOJA))
+                .thenReturn(Optional.empty());
+
+        OfxImportarRequest req = OfxImportarRequest.builder()
+                .conteudo(ofxCredito("100.00", "20261005", "F14"))
+                .formaPagamentoId(formaInexistente)
+                .build();
+
+        assertThatThrownBy(() -> service.importar(req))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Forma de pagamento");
+        verify(conciliacaoRepository, never()).save(any(ConciliacaoOfx.class));
+        verify(contaReceberService, never()).baixar(any(UUID.class), any(BaixaContaReceberRequest.class));
+    }
+
+    @Test
+    void baixaDaConciliacaoFalha_linhaPermaneceConciliada_contagensPreservadas() {
+        UUID r1 = UUID.randomUUID();
+        when(contaReceberRepository.findByLojaIdAndValorAndStatusNot(
+                LOJA, new BigDecimal("100.00"), ContaReceber.StatusConta.CANCELADO))
+                .thenReturn(List.of(contaReceber(r1, "100.00", LocalDate.of(2026, 10, 5),
+                        ContaReceber.StatusConta.PENDENTE)));
+        when(contaReceberService.baixar(eq(r1), any(BaixaContaReceberRequest.class)))
+                .thenThrow(new IllegalStateException("Conta já está totalmente paga"));
+
+        OfxImportarResponse resp = service.importarConteudo(ofxCredito("100.00", "20261005", "F15"), 3, null);
+
+        // contagem do relatório inalterada; motivo da não-baixa fica na observação
+        assertThat(resp.getConciliados()).isEqualTo(1);
+        assertThat(resp.getImportados()).isEqualTo(1);
+        ConciliacaoOfx salva = capturarLinhaSalva();
+        assertThat(salva.getStatus()).isEqualTo(StatusConciliacao.CONCILIADO);
+        assertThat(salva.getObservacao()).contains("NÃO aplicada");
+    }
+
+    @Test
+    void conciliarFalse_nuncaChamaBaixa() {
+        UUID r1 = UUID.randomUUID();
+        when(contaReceberRepository.findByLojaIdAndValorAndStatusNot(
+                any(UUID.class), any(BigDecimal.class), any(ContaReceber.StatusConta.class)))
+                .thenReturn(List.of());
+
+        service.importarConteudo(ofxCredito("100.00", "20261002", "F16"), 3, false);
+
+        verify(contaReceberService, never()).baixar(any(UUID.class), any(BaixaContaReceberRequest.class));
+    }
+
+    private FormaPagamento forma(TipoFormaPagamento tipo, boolean padrao) {
+        return FormaPagamento.builder()
+                .id(UUID.randomUUID())
+                .lojaId(LOJA)
+                .nome(tipo.name())
+                .tipo(tipo)
+                .ativo(true)
+                .padrao(padrao)
+                .build();
     }
 
     private String ofxCredito(String valor, String dtPosted, String fitId) {

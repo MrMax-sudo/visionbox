@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ public class OrdemServicoResponse {
     private boolean alertaAtrasoDisparado;
     private String tokenRastreio;
     private List<EventoOSResponse> historico;
+    private List<PagamentoResponse> pagamentos;
     private OffsetDateTime criadoEm;
     private OffsetDateTime atualizadoEm;
 
@@ -38,5 +40,23 @@ public class OrdemServicoResponse {
         private OffsetDateTime dataHora;
         private String responsavel;
         private String observacao;
+    }
+
+    /**
+     * Pagamento da OS (§3.5) — contrato consumido pelo front (OSDetail/PDV):
+     * taxaValor/valorLiquido são null quando o MDR está pendente (V37 tri-state,
+     * front trata com {@code valorLiquido ?? valor}); maquininhaId null quando o
+     * MDR não foi aplicado; parcelas 1 = à vista (V40).
+     */
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class PagamentoResponse {
+        private UUID id;
+        private UUID formaPagamentoId;
+        private String formaPagamentoNome;
+        private BigDecimal valor;
+        private BigDecimal taxaValor;
+        private BigDecimal valorLiquido;
+        private UUID maquininhaId;
+        private Integer parcelas;
     }
 }
