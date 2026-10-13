@@ -80,7 +80,6 @@ function detalhes(fp: FormaPagamentoDTO): string {
   if ((fp.taxaPercentual ?? 0) > 0) partes.push(`Taxa ${fp.taxaPercentual}%`);
   if ((fp.prazoDias ?? 0) > 0) partes.push(`Recebimento em ${fp.prazoDias}d`);
   if (fp.permiteParcelar) partes.push(`Até ${fp.maxParcelas ?? 1}x`);
-  if (fp.tPagNfce) partes.push(`tPag ${fp.tPagNfce}`);
   return partes.length > 0 ? partes.join(' · ') : 'Sem taxas ou prazos';
 }
 
@@ -355,7 +354,7 @@ function FormaPagamentoDialog({
       title={editando ? 'Editar forma de pagamento' : 'Nova forma de pagamento'}
       description={
         editando
-          ? 'Atualize taxas, prazos e código NFC-e (tPag).'
+          ? 'Atualize taxas, prazos e opções de parcelamento.'
           : 'Cadastre uma nova forma aceita no PDV.'
       }
       className="max-w-[520px]"
@@ -401,7 +400,7 @@ function FormaPagamentoDialog({
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        {form.permiteParcelar && (
           <TextField
             label="Máx. parcelas"
             type="number"
@@ -412,15 +411,7 @@ function FormaPagamentoDialog({
               onChange({ ...form, maxParcelas: Math.max(1, Number(e.target.value) || 1) })
             }
           />
-          <TextField
-            label="Código NFC-e (tPag)"
-            value={form.tPagNfce}
-            onChange={(e) => onChange({ ...form, tPagNfce: e.target.value })}
-            placeholder="01, 03, 04, 17, 99..."
-            maxLength={2}
-            hint="Usado na emissão da NFC-e"
-          />
-        </div>
+        )}
 
         <div className="grid gap-2 sm:grid-cols-3">
           <SwitchRow

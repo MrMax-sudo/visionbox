@@ -78,29 +78,32 @@ export function FinalizarVendaModal({
     retry: 1,
   });
 
+  const formasAtivas = React.useMemo(
+    () => (formasQuery.data ?? []).filter((f) => f.ativo),
+    [formasQuery.data],
+  );
+
   React.useEffect(() => {
     if (open) {
       setErro(null);
-      const formas = formasQuery.data;
-      if (formas && formas.length > 0) {
-        const padrao = formas.find((f) => f.padrao) ?? formas[0];
+      if (formasAtivas.length > 0) {
+        const padrao = formasAtivas.find((f) => f.padrao) ?? formasAtivas[0];
         setPagamentos([{ formaId: padrao.id, formaNome: padrao.nome, valor: total }]);
       } else {
         setPagamentos([]);
       }
     }
-  }, [open, formasQuery.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, formasAtivas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const somaPagamentos = pagamentos.reduce((sum, p) => sum + (p.valor || 0), 0);
   const restante = total - somaPagamentos;
   const saldoOk = Math.abs(restante) < 0.01;
 
   function adicionarForma() {
-    const formas = formasQuery.data ?? [];
     const usados = new Set(pagamentos.map((p) => p.formaId));
-    const disponivel = formas.find((f) => !usados.has(f.id));
+    const disponivel = formasAtivas.find((f) => !usados.has(f.id));
     if (!disponivel) {
-      setErro('Todas as formas de pagamento já foram adicionadas.');
+      setErro('Todas as formas de pagamento ativas já foram adicionadas.');
       return;
     }
     setPagamentos((prev) => [
@@ -121,7 +124,7 @@ export function FinalizarVendaModal({
   }
 
   function trocarForma(index: number, formaId: string) {
-    const forma = (formasQuery.data ?? []).find((f) => f.id === formaId);
+    const forma = formasAtivas.find((f) => f.id === formaId);
     setPagamentos((prev) =>
       prev.map((p, i) => (i === index ? { ...p, formaId, formaNome: forma?.nome ?? p.formaNome } : p)),
     );
@@ -227,7 +230,7 @@ export function FinalizarVendaModal({
                     className="min-w-0 flex-1"
                     aria-label={`Forma de pagamento ${index + 1}`}
                   >
-                    {(formasQuery.data ?? []).map((forma) => (
+                    {formasAtivas.map((forma) => (
                       <option key={forma.id} value={forma.id}>
                         {forma.nome}
                       </option>

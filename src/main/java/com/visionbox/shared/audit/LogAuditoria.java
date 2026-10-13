@@ -9,7 +9,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 /**
  * LogAuditoria — append-only, imutável após criação (LGPD art. 37).
@@ -56,6 +58,7 @@ public class LogAuditoria extends EntidadeBase {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "detalhe_json", columnDefinition = "jsonb")
     private String detalheJson;
 

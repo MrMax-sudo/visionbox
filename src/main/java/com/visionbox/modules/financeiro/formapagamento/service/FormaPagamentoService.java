@@ -50,6 +50,10 @@ public class FormaPagamentoService {
             });
         }
 
+        String tPag = (req.getTPagNfce() != null && !req.getTPagNfce().isBlank())
+                ? req.getTPagNfce().trim()
+                : resolverTPagPadrao(req.getTipo());
+
         FormaPagamento fp = FormaPagamento.builder()
                 .lojaId(lojaId)
                 .nome(req.getNome())
@@ -60,7 +64,7 @@ public class FormaPagamentoService {
                 .prazoDias(req.getPrazoDias())
                 .permiteParcelar(req.getPermiteParcelar() != null ? req.getPermiteParcelar() : false)
                 .maxParcelas(req.getMaxParcelas())
-                .tPagNfce(req.getTPagNfce())
+                .tPagNfce(tPag)
                 .build();
 
         return mapper.toResponse(repository.save(fp));
@@ -82,7 +86,21 @@ public class FormaPagamentoService {
         }
 
         mapper.updateEntity(req, fp);
+        if (fp.getTPagNfce() == null || fp.getTPagNfce().isBlank()) {
+            fp.setTPagNfce(resolverTPagPadrao(fp.getTipo()));
+        }
         return mapper.toResponse(repository.save(fp));
+    }
+
+    public static String resolverTPagPadrao(FormaPagamento.TipoFormaPagamento tipo) {
+        if (tipo == null) return "99";
+        return switch (tipo) {
+            case DINHEIRO -> "01";
+            case PIX -> "17";
+            case DEBITO -> "04";
+            case CREDITO -> "03";
+            case CREDIARIO -> "05";
+        };
     }
 
     @Transactional
