@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35261012345678000195550010000001231123456785" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <cNF>00001234</cNF>
+        <natOp>COMPRA DE MERCADORIA PARA COMERCIALIZACAO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>0000123</nNF>
+        <dhEmi>2026-10-05T09:30:00-03:00</dhEmi>
+        <tpNF>0</tpNF>
+        <idDest>1</idDest>
+        <cMunFG>3550308</cMunFG>
+        <tpImp>1</tpImp>
+        <tpEmis>1</tpEmis>
+      </ide>
+      <emit>
+        <CNPJ>12345678000195</CNPJ>
+        <xNome>LABORATORIO EXEMPLO LTDA</xNome>
+        <xFant>LAB EXEMPLO</xFant>
+        <enderEmit>
+          <xLgr>RUA DAS LENTES</xLgr>
+          <nro>100</nro>
+          <xBairro>CENTRO</xBairro>
+          <cMun>3550308</cMun>
+          <xMun>SAO PAULO</xMun>
+          <UF>SP</UF>
+          <CEP>01001000</CEP>
+          <cPais>1058</cPais>
+          <xPais>BRASIL</xPais>
+        </enderEmit>
+        <IE>110042490114</IE>
+        <CRT>3</CRT>
+      </emit>
+      <dest>
+        <CNPJ>98765432000110</CNPJ>
+        <xNome>OPTICA VISIONBOX EXEMPLO LTDA</xNome>
+        <enderDest>
+          <xLgr>AV BRASIL</xLgr>
+          <nro>500</nro>
+          <xBairro>JARDINS</xBairro>
+          <cMun>3550308</cMun>
+          <xMun>SAO PAULO</xMun>
+          <UF>SP</UF>
+          <CEP>01401000</CEP>
+          <cPais>1058</cPais>
+          <xPais>BRASIL</xPais>
+        </enderDest>
+        <indIEDest>1</indIEDest>
+        <IE>123456789</IE>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>LEN-9001</cProd>
+          <cEAN>7891234567895</cEAN>
+          <xProd>LENS OFTALMICA 1.60 ANTIRREFLEXO</xProd>
+          <NCM>90011010</NCM>
+          <CEST>2104400</CEST>
+          <CFOP>1102</CFOP>
+          <uCom>UN</uCom>
+          <qCom>10.000</qCom>
+          <vUnCom>45.90</vUnCom>
+          <vProd>459.00</vProd>
+          <cEANTrib>7891234567895</cEANTrib>
+          <uTrib>UN</uTrib>
+          <qTrib>10.000</qTrib>
+          <vUnTrib>45.90</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMSSN202>
+              <orig>0</orig>
+              <CSOSN>500</CSOSN>
+              <vBCSTRet>0.00</vBCSTRet>
+              <vICMSSTRet>0.00</vICMSSTRet>
+            </ICMSSN202>
+          </ICMS>
+        </imposto>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>ARM-7788</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>ARMACAO TR90 MODELO 7788</xProd>
+          <NCM>90041000</NCM>
+          <CFOP>1102</CFOP>
+          <uCom>UN</uCom>
+          <qCom>5.000</qCom>
+          <vUnCom>120.50</vUnCom>
+          <vProd>602.50</vProd>
+          <cEANTrib>SEM GTIN</cEANTrib>
+          <uTrib>UN</uTrib>
+          <qTrib>5.000</qTrib>
+          <vUnTrib>120.50</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+        <imposto>
+          <ICMS>
+            <ICMSSN202>
+              <orig>0</orig>
+              <CSOSN>500</CSOSN>
+              <vBCSTRet>0.00</vBCSTRet>
+              <vICMSSTRet>0.00</vICMSSTRet>
+            </ICMSSN202>
+          </ICMS>
+        </imposto>
+      </det>
+      <total>
+        <ICMSTot>
+          <vBC>0.00</vBC>
+          <vICMS>0.00</vICMS>
+          <vICMSDeson>0.00</vICMSDeson>
+          <vFCP>0.00</vFCP>
+          <vBCST>0.00</vBCST>
+          <vST>0.00</vST>
+          <vFCPST>0.00</vFCPST>
+          <vFCPSTRet>0.00</vFCPSTRet>
+          <vProd>1061.50</vProd>
+          <vFrete>0.00</vFrete>
+          <vSeg>0.00</vSeg>
+          <vDesc>0.00</vDesc>
+          <vII>0.00</vII>
+          <vIPI>0.00</vIPI>
+          <vIPIDevol>0.00</vIPIDevol>
+          <vPIS>0.00</vPIS>
+          <vCOFINS>0.00</vCOFINS>
+          <vOutro>0.00</vOutro>
+          <vNF>1061.50</vNF>
+          <vTotTrib>0.00</vTotTrib>
+        </ICMSTot>
+      </total>
+      <transp>
+        <modFrete>1</modFrete>
+      </transp>
+      <cobr>
+        <fat>
+          <nFat>0000123</nFat>
+          <vOrig>1061.50</vOrig>
+          <vDesc>0.00</vDesc>
+          <vLiq>1061.50</vLiq>
+        </fat>
+        <dup>
+          <nDup>001</nDup>
+          <dVenc>2026-11-05</dVenc>
+          <vDup>530.75</vDup>
+        </dup>
+        <dup>
+          <nDup>002</nDup>
+          <dVenc>2026-12-05</dVenc>
+          <vDup>530.75</vDup>
+        </dup>
+      </cobr>
+      <pag>
+        <detPag>
+          <tPag>99</tPag>
+          <vPag>0.00</vPag>
+        </detPag>
+      </pag>
+    </infNFe>
+  </NFe>
+</nfeProc>
