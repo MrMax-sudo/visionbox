@@ -1,16 +1,21 @@
 package com.visionbox.modules.fiscal;
 
+import com.visionbox.modules.fiscal.dto.NfceCancelarRequest;
+import com.visionbox.modules.fiscal.dto.NfceCancelarResponse;
 import com.visionbox.modules.fiscal.dto.NfceEmitirRequest;
 import com.visionbox.modules.fiscal.dto.NfceEmitirResponse;
 import com.visionbox.modules.fiscal.repository.DocumentoFiscalRepository;
 import com.visionbox.modules.pessoa.domain.Loja;
 import com.visionbox.modules.pessoa.repository.LojaRepository;
+import com.visionbox.shared.error.BusinessException;
 import com.visionbox.shared.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -116,6 +121,69 @@ public class FiscalService {
 
     /** Teto do motivo persistido: o Flowbox devolve o corpo HTTP inteiro, que pode passar de 100 kB. */
     private static final int MOTIVO_MAXIMO = 2000;
+
+    /**
+     * Cancela uma NFC-e autorizada desta loja (evento 110111 via Flowbox).
+     *
+     * <p>Regras tiradas da SEFAZ e do OUTBOX ERP, não inventadas: só se cancela documento
+     * AUTORIZADO, o evento exige o protocolo de autorização e a justificativa tem 15..255
+     * caracteres. Rejeição do evento NÃO altera o documento — ele continua AUTORIZADO na SEFAZ.
+     */
+    @Transactional
+    public NfceCancelarResponse cancelarNfce(NfceCancelarRequest req) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        String chave = req.getChaveAcesso().trim();
+
+        DocumentoFiscal doc = repository.findByChaveAcessoAndLojaId(chave, lojaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "NFC-e com a chave " + chave + " não encontrada nesta loja. Confira a chave antes de cancelar."));
+
+        if (doc.getStatus() != DocumentoFiscal.StatusFiscal.AUTORIZADO) {
+            throw new BusinessException("Cancelamento exige documento AUTORIZADO; este documento está "
+                    + doc.getStatus() + " (série " + doc.getSerie() + ", nº " + doc.getNumero() + ").");
+        }
+
+        String protocolo = doc.getProtocolo();
+        if (!StringUtils.hasText(protocolo)) {
+            // Autorizado fora do VisionBox ou registro perdido (ex.: 409 de outrora): o protocolo é
+            // obrigatório no evento, então busca na fonte (Flowbox) antes de recusar.
+            protocolo = fiscalProvider.consultar(chave).map(FiscalProvider.ResultadoFiscal::protocolo).orElse(null);
+            if (StringUtils.hasText(protocolo)) {
+                doc.setProtocolo(protocolo);
+            }
+        }
+        if (!StringUtils.hasText(protocolo)) {
+            throw new BusinessException("Documento sem protocolo de autorização registrado — a SEFAZ exige o "
+                    + "protocolo no evento de cancelamento (cStat 274 sem ele). Chave " + chave + ".");
+        }
+
+        FiscalProvider.ResultadoFiscal resultado = fiscalProvider.cancelar(doc, req.getJustificativa().trim());
+
+        NfceCancelarResponse.NfceCancelarResponseBuilder resp = NfceCancelarResponse.builder()
+                .chaveAcesso(doc.getChaveAcesso())
+                .serie(doc.getSerie())
+                .numero(doc.getNumero())
+                .protocoloEvento(resultado.protocolo())
+                .codigoStatus(resultado.codigoStatus())
+                .motivo(resultado.motivo());
+
+        if (resultado.autorizado()) {
+            doc.setStatus(DocumentoFiscal.StatusFiscal.CANCELADO);
+            doc.setCodigoStatus(resultado.codigoStatus());
+            doc.setMotivo(limitarMotivo(resultado.motivo()));
+            repository.save(doc);
+            resp.status(doc.getStatus().name()).cancelado(true);
+        } else {
+            // A SEFAZ rejeitou o evento: o documento segue AUTORIZADO (ex.: cStat 501 de prazo).
+            resp.status(doc.getStatus().name()).cancelado(false);
+            log.warn("Cancelamento rejeitado loja={} serie={} numero={} chave={} cStat={} motivo={}",
+                    lojaId, doc.getSerie(), doc.getNumero(), chave, resultado.codigoStatus(), resultado.motivo());
+        }
+
+        log.info("Cancelamento NFC-e loja={} serie={} numero={} chave={} cancelado={} cStat={}",
+                lojaId, doc.getSerie(), doc.getNumero(), chave, resultado.autorizado(), resultado.codigoStatus());
+        return resp.build();
+    }
 
     private static String limitarMotivo(String motivo) {
         if (motivo == null) return null;

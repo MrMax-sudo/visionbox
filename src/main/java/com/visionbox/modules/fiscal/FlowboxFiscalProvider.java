@@ -1,10 +1,12 @@
 package com.visionbox.modules.fiscal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.OffsetDateTime;
@@ -32,6 +34,8 @@ public class FlowboxFiscalProvider implements FiscalProvider {
     @Value("${visionbox.fiscal.flowbox.certificado-id:1}")
     private Long defaultCertificadoId;
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.visionbox.modules.pessoa.repository.LojaRepository lojaRepository;
 
@@ -54,25 +58,9 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
     @Override
     public ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado, com.visionbox.modules.fiscal.dto.NfceEmitirRequest req) {
-        String baseUrl = flowboxBaseUrl;
-        String apiKey = flowboxApiKey;
-        com.visionbox.modules.pessoa.domain.Loja loja = null;
-
-        if (lojaRepository != null && documento.getLojaId() != null) {
-            loja = lojaRepository.findById(documento.getLojaId()).orElse(null);
-            if (loja != null) {
-                if (org.springframework.util.StringUtils.hasText(loja.getFlowboxUrl())) {
-                    baseUrl = loja.getFlowboxUrl().trim();
-                }
-                if (org.springframework.util.StringUtils.hasText(loja.getFlowboxApiKey())) {
-                    apiKey = loja.getFlowboxApiKey().trim();
-                }
-            }
-        }
-
-        if (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        }
+        com.visionbox.modules.pessoa.domain.Loja loja = lojaDe(documento);
+        String baseUrl = baseUrlDe(loja);
+        String apiKey = apiKeyDe(loja);
 
         boolean isNfe = documento.getModelo() == DocumentoFiscal.ModeloFiscal.NFE_55;
         String endpoint = isNfe ? "/api/v1/nfe/emitir" : "/api/v1/nfce/emitir";
@@ -229,6 +217,11 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             }
 
             return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999", "Resposta inesperada do Flowbox: " + response.getStatusCode(), null);
+        } catch (HttpStatusCodeException e) {
+            // O Flowbox devolve 4xx com o cStat REAL da SEFAZ no corpo (539 duplicidade, 501 prazo,
+            // 245 credenciamento...). Tratar tudo como "Flowbox indisponível" mascarava a rejeição.
+            log.warn("Flowbox respondeu HTTP {} na emissão: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
+            return lerRespostaFlowbox(documento.getChaveAcesso(), e);
         } catch (Exception e) {
             log.error("Erro na comunicação com Flowbox: {}", e.getMessage());
             return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "503",
@@ -289,6 +282,62 @@ public class FlowboxFiscalProvider implements FiscalProvider {
         }
     }
 
+    /** Loja do documento, com a configuração fiscal por loja (URL, API Key e certificado do Flowbox). */
+    private com.visionbox.modules.pessoa.domain.Loja lojaDe(DocumentoFiscal documento) {
+        if (lojaRepository != null && documento.getLojaId() != null) {
+            return lojaRepository.findById(documento.getLojaId()).orElse(null);
+        }
+        return null;
+    }
+
+    private String baseUrlDe(com.visionbox.modules.pessoa.domain.Loja loja) {
+        String baseUrl = loja != null && org.springframework.util.StringUtils.hasText(loja.getFlowboxUrl())
+                ? loja.getFlowboxUrl().trim()
+                : flowboxBaseUrl;
+        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    }
+
+    private String apiKeyDe(com.visionbox.modules.pessoa.domain.Loja loja) {
+        return loja != null && org.springframework.util.StringUtils.hasText(loja.getFlowboxApiKey())
+                ? loja.getFlowboxApiKey().trim()
+                : flowboxApiKey;
+    }
+
+    /**
+     * Lê o corpo JSON de um 4xx do Flowbox: é ali que o cStat real da SEFAZ aparece
+     * ({@code sucesso=false}, {@code statusSefaz}, {@code motivoSefaz}). O 4xx só vira
+     * indisponibilidade quando o corpo não é JSON.
+     */
+    private FiscalProvider.ResultadoFiscal lerRespostaFlowbox(String chave, HttpStatusCodeException e) {
+        String corpo = e.getResponseBodyAsString();
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = MAPPER.readValue(corpo, Map.class);
+            boolean sucesso = Boolean.TRUE.equals(body.get("sucesso")) || Boolean.TRUE.equals(body.get("autorizado"));
+            String cStat = primeiroTexto(body, "statusSefaz", "cStat");
+            String motivo = primeiroTexto(body, "motivoSefaz", "xMotivo", "erro");
+            return new FiscalProvider.ResultadoFiscal(sucesso, chave, primeiroTexto(body, "protocolo"),
+                    cStat != null ? cStat : "999",
+                    motivo != null ? motivo : "Flowbox respondeu HTTP " + e.getStatusCode().value(),
+                    null, sucesso ? OffsetDateTime.now() : null);
+        } catch (Exception parse) {
+            String resumido = corpo != null && corpo.length() > 500 ? corpo.substring(0, 500) + " ..." : corpo;
+            return FiscalProvider.ResultadoFiscal.rejeitado(chave, "999",
+                    "Flowbox respondeu HTTP " + e.getStatusCode().value() + ": " + resumido, null);
+        }
+    }
+
+    /** Primeiro campo textual presente, na ordem informada — o Flowbox varia a chave entre versões. */
+    private String primeiroTexto(Map<String, Object> body, String... chaves) {
+        for (String chave : chaves) {
+            Object valor = body.get(chave);
+            if (valor instanceof String texto && !texto.isBlank()) {
+                return texto;
+            }
+        }
+        return null;
+    }
+
     /** Ambiente da SEFAZ da loja; HOMOLOGACAO é o padrão enquanto a loja não define o seu. */
     private String ambienteDe(com.visionbox.modules.pessoa.domain.Loja loja) {
         return loja != null && org.springframework.util.StringUtils.hasText(loja.getFiscalAmbiente())
@@ -329,35 +378,79 @@ public class FlowboxFiscalProvider implements FiscalProvider {
         return Optional.empty();
     }
 
+    /**
+     * Evento de cancelamento (110111) pela cadeia Flowbox → SEFAZ. O Flowbox exige emitente,
+     * ambiente, certificado e o protocolo de autorização — todos vêm do cadastro da loja e do
+     * documento autorizado; nada disso é pedido ao operador nem inventado aqui.
+     */
     @Override
     public ResultadoFiscal cancelar(DocumentoFiscal documento, String justificativa) {
+        com.visionbox.modules.pessoa.domain.Loja loja = lojaDe(documento);
+        if (loja == null) {
+            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999",
+                    "Cadastro fiscal da loja não encontrado: cancelamento recusado antes de transmitir.", null);
+        }
+        if (!org.springframework.util.StringUtils.hasText(documento.getProtocolo())) {
+            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "274",
+                    "Documento sem protocolo de autorização: a SEFAZ rejeita o evento de cancelamento "
+                            + "sem o protocolo da autorização (cStat 274).", null);
+        }
+
         boolean isNfe = documento.getModelo() == DocumentoFiscal.ModeloFiscal.NFE_55;
-        String endpoint = isNfe ? "/api/v1/nfe/cancelar" : "/api/v1/nfce/cancelar";
-        String url = flowboxBaseUrl + endpoint;
+        String url = baseUrlDe(loja) + (isNfe ? "/api/v1/nfe/cancelar" : "/api/v1/nfce/cancelar");
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("ambiente", ambienteDe(loja));
+        payload.put("chaveAcesso", documento.getChaveAcesso());
+        payload.put("protocolo", documento.getProtocolo());
+        payload.put("justificativa", justificativa);
+        // Emitente mínimo validado pelo Flowbox no cancelamento: CNPJ (14) + razão social.
+        Map<String, Object> emitente = new LinkedHashMap<>();
+        emitente.put("cnpj", loja.getCnpj().replaceAll("\\D", ""));
+        emitente.put("razaoSocial", loja.getNome().trim());
+        payload.put("emitente", emitente);
+        Long certificadoId = loja.getFlowboxCertificadoId() != null
+                ? loja.getFlowboxCertificadoId()
+                : defaultCertificadoId;
+        if (certificadoId != null) {
+            payload.put("certificadoId", certificadoId);
+        }
+
+        log.info("Enviando cancelamento para Flowbox: serie={} numero={} chave={} url={}",
+                documento.getSerie(), documento.getNumero(), documento.getChaveAcesso(), url);
+
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Flowbox-Api-Key", flowboxApiKey);
-            headers.set("X-API-KEY", flowboxApiKey);
+            headers.set("X-Flowbox-Api-Key", apiKeyDe(loja));
+            headers.set("X-API-KEY", apiKeyDe(loja));
             headers.set("X-Loja-Id", documento.getLojaId().toString());
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("chaveAcesso", documento.getChaveAcesso());
-            payload.put("justificativa", justificativa);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map body = response.getBody();
-                boolean cancelado = Boolean.TRUE.equals(body.get("sucesso")) || Boolean.TRUE.equals(body.get("cancelado")) || "135".equals(body.get("cStat"));
-                String protocolo = (String) body.get("protocolo");
-                return new ResultadoFiscal(cancelado, documento.getChaveAcesso(), protocolo, "135", "Cancelamento homologado pelo Flowbox", null, OffsetDateTime.now());
+            Map body = response.getBody();
+            if (body == null) {
+                return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999",
+                        "Resposta vazia do Flowbox no cancelamento", null);
             }
+            boolean sucesso = Boolean.TRUE.equals(body.get("sucesso")) || "135".equals(body.get("statusSefaz"));
+            String cStat = primeiroTexto(body, "statusSefaz", "cStat");
+            String motivo = primeiroTexto(body, "motivoSefaz", "xMotivo");
+            String protocoloEvento = primeiroTexto(body, "protocolo");
+            return new ResultadoFiscal(sucesso, documento.getChaveAcesso(), protocoloEvento,
+                    cStat != null ? cStat : (sucesso ? "135" : "999"),
+                    motivo != null ? motivo
+                            : (sucesso ? "Evento de cancelamento registrado pela SEFAZ" : "Rejeição do cancelamento"),
+                    null, sucesso ? OffsetDateTime.now() : null);
+        } catch (HttpStatusCodeException e) {
+            log.warn("Flowbox respondeu HTTP {} no cancelamento: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
+            return lerRespostaFlowbox(documento.getChaveAcesso(), e);
         } catch (Exception e) {
             log.error("Erro ao cancelar no Flowbox: {}", e.getMessage());
+            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "503",
+                    "Flowbox indisponível no cancelamento: " + e.getMessage(), null);
         }
-        return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999", "Falha ao cancelar nota no Flowbox", null);
     }
 
     @Override

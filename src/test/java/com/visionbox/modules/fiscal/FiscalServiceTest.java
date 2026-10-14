@@ -1,5 +1,6 @@
 package com.visionbox.modules.fiscal;
 
+import com.visionbox.modules.fiscal.dto.NfceCancelarRequest;
 import com.visionbox.modules.fiscal.dto.NfceEmitirRequest;
 import com.visionbox.modules.fiscal.repository.DocumentoFiscalRepository;
 import com.visionbox.shared.tenant.TenantContext;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -182,5 +185,129 @@ class FiscalServiceTest {
 
         assertThat(response.getSerie()).isEqualTo("007");
         assertThat(response.getNumero()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Cancelamento de documento AUTORIZADO grava CANCELADO com cStat 135")
+    void deveCancelarDocumentoAutorizado() {
+        DocumentoFiscal doc = documentoAutorizado();
+        when(repository.findByChaveAcessoAndLojaId(CHAVE_44, LOJA_ID)).thenReturn(Optional.of(doc));
+        when(provider.cancelar(any(DocumentoFiscal.class), anyString()))
+                .thenReturn(new FiscalProvider.ResultadoFiscal(true, CHAVE_44, "135260000000002", "135",
+                        "Evento registrado e vinculado a NF-e", null, java.time.OffsetDateTime.now()));
+
+        var resp = service.cancelarNfce(NfceCancelarRequest.builder()
+                .chaveAcesso(CHAVE_44)
+                .justificativa("Cliente desistiu da compra no PDV")
+                .build());
+
+        assertThat(resp.isCancelado()).isTrue();
+        assertThat(resp.getCodigoStatus()).isEqualTo("135");
+        assertThat(resp.getProtocoloEvento()).isEqualTo("135260000000002");
+        assertThat(resp.getStatus()).isEqualTo("CANCELADO");
+        assertThat(doc.getStatus()).isEqualTo(DocumentoFiscal.StatusFiscal.CANCELADO);
+        verify(repository).save(doc);
+    }
+
+    @Test
+    @DisplayName("Rejeição da SEFAZ (cStat 501) mantém o documento AUTORIZADO e devolve o cStat real")
+    void naoMudaStatusQuandoCancelamentoRejeitado() {
+        DocumentoFiscal doc = documentoAutorizado();
+        when(repository.findByChaveAcessoAndLojaId(CHAVE_44, LOJA_ID)).thenReturn(Optional.of(doc));
+        when(provider.cancelar(any(DocumentoFiscal.class), anyString()))
+                .thenReturn(FiscalProvider.ResultadoFiscal.rejeitado(CHAVE_44, "501",
+                        "Rejeição: Prazo de cancelamento superior ao previsto na Legislação", null));
+
+        var resp = service.cancelarNfce(NfceCancelarRequest.builder()
+                .chaveAcesso(CHAVE_44)
+                .justificativa("Cliente desistiu da compra no PDV")
+                .build());
+
+        assertThat(resp.isCancelado()).isFalse();
+        assertThat(resp.getCodigoStatus()).isEqualTo("501");
+        assertThat(resp.getMotivo()).contains("Prazo de cancelamento");
+        assertThat(doc.getStatus()).isEqualTo(DocumentoFiscal.StatusFiscal.AUTORIZADO);
+        verify(repository, never()).save(any(DocumentoFiscal.class));
+    }
+
+    @Test
+    @DisplayName("Cancelamento recusa documento que não está AUTORIZADO")
+    void deveRecusarCancelamentoDeDocumentoNaoAutorizado() {
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(LOJA_ID)
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("090").numero(3)
+                .chaveAcesso(CHAVE_44)
+                .status(DocumentoFiscal.StatusFiscal.REJEITADO)
+                .protocolo(PROTOCOLO_15)
+                .ambiente("1").tpEmis("1")
+                .build();
+        doc.setId(UUID.randomUUID());
+        when(repository.findByChaveAcessoAndLojaId(CHAVE_44, LOJA_ID)).thenReturn(Optional.of(doc));
+
+        assertThatThrownBy(() -> service.cancelarNfce(NfceCancelarRequest.builder()
+                .chaveAcesso(CHAVE_44)
+                .justificativa("Cliente desistiu da compra no PDV")
+                .build()))
+                .isInstanceOf(com.visionbox.shared.error.BusinessException.class)
+                .hasMessageContaining("REJEITADO");
+
+        verify(provider, never()).cancelar(any(DocumentoFiscal.class), anyString());
+    }
+
+    @Test
+    @DisplayName("Chave que não pertence a esta loja devolve 404")
+    void deveDevolver404QuandoChaveNaoExisteNaLoja() {
+        when(repository.findByChaveAcessoAndLojaId(CHAVE_44, LOJA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancelarNfce(NfceCancelarRequest.builder()
+                .chaveAcesso(CHAVE_44)
+                .justificativa("Cliente desistiu da compra no PDV")
+                .build()))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    @DisplayName("Documento sem protocolo gravado busca o protocolo no provider antes de cancelar")
+    void deveBuscarProtocoloNoProviderQuandoAusente() {
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(LOJA_ID)
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("090").numero(1)
+                .chaveAcesso(CHAVE_44)
+                .status(DocumentoFiscal.StatusFiscal.AUTORIZADO)
+                .ambiente("1").tpEmis("1")
+                .build();
+        doc.setId(UUID.randomUUID());
+        when(repository.findByChaveAcessoAndLojaId(CHAVE_44, LOJA_ID)).thenReturn(Optional.of(doc));
+        when(provider.consultar(CHAVE_44))
+                .thenReturn(Optional.of(new FiscalProvider.ResultadoFiscal(true, CHAVE_44, "13526007062662399",
+                        "100", "Autorizado o uso da NF-e", null, java.time.OffsetDateTime.now())));
+        when(provider.cancelar(any(DocumentoFiscal.class), anyString()))
+                .thenReturn(new FiscalProvider.ResultadoFiscal(true, CHAVE_44, "135260000000003", "135",
+                        "Evento registrado e vinculado a NF-e", null, java.time.OffsetDateTime.now()));
+
+        var resp = service.cancelarNfce(NfceCancelarRequest.builder()
+                .chaveAcesso(CHAVE_44)
+                .justificativa("Cliente desistiu da compra no PDV")
+                .build());
+
+        assertThat(resp.isCancelado()).isTrue();
+        // O protocolo recuperado foi usado no evento e gravado no documento.
+        assertThat(doc.getProtocolo()).isEqualTo("13526007062662399");
+    }
+
+    private DocumentoFiscal documentoAutorizado() {
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(LOJA_ID)
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("090").numero(6)
+                .chaveAcesso(CHAVE_44)
+                .status(DocumentoFiscal.StatusFiscal.AUTORIZADO)
+                .protocolo(PROTOCOLO_15)
+                .ambiente("1").tpEmis("1")
+                .build();
+        doc.setId(UUID.randomUUID());
+        return doc;
     }
 }

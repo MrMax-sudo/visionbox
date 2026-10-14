@@ -230,6 +230,114 @@ class FlowboxFiscalProviderTest {
                 .exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
     }
 
+    @Test
+    @DisplayName("Cancelamento envia emitente, ambiente, protocolo e certificado — o contrato do Flowbox")
+    void deveEnviarPayloadCompletoDeCancelamento() {
+        cadastrarLojaFiscal("11222333444", "CSC-REAL-9", "7");
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "defaultCertificadoId", 1L);
+
+        DocumentoFiscal doc = documentoComProtocolo("35261040187613000102650900000000061922243030", "13526007074917331");
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity<>(Map.of(
+                        "sucesso", true,
+                        "statusSefaz", "135",
+                        "motivoSefaz", "Evento registrado e vinculado a NF-e",
+                        "protocolo", "13526007074917999"), HttpStatus.OK));
+
+        var resultado = provider.cancelar(doc, "Cliente desistiu da compra no PDV");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = capturarPayload();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> emitente = (Map<String, Object>) payload.get("emitente");
+
+        assertThat(payload)
+                .containsEntry("ambiente", "HOMOLOGACAO")
+                .containsEntry("chaveAcesso", doc.getChaveAcesso())
+                .containsEntry("protocolo", "13526007074917331")
+                .containsEntry("justificativa", "Cliente desistiu da compra no PDV")
+                .containsEntry("certificadoId", 1L);
+        assertThat(emitente)
+                .containsEntry("cnpj", "40187613000102")
+                .containsEntry("razaoSocial", "Otica Teste");
+
+        assertThat(resultado.autorizado()).isTrue();
+        assertThat(resultado.codigoStatus()).isEqualTo("135");
+        assertThat(resultado.protocolo()).isEqualTo("13526007074917999");
+        assertThat(resultado.motivo()).contains("Evento registrado");
+    }
+
+    @Test
+    @DisplayName("Cancelamento rejeitado (HTTP 400 da SEFAZ) devolve o cStat real, não 'indisponível'")
+    void devePropagarCstatRealDoCancelamentoRejeitado() {
+        cadastrarLojaFiscal("11222333444", "CSC-REAL-9", "7");
+
+        DocumentoFiscal doc = documentoComProtocolo("35261040187613000102650900000000021624523010", "13526007063048832");
+        String corpo = "{\"sucesso\":false,\"statusSefaz\":\"501\","
+                + "\"motivoSefaz\":\"Rejeição: Prazo de cancelamento superior ao previsto na Legislação\"}";
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new org.springframework.web.client.HttpClientErrorException(
+                        HttpStatus.BAD_REQUEST, "Bad Request",
+                        corpo.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        java.nio.charset.StandardCharsets.UTF_8));
+
+        var resultado = provider.cancelar(doc, "Cliente desistiu da compra no PDV");
+
+        assertThat(resultado.autorizado()).isFalse();
+        assertThat(resultado.codigoStatus()).isEqualTo("501");
+        assertThat(resultado.motivo()).contains("Prazo de cancelamento");
+    }
+
+    @Test
+    @DisplayName("Rejeição da SEFAZ na emissão expõe o cStat real (539) em vez de 'Flowbox indisponível' 503")
+    void deveExporCstatRealNaEmissaoRejeitada() {
+        cadastrarLojaFiscal("11222333444", "CSC-REAL-9", "7");
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("090")
+                .numero(3)
+                .chaveAcesso("35261040187613000102650900000000031769171006")
+                .build();
+        String corpo = "{\"sucesso\":false,\"statusSefaz\":\"539\","
+                + "\"motivoSefaz\":\"Rejeição: Duplicidade de NF-e com diferença na Chave de Acesso\"}";
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new org.springframework.web.client.HttpClientErrorException(
+                        HttpStatus.BAD_REQUEST, "Bad Request",
+                        corpo.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        java.nio.charset.StandardCharsets.UTF_8));
+
+        FiscalProvider.ResultadoFiscal resultado = provider.emitir(doc, "<xml>fake</xml>");
+
+        assertThat(resultado.autorizado()).isFalse();
+        assertThat(resultado.codigoStatus()).isEqualTo("539");
+        assertThat(resultado.motivo()).contains("Duplicidade");
+    }
+
+    /** Captura o payload enviado no último POST para o Flowbox. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> capturarPayload() {
+        org.mockito.ArgumentCaptor<HttpEntity> captor = org.mockito.ArgumentCaptor.forClass(HttpEntity.class);
+        Mockito.verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), captor.capture(), eq(Map.class));
+        return (Map<String, Object>) captor.getValue().getBody();
+    }
+
+    private DocumentoFiscal documentoComProtocolo(String chave, String protocolo) {
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("090")
+                .numero(6)
+                .chaveAcesso(chave)
+                .protocolo(protocolo)
+                .status(DocumentoFiscal.StatusFiscal.AUTORIZADO)
+                .ambiente("1")
+                .tpEmis("1")
+                .build();
+        return doc;
+    }
+
     /** Registra a loja com o cadastro fiscal que o provedor lê antes de transmitir. */
     private void cadastrarLojaFiscal(String inscricaoEstadual, String csc, String cscId) {
         LojaRepository lojaRepository = Mockito.mock(LojaRepository.class);

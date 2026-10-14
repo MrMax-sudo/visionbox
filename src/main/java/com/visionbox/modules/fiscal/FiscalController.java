@@ -1,5 +1,7 @@
 package com.visionbox.modules.fiscal;
 
+import com.visionbox.modules.fiscal.dto.NfceCancelarRequest;
+import com.visionbox.modules.fiscal.dto.NfceCancelarResponse;
 import com.visionbox.modules.fiscal.dto.NfceEmitirRequest;
 import com.visionbox.modules.fiscal.dto.NfceEmitirResponse;
 import jakarta.validation.Valid;
@@ -30,5 +32,18 @@ public class FiscalController {
                 request.getPedidoId(), request.getSerie(), request.getNumero(), request.getModelo());
         NfceEmitirResponse resp = fiscalService.emitirNfce(request);
         return ResponseEntity.status(resp.isAutorizado() ? HttpStatus.CREATED : HttpStatus.OK).body(resp);
+    }
+
+    /**
+     * POST /api/v1/fiscal/nfce/cancelar
+     * Cancela NFC-e já autorizada desta loja (evento 110111 pela SEFAZ).
+     * Body: NfceCancelarRequest (chaveAcesso 44 dígitos, justificativa 15..255).
+     * O protocolo de autorização vem gravado do documento; rejeição da SEFAZ devolve o cStat real
+     * (ex.: 501) e o documento continua AUTORIZADO.
+     */
+    @PostMapping("/cancelar")
+    public ResponseEntity<NfceCancelarResponse> cancelar(@Valid @RequestBody NfceCancelarRequest request) {
+        log.info("Cancelar NFC-e recebido chave={} ", request.getChaveAcesso());
+        return ResponseEntity.ok(fiscalService.cancelarNfce(request));
     }
 }
