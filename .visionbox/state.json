@@ -1,23 +1,33 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-14T06:10:00-03:00",
+  "updated_at": "2026-10-14T12:30:00-03:00",
   "fiscal_emissao_fix": {
-    "status": "codigo_concluido_bloqueio_cadastral_sefaz_sp",
+    "status": "EM_PRODUCAO_AUTORIZADO_CSTAT_100",
     "resumo": "Onze causas corrigidas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00; (8) cStat 104 tratado como layout nao reconhecido; (9) motivo varchar(255) no Flowbox quebrava o INSERT; (10) emitente com valores fixos (V47: campos fiscais em loja + Painel Fiscal + recusa antes de transmitir); (11) tres rejeicoes novas da SEFAZ-SP corrigidas alinhadas ao OUTBOX ERP - cStat 373 (xProd literal na homologacao), cStat 742 (modelo 65 nao emite grupo IPI, zera vIPI/vIPIDevol) e cStat 391 (regra YA04-10: tPag 03/04/17 exige grupo card com tpIntegra=2).",
     "blocker": "cStat 245 em tpAmb=2 = CNPJ sem credenciamento NO AMBIENTE DE HOMOLOGACAO da SEFAZ-SP (credenciamento de homologacao e de producao sao processos separados). Evidencia: o OUTBOX ERP emite todo dia com o mesmo CNPJ, IE, CRT e endereco, so que com ambiente=PRODUCAO. Resolucao escolhida pelo cliente: emitir em PRODUCAO, igual a referencia.",
-    "evidence": "Flowbox mvn test 372/372; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; VisionBox mvn -Punit-only 423/423 + typecheck + build verdes; E2E real na VPS avancou cStat 209 -> 373 -> 742 -> 391 -> 245, com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23; cadastro do emitente gravado a partir de consulta publica (IE 151957359112 ativa, municipio 3550308, CEP 01021900)"
+    "evidence": "Flowbox mvn test 372/372; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; VisionBox mvn -Punit-only 423/423 + typecheck + build verdes; E2E real na VPS avancou cStat 209 -> 373 -> 742 -> 391 -> 245, com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23; cadastro do emitente gravado a partir de consulta publica (IE 151957359112 ativa, municipio 3550308, CEP 01021900)",
+    "resultado_final": "cStat 100 na SEFAZ-SP em PRODUCAO (tpAmb=1) em 2026-10-14: nota serie 090 n. 2, chave 35261040187613000102650900000000021624523010, protocolo 13526007063048832, gravada em documento_fiscal com status AUTORIZADO; nota n. 5 emitida 15:07:40 e CANCELADA 15:07:41 (cStat 135, evento protocolo 13526007064496914); infRespTec/CNPJ/contato/fone e tpAmb=1 confirmados no XML devolvido"
   },
   "fiscal_producao": {
-    "status": "em_implementacao",
+    "status": "emissao_autorizada_pendencias_abertas",
     "ambiente": "PRODUCAO",
-    "resumo": "Troca de HOMOLOGACAO para PRODUCAO (mesma configuracao do OUTBOX ERP), numeracao configuravel por serie com sequencia max+1 para nao dar duplicidade, e grupo <infRespTec> obrigatorio em producao.",
+    "resumo": "Emissao NFC-e em PRODUCAO autorizada (cStat 100) e persistida; serie/numero configuraveis por loja (V48) com sequencia max+1; <infRespTec> presente; fuso America/Sao_Paulo nos containers app e flowbox.",
+    "concluido": [
+      "V48 serie/numero configuraveis + V49 documento_fiscal.protocolo VARCHAR(20) (a SEFAZ-SP devolve nProt de 17 digitos, o XSD TProt=15 nao reflete o dado real)",
+      "numeração max(numero)+1 da serie no mesmo ambiente; fiscal_serie_nfce=090, fiscal_numero_inicial_nfce=2",
+      "grupo <infRespTec> emitido em producao (CNPJ, contato, email, fone) e <card><tpIntegra>2 em tPag 03/04/17",
+      "E2E ate cStat 100: nota 090/2 gravada AUTORIZADO com protocolo 13526007063048832; nota 090/5 emitida e cancelada (cStat 135)"
+    ],
     "pendencias": [
-      "V48: fiscal_serie_nfce, fiscal_serie_nfe, fiscal_numero_inicial_nfce, fiscal_numero_inicial_nfe em loja + secao correspondente no Painel Fiscal",
-      "FiscalService: trocar o ThreadLocalRandom 1..999999 por max(numero)+1 da mesma serie/ambiente, com fallback para o numero inicial configurado",
-      "Flowbox: emitir <infRespTec> fora de homologacao (regra do OUTBOX ERP:447-463) e provider enviar email/telefone da loja",
-      "Gravar dados aprovados: fiscal_ambiente=PRODUCAO, csc=2d977230-481a-4b1c-8426-89fcb74cca73, csc_id=000001, nome=I LOVE MIMOS, endereco=Rua Vinte e Cinco de Março",
-      "E2E em producao com a serie configurada, ate cStat 100"
+      "numeração colide com o histórico da SEFAZ: serie 090 n. 3 e 4 ja usados por OUTRO sistema em setembro/2026 (cStat 539 duplicidade com chave diferente) — definir serie/limite com o cliente",
+      "gravar o XML autorizado (nfeProc) em documento_fiscal.xml_retorno: hoje guarda o envelope enviNFe (fallback do Flowbox xmlAutorizado=xmlEnvio)",
+      "mapear rejeicao do Flowbox com o cStat real (hoje vira codigoStatus 503 'Flowbox indisponivel'; o 539 aparece so dentro do texto)",
+      "consulta de chave da Flowbox devolve HTTP 500 na SEFAZ-SP (SOAPAction/envelope a conferir contra OUTBOX)",
+      "POST /api/v1/fiscal/nfce/cancelar nao existe: FiscalProvider.cancelar() nao tem chamador e o payload Flowbox exige emitente/protocolo/ambiente",
+      "cancelamento: nota 090/5 cancelou a +1s (cStat 135), notas 090/1 e 090/2 rejeitadas com cStat 501 a partir de ~36 min — causa nao explicada; nota 090/1 nao tem linha no VisionBox (409 do protocolo 17 digitos reverteu a transacao); pausado a pedido do cliente",
+      "quando consolidar o fiscal, voltar serie 090 -> 001",
+      "TZ do HOST continua UTC (mudanca exige sudo com senha)"
     ]
   },
   "web_refactor": {
@@ -100,8 +110,9 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fiscal: CNPJ 40187613000102 sem credenciamento de emissao NFC-e na SEFAZ-SP (cStat 245) — contador/empresa precisa habilitar junto a SEFAZ-SP, homologacao e depois producao; nenhuma emissao sera autorizada antes disso, em nenhum sistema",
-    "Fiscal: cadastrar csc e csc_id no Painel Fiscal (Configuracoes -> Modulo Fiscal) — CSC sai do portal da NF-e da UF; sem eles o provedor recusa a emissao com mensagem apontando o painel",
+    "Fiscal: implementar POST /api/v1/fiscal/nfce/cancelar (provider ja fala com o Flowbox, falta endpoint + payload emitente/protocolo/ambiente) — cancelamento esta pausado pelo cliente",
+    "Fiscal: definir serie/limite de numeracao com o cliente (serie 090 n. 3 e 4 ocupados na SEFAZ desde setembro/2026)",
+    "Fiscal: gravar nfeProc e mapear cStat real do Flowbox na resposta do VisionBox",
     "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
     "Adoção out-of-order do P1 (V1_1/V3/V4/V5) em banco LEGADO real: apontar host/backup do banco existente p/ repair + migrate -Dflyway.outOfOrder=true (procedimento p1-migrations-draft/README §5.2, backup obrigatório)",
     "Backend: handler ProblemDetail expor mensagem específica de conflito de CNPJ na reativação de fornecedor (hoje só log WARN)",
@@ -109,6 +120,7 @@
     "Front/pre-existente: @media print no DANFE"
   ],
   "last_evidence": {
+    "fiscal_cstat100_2026_10_14": "Emissao NFC-e PRODUCAO autorizada na SEFAZ-SP e persistida: nota serie 090 n. 2 (chave 35261040187613000102650900000000021624523010, protocolo 13526007063048832, HTTP 201, AUTORIZADO/100) via cadeia VisionBox -> Flowbox -> SEFAZ; nota 090/5 emitida 15:07:40 e CANCELADA 15:07:41 (cStat 135, protocolo de evento 13526007064496914, Flowbox CANCELADO); V49 (protocolo VARCHAR(20)) + Flowbox REGEX_PROTOCOLO 20 + lerProtocolos lendo retEvento/infEvento (antes liamos o cStat 128 do lote e nunca o 135 do evento); nProt real de 17 digitos confirmado em autorizacao E em evento; n. 3/4 rejeitados 539 (serie 090 ocupada desde setembro/2026); mvn Flowbox verdes; commits VisionBox 0bb4a8f/1fe5d38 e Flowbox 5500adc/a2331db; containers app+flowbox com TZ America/Sao_Paulo",
     "onda_simultanea_2026_10_13": "Fases 2-5 Robustez ERP simultâneas + P1: V33 caixa (fechamento cego SOBRA/QUEBRA/EXATO, sangria/suprimento motivo obrigatório, extrato, relatório por modalidade) + V34 financeiro (conta_receber_pagamento, fornecedor CNPJ AES-GCM+HMAC, valor_aberto GENERATED, conta_pagar fornecedor/competencia) + V35 compras (parser XML NF-e XXE-safe zero dependências, de-para EAN, ContaPagar por duplicata, maquininha MDR HALF_EVEN, comissão GERAL/CATEGORIA idempotente) + V36 modulo_configuracao_loja (19 módulos, @RequerModulo interceptor 403 MODULO_NAO_CONTRATADO, planos START/PRO/ENTERPRISE, GuardaModulo + AppShell filtrado) + P1 draft validado 1:1 entidades JPA; SecurityConfig +compras +modulos; App.tsx rotas com GuardaModulo; mvn 344/344 verdes; typecheck 0 erros; build 2.29s",
     "onda2_pendencias_2026_10_13": "MDR plugado no pagamento do PDV (V37: ordem_servico_pagamento +taxa_valor/valor_liquido/maquininha_id; resolução maquininhaId→auto-resolve→null+WARN; tri-state isento/calculado/pendente) + comissão automática na finalização (try/catch nunca quebra venda, desconto rateado por categoria, OrdemServicoMdrComissaoTest 8/8); estorno de baixa soft-delete (POST .../pagamentos/{id}/estornar ADMIN/GERENTE/FINANCEIRO, valor_aberto GENERATED recalcula, CaixaMovimento ESTORNO) + OFX conciliado via baixar (FITID, lote nunca aborta) + botão estorno na PagamentosTimeline; preCadastrado @Transient sem DDL (badge Origem no modal de importação), fechamento de comissões com lancamentos[] por venda (totais derivados da mesma lista), GET /financeiro/comissoes/vendedores (VENDEDOR/OTICO ativos) e useVendedores sem degradação; RBAC fino caixa POST sangria/suprimento/fechar = ADMIN/GERENTE/FINANCEIRO no SecurityConfig (matcher antes do wildcard) + front esconde ações de VENDEDOR; FIX CRÍTICO: CaixaService.movimentar ENTRADA agora soma saldoEsperado (baixa em dinheiro na gaveta — antes fechamento cego apurava QUEBRA falsa), RECEBIMENTO_FIADO só entradas, ESTORNO simétrico (D-019 corrigido no javadoc/decisions); +4 testes CaixaServiceTest; decisions renumeradas D-017/D-018/D-019; mvn 374/374 verdes, typecheck 0, build verde",
     "onda3_pendencias_2026_10_13": "OrdemServicoResponse.pagamentos[] (id, formaPagamentoId/Nome, valor, taxaValor, valorLiquido, maquininhaId, parcelas; null = taxa pendente) sem N+1 + V40 parcelas INT NOT NULL backfill (fonte única MDR: aplicarMdr lê osp.getParcelas()); ComissaoService.cancelarPorVenda plugado nos dois caminhos de cancelamento (OS e Central de Vendas) com try/catch WARN, PAGO intocado (D-020); baixa com desconto/juros (valorPago+desconto abate valor_aberto via valor_pago GENERATED, juros só entra no caixa, estorno simétrico, 400 em excesso/negativos) + V41 colunas; POST /fornecedores/{id}/reativar idempotente (404 R1, 409 CNPJ ativo, cifra intacta) + ?incluirInativos=true; GET /financeiro/totais 5 SUMs e Financeiro.tsx consome com fallback (fim do size=100); BaixaContaModal +Desconto/Juros com preview; FornecedorPanel toggle inativos + Reativar; PagamentosTimeline badges desc/juros; front PDV: MdrPreview debounce+abort, select Maquininha/Parcelas, payload cartão com maquininhaId/parcelas (débito força 1), outbox offline copia MDR; PagamentosTable compartilhado OS/Vendas com badge Taxa pendente; fix orquestrador: helper pagamentoComDescontoJuros 5 args × 2 chamadas de 4; mvn 418/418 verdes (+44), typecheck 0, build 3.33s, D-019/D-020/D-021",

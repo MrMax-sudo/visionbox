@@ -1,9 +1,37 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-11 — **Refator total do frontend concluído** (tema+UI kit+AppShell+14 telas+limpeza). `typecheck` ✅ `build` ✅ hex=0.
+> **Atualizado em:** 2026-10-14 — **NFC-e autorizada em PRODUÇÃO (cStat 100)** pela cadeia VisionBox → Flowbox → SEFAZ, e cancelamento testado (cStat 135). Refator frontend completo (2026-10-11): `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
-## Fiscal — Produção: numeração configurável + `<infRespTec>` (2026-10-14, 🔄 em implementação)
+## Fiscal — Produção: NFC-e autorizada (cStat 100) + cancelamento (cStat 135) (2026-10-14, ✅ emissão / 🔄 cancelamento)
+
+> **Marco:** primeiro E2E completo em **PRODUCAO** (`tpAmb=1`) — `POST /api/v1/fiscal/nfce/emitir` → Flowbox → SEFAZ-SP → autorização gravada no `documento_fiscal`. Referência canônica: OUTBOX ERP; **nunca adivinhar** — todo valor abaixo veio da resposta crua da SEFAZ ou do banco.
+
+| Frente | Resultado | Evidência |
+|---|---|---|
+| Emissão autorizada | Série 090 nº 2 → **cStat 100** | chave `35261040187613000102650900000000021624523010`, protocolo `13526007063048832`, HTTP 201, `status=AUTORIZADO`, `codigoStatus=100`, linha em `documento_fiscal` (serie 090, numero 2, ambiente 1) |
+| Protocolo de 17 dígitos | `nProt` real da SEFAZ-SP é de **17 dígitos** (autorização **e** evento), não 15 do XSD `TProt` | `13526007062662399`, `13526007063048832`, `13526007064496914`; V49 `documento_fiscal.protocolo VARCHAR(20)` + `REGEX_PROTOCOLO`/`@Pattern` → `\d{1,20}` |
+| Cancelamento | Evento 110111 autorizado → **cStat 135** "Evento registrado e vinculado a NF-e" | nota 090/5 emitida 15:07:40 e cancelada **15:07:41**; protocolo do evento `13526007064496914`; Flowbox `status=CANCELADO` |
+| Parser de evento | `lerProtocolos` lia `protEvento` (tag inexistente) e reportava o **cStat 128 do lote**; agora lê `retEvento/infEvento` | Flowbox `5500adc` |
+| Conteúdo do XML | `<infRespTec>` completo (CNPJ `40.187.613/0001-02`, contato, email, fone), `<tpAmb>1`, `<card><tpIntegra>2` | XML devolvido pelo Flowbox |
+| Fuso | `TZ=America/Sao_Paulo` nos containers `app` e `flowbox` | logs `-03:00`; XMLs já eram `ZonedDateTime.now(America/Sao_Paulo)` (independentes do TZ do host) |
+| Rejeições superadas | 209 → 373 → 742 → 391 → 245 → **100** | commits `f64b7a5`, `3f67971`, `c1e8d6b`, `c223e24`, `5d12f0b`, `0bb4a8f` |
+| Testes | VisionBox `mvn test -Punit-only` ✅ · Flowbox `mvn test` ✅ | executados neste ciclo |
+
+**Descobertas que mudam a numeração:** série 090 nº **3 e 4 já usados por outro sistema na SEFAZ desde setembro/2026** → cStat 539 "Duplicidade de NF-e com diferença na Chave de Acesso". A numeração local `max(numero)+1` não conhece o histórico da SEFAZ.
+
+**Pendências abertas (cancelamento pausado a pedido do cliente):**
+1. Notas 090/1 e 090/2 rejeitadas com **cStat 501** ("Prazo de cancelamento superior ao previsto na Legislação") a partir de ~36 min; a 090/5 cancelou a +1 s. Causa ainda não explicada (XML de evento idêntico normalizado; `dhEmi` correto nas três).
+2. `POST /api/v1/fiscal/nfce/cancelar` não existe — `FiscalProvider.cancelar()` sem chamador e payload incompleto (falta emitente/protocolo/ambiente).
+3. Gravar `nfeProc` (XML autorizado) em `xml_retorno` — hoje guarda o envelope `enviNFe`.
+4. Rejeição do Flowbox vira `codigoStatus 503` "Flowbox indisponível"; o cStat real (539) só aparece dentro do texto.
+5. Consulta de chave da Flowbox → HTTP 500 da SEFAZ-SP.
+6. Nota 090/1 órfã (sem linha no VisionBox — o 409 do protocolo de 17 dígitos reverteu a transação antes do V49).
+7. Decisões do cliente: série/limite novo; série 090 → 001 ao consolidar; TZ do host (sudo).
+
+**Commits deste ciclo:** VisionBox `0bb4a8f` (V49) e `1fe5d38` (TZ app) · Flowbox `5500adc` (parser + regex) e `a2331db` (TZ) — todos pushados e deployados na VPS.
+
+## Fiscal — Produção: numeração configurável + `<infRespTec>` (2026-10-14, ✅ concluída — ver seção acima)
 
 > Pedido do cliente: série e número **não podem ser fixos** — têm de ficar configuráveis, e o número usado vem do **maior já usado na série + 1**, para não dar duplicidade.
 > Ambiente trocado para **PRODUCAO**, igual ao OUTBOX ERP. Evidência de que o `cStat 245` não era credenciamento da empresa: o OUTBOX emite **todo dia** com o mesmo CNPJ `40.187.613/0001-02`, mesma IE `151957359112`, mesmo CRT `1` e mesmo endereço — só que com `ambiente=PRODUCAO`. O cStat 245 em `tpAmb=2` significa **ausência de credenciamento no ambiente de homologação** da SEFAZ-SP, que é um processo separado do de produção.
