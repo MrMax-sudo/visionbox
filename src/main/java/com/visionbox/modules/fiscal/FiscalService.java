@@ -84,13 +84,11 @@ public class FiscalService {
         if (resultado.dhAutorizacao() != null) doc.setDhAutorizacao(resultado.dhAutorizacao());
         if (resultado.autorizado()) {
             doc.setStatus(DocumentoFiscal.StatusFiscal.AUTORIZADO);
-            doc.setCodigoStatus(resultado.codigoStatus());
-            doc.setMotivo(resultado.motivo());
         } else {
             doc.setStatus(DocumentoFiscal.StatusFiscal.REJEITADO);
-            doc.setCodigoStatus(resultado.codigoStatus());
-            doc.setMotivo(resultado.motivo());
         }
+        doc.setCodigoStatus(resultado.codigoStatus());
+        doc.setMotivo(limitarMotivo(resultado.motivo()));
         doc = repository.save(doc);
 
         log.info("NFC-e emitida loja={} modelo={} serie={} numero={} chave={} protocolo={} status={}",
@@ -106,7 +104,7 @@ public class FiscalService {
                 .protocolo(resultado.protocolo())
                 .status(doc.getStatus().name())
                 .codigoStatus(resultado.codigoStatus())
-                .motivo(resultado.motivo())
+                .motivo(limitarMotivo(resultado.motivo()))
                 .xmlRetorno(resultado.xmlRetorno())
                 .dhAutorizacao(resultado.dhAutorizacao())
                 .dhEmissao(doc.getDhEmissao())
@@ -114,6 +112,14 @@ public class FiscalService {
                 .tpEmis(doc.getTpEmis())
                 .autorizado(resultado.autorizado())
                 .build();
+    }
+
+    /** Teto do motivo persistido: o Flowbox devolve o corpo HTTP inteiro, que pode passar de 100 kB. */
+    private static final int MOTIVO_MAXIMO = 2000;
+
+    private static String limitarMotivo(String motivo) {
+        if (motivo == null) return null;
+        return motivo.length() <= MOTIVO_MAXIMO ? motivo : motivo.substring(0, MOTIVO_MAXIMO) + " ...";
     }
 
     private DocumentoFiscal.ModeloFiscal parseModelo(String m) {

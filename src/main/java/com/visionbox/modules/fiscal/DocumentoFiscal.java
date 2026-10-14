@@ -56,7 +56,7 @@ public class DocumentoFiscal extends EntidadeBase {
     @Column(name = "codigo_status", length = 3)
     private String codigoStatus;
 
-    @Column(name = "motivo", length = 500)
+    @Column(name = "motivo", columnDefinition = "TEXT")
     private String motivo;
 
     @Column(name = "dh_emissao", columnDefinition = "timestamptz")
