@@ -50,7 +50,11 @@ public class DocumentoFiscal extends EntidadeBase {
     @Column(name = "xml_retorno", columnDefinition = "TEXT")
     private String xmlRetorno;
 
-    @Column(name = "protocolo", length = 15)
+    /**
+     * Protocolo de autorização da SEFAZ. O XSD limita a 15 dígitos, mas a SEFAZ-SP em produção
+     * devolve 17 (V49) — coluna com folga para o dado real, que manda sobre o leiaute.
+     */
+    @Column(name = "protocolo", length = 20)
     private String protocolo;
 
     @Column(name = "codigo_status", length = 3)
