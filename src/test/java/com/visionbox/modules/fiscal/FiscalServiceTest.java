@@ -29,15 +29,21 @@ class FiscalServiceTest {
 
     private FiscalProvider provider;
     private DocumentoFiscalRepository repository;
+    private com.visionbox.modules.pessoa.repository.LojaRepository lojaRepository;
     private FiscalService service;
 
     @BeforeEach
     void setUp() {
         provider = mock(FiscalProvider.class);
         repository = mock(DocumentoFiscalRepository.class);
-        service = new FiscalService(provider, repository);
+        lojaRepository = mock(com.visionbox.modules.pessoa.repository.LojaRepository.class);
+        service = new FiscalService(provider, repository, lojaRepository);
 
         TenantContext.setCurrentLojaId(LOJA_ID);
+        // Loja sem configuração fiscal (V48): série "001", ambiente "2", número pelo máximo da série.
+        when(lojaRepository.findById(LOJA_ID)).thenReturn(Optional.empty());
+        when(repository.findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(any(), any(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
         when(repository.findByLojaIdAndModeloAndSerieAndNumero(any(), any(), anyString(), any()))
                 .thenReturn(Optional.empty());
         when(repository.save(any(DocumentoFiscal.class))).thenAnswer(invocation -> {
@@ -113,5 +119,68 @@ class FiscalServiceTest {
 
         assertThatThrownBy(() -> service.emitirNfce(NfceEmitirRequest.builder().build()))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("Sem número informado usa o maior número já usado na série + 1 (V48)")
+    void deveContinuarASequenciaDaSerie() {
+        when(repository.findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(any(), any(), anyString(), anyString()))
+                .thenReturn(Optional.of(126));
+        when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
+                .thenReturn(FiscalProvider.ResultadoFiscal.autorizado(CHAVE_44, PROTOCOLO_15, "<ret cStat=\"100\"/>"));
+
+        var response = service.emitirNfce(NfceEmitirRequest.builder()
+                .modelo("NFCE_65")
+                .xmlAssinado("<NFe/>")
+                .build());
+
+        assertThat(response.getNumero()).isEqualTo(127);
+    }
+
+    @Test
+    @DisplayName("Série vazia cai para o número inicial configurado na loja, não para um aleatório")
+    void deveUsarNumeroInicialDaLojaQuandoSerieVazia() {
+        com.visionbox.modules.pessoa.domain.Loja loja = com.visionbox.modules.pessoa.domain.Loja.builder()
+                .id(LOJA_ID)
+                .fiscalSerieNfce("004")
+                .fiscalSerieNfe("026")
+                .fiscalNumeroInicialNfce(127)
+                .fiscalNumeroInicialNfe(34)
+                .fiscalAmbiente("PRODUCAO")
+                .build();
+        when(lojaRepository.findById(LOJA_ID)).thenReturn(Optional.of(loja));
+        when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
+                .thenReturn(FiscalProvider.ResultadoFiscal.autorizado(CHAVE_44, PROTOCOLO_15, "<ret cStat=\"100\"/>"));
+
+        var nfce = service.emitirNfce(NfceEmitirRequest.builder().modelo("NFCE_65").xmlAssinado("<NFe/>").build());
+        var nfe = service.emitirNfce(NfceEmitirRequest.builder().modelo("NFE_55").xmlAssinado("<NFe/>").build());
+
+        assertThat(nfce.getSerie()).isEqualTo("004");
+        assertThat(nfce.getNumero()).isEqualTo(127);
+        assertThat(nfce.getAmbiente()).isEqualTo("PRODUCAO");
+        assertThat(nfe.getSerie()).isEqualTo("026");
+        assertThat(nfe.getNumero()).isEqualTo(34);
+    }
+
+    @Test
+    @DisplayName("Série configurada na loja prevalece sobre a série da requisição")
+    void deveUsarSerieDaLoja() {
+        com.visionbox.modules.pessoa.domain.Loja loja = com.visionbox.modules.pessoa.domain.Loja.builder()
+                .id(LOJA_ID)
+                .fiscalSerieNfce("7")
+                .build();
+        when(lojaRepository.findById(LOJA_ID)).thenReturn(Optional.of(loja));
+        when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
+                .thenReturn(FiscalProvider.ResultadoFiscal.autorizado(CHAVE_44, PROTOCOLO_15, "<ret cStat=\"100\"/>"));
+
+        var response = service.emitirNfce(NfceEmitirRequest.builder()
+                .modelo("NFCE_65")
+                .serie("9")
+                .numero(5)
+                .xmlAssinado("<NFe/>")
+                .build());
+
+        assertThat(response.getSerie()).isEqualTo("007");
+        assertThat(response.getNumero()).isEqualTo(5);
     }
 }

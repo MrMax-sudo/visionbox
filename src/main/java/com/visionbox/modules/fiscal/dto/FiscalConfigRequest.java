@@ -25,4 +25,12 @@ public class FiscalConfigRequest {
     private String codigoMunicipio;
     private String crt;
     private String fiscalAmbiente;
+    /**
+     * Série e primeiro número da NFC-e (65) e da NF-e (55). Null preserva o valor atual;
+     * a emissão usa sempre o maior número já usado na mesma série + 1 (V48).
+     */
+    private String fiscalSerieNfce;
+    private String fiscalSerieNfe;
+    private Integer fiscalNumeroInicialNfce;
+    private Integer fiscalNumeroInicialNfe;
 }

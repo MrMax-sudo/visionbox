@@ -70,6 +70,10 @@ public class FiscalConfigService {
                 .codigoMunicipio(loja != null ? loja.getCodigoMunicipio() : null)
                 .crt(loja != null ? loja.getCrt() : null)
                 .fiscalAmbiente(loja != null ? loja.getFiscalAmbiente() : null)
+                .fiscalSerieNfce(loja != null ? loja.getFiscalSerieNfce() : null)
+                .fiscalSerieNfe(loja != null ? loja.getFiscalSerieNfe() : null)
+                .fiscalNumeroInicialNfce(loja != null ? loja.getFiscalNumeroInicialNfce() : null)
+                .fiscalNumeroInicialNfe(loja != null ? loja.getFiscalNumeroInicialNfe() : null)
                 .fiscalProvider(isFlowbox ? "flowbox" : "mock")
                 .active(isFlowbox)
                 .build();
@@ -103,6 +107,13 @@ public class FiscalConfigService {
         aplicarTexto(loja::setCrt, request.getCrt());
         aplicarTexto(loja::setFiscalAmbiente, request.getFiscalAmbiente());
 
+        // Série e número inicial da NFC-e/NF-e (V48): null preserva, string vazia limpa.
+        // A série é normalizada para 001..999 no momento do envio, e não a que já está gravada.
+        aplicarTexto(loja::setFiscalSerieNfce, normalizarParaGravar(request.getFiscalSerieNfce(), "NFC-e"));
+        aplicarTexto(loja::setFiscalSerieNfe, normalizarParaGravar(request.getFiscalSerieNfe(), "NF-e"));
+        aplicarNumeroInicial(loja::setFiscalNumeroInicialNfce, request.getFiscalNumeroInicialNfce(), "NFC-e");
+        aplicarNumeroInicial(loja::setFiscalNumeroInicialNfe, request.getFiscalNumeroInicialNfe(), "NF-e");
+
         if (loja.getCrt() != null && !Set.of("1", "2", "3").contains(loja.getCrt())) {
             throw new IllegalArgumentException("CRT inválido: use 1 (Simples Nacional), 2 (Lucro Presumido) ou 3 (Lucro Real).");
         }
@@ -129,6 +140,43 @@ public class FiscalConfigService {
         }
         String limpo = novo.trim();
         setter.accept(limpo.isEmpty() ? null : limpo);
+    }
+
+    /**
+     * Devolve a série no formato do banco (001..999) ou o próprio valor quando veio nulo/em branco,
+     * para {@link #aplicarTexto} decidir preservar ou limpar. Valida contra o tipo {@code TSerie}
+     * do XSD oficial da SEFAZ: {@code 0|[1-9][0-9]{0,2}} — 0 a 999, sem zero à esquerda.
+     * O zero à esquerda só existe na chave de acesso; no XML a série sai como 1..999.
+     */
+    private String normalizarParaGravar(String valor, String modelo) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return valor;
+        }
+        String limpo = valor.trim();
+        if (!limpo.matches("\\d{1,3}")) {
+            throw new IllegalArgumentException(
+                    "Série da " + modelo + " inválida: use 1 a 3 dígitos (XSD TSerie aceita 0 a 999).");
+        }
+        int numero = Integer.parseInt(limpo);
+        if (numero > 999) {
+            throw new IllegalArgumentException("Série da " + modelo + " inválida: o máximo é 999 (XSD TSerie).");
+        }
+        return String.format("%03d", numero);
+    }
+
+    /**
+     * Null preserva o valor atual; 0 limpa e volta ao padrão 1. Limites do tipo {@code TNF} do XSD
+     * oficial: {@code [1-9][0-9]{0,8}}, ou seja 1 a 999999999.
+     */
+    private void aplicarNumeroInicial(Consumer<Integer> setter, Integer novo, String modelo) {
+        if (novo == null) {
+            return;
+        }
+        if (novo < 0 || novo > 999_999_999) {
+            throw new IllegalArgumentException(
+                    "Número inicial da " + modelo + " inválido: use 1 a 999999999 (XSD TNF).");
+        }
+        setter.accept(novo > 0 ? novo : null);
     }
 
     public TestarConexaoResponse testarConexao(String targetUrl, String targetApiKey) {

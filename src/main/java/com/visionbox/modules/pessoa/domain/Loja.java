@@ -100,4 +100,20 @@ public class Loja {
     /** Ambiente da SEFAZ usado na emissão: HOMOLOGACAO ou PRODUCAO. */
     @Column(name = "fiscal_ambiente", length = 20)
     private String fiscalAmbiente;
+
+    /** Série da NFC-e (modelo 65) usada na emissão; configurável por loja (V48). */
+    @Column(name = "fiscal_serie_nfce", length = 3)
+    private String fiscalSerieNfce;
+
+    /** Série da NF-e (modelo 55) usada na emissão; configurável por loja (V48). */
+    @Column(name = "fiscal_serie_nfe", length = 3)
+    private String fiscalSerieNfe;
+
+    /** Primeiro número da série da NFC-e quando a série ainda não tem documentos. */
+    @Column(name = "fiscal_numero_inicial_nfce")
+    private Integer fiscalNumeroInicialNfce;
+
+    /** Primeiro número da série da NF-e quando a série ainda não tem documentos. */
+    @Column(name = "fiscal_numero_inicial_nfe")
+    private Integer fiscalNumeroInicialNfe;
 }

@@ -25,6 +25,10 @@ public class FiscalConfigResponse {
     private String codigoMunicipio;
     private String crt;
     private String fiscalAmbiente;
+    private String fiscalSerieNfce;
+    private String fiscalSerieNfe;
+    private Integer fiscalNumeroInicialNfce;
+    private Integer fiscalNumeroInicialNfe;
     private String fiscalProvider;
     private boolean active;
 }

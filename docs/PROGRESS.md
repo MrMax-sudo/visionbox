@@ -3,6 +3,17 @@
 > **Atualizado em:** 2026-10-11 — **Refator total do frontend concluído** (tema+UI kit+AppShell+14 telas+limpeza). `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
+## Fiscal — Produção: numeração configurável + `<infRespTec>` (2026-10-14, 🔄 em implementação)
+
+> Pedido do cliente: série e número **não podem ser fixos** — têm de ficar configuráveis, e o número usado vem do **maior já usado na série + 1**, para não dar duplicidade.
+> Ambiente trocado para **PRODUCAO**, igual ao OUTBOX ERP. Evidência de que o `cStat 245` não era credenciamento da empresa: o OUTBOX emite **todo dia** com o mesmo CNPJ `40.187.613/0001-02`, mesma IE `151957359112`, mesmo CRT `1` e mesmo endereço — só que com `ambiente=PRODUCAO`. O cStat 245 em `tpAmb=2` significa **ausência de credenciamento no ambiente de homologação** da SEFAZ-SP, que é um processo separado do de produção.
+
+| Item | O quê |
+|---|---|
+| Numeração | `V48`: `fiscal_serie_nfce`, `fiscal_serie_nfe`, `fiscal_numero_inicial_nfce`, `fiscal_numero_inicial_nfe` em `loja`. `FiscalService` abandona o `ThreadLocalRandom 1..999999` e passa a usar `max(numero) da série no mesmo ambiente + 1`, com fallback para o número inicial configurado (hoje: 14 linhas aleatórias entre 8.992 e 791.265, todas em homologação) |
+| `<infRespTec>` | obrigatório em produção e rejeitado em homologação (exceto PR) — regra e campos copiados do OUTBOX ERP (`NfceXmlBuilder:447-463`). Flowbox hoje **não emite**: `CNPJ` = CNPJ do emitente, `xContato` = "Suporte Tecnico", `email`/`telefone` = dados da loja. Sem o grupo a SEFAZ-SP rejeita a emissão em produção |
+| Dados aprovados pelo cliente | `fiscal_ambiente=PRODUCAO` · CSC `2d977230-481a-4b1c-8426-89fcb74cca73` / CSC Id `000001` (os mesmos do `fiscal_config` do OUTBOX) · `nome=I LOVE MIMOS` (razão social que vai no `<xNome>`) · logradouro `Rua Vinte e Cinco de Março` |
+
 ## Fiscal — Correção da Emissão NFC-e (2026-10-14, ✅ código concluído · ⛔ bloqueio cadastral na SEFAZ-SP)
 
 > Investigação a pedido do cliente: "não está rolando a emissão de notas fiscais". **Nove causas empilhadas + cadastro de emitente por loja**, todas corrigidas.

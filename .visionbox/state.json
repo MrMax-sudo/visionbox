@@ -5,8 +5,20 @@
   "fiscal_emissao_fix": {
     "status": "codigo_concluido_bloqueio_cadastral_sefaz_sp",
     "resumo": "Onze causas corrigidas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00; (8) cStat 104 tratado como layout nao reconhecido; (9) motivo varchar(255) no Flowbox quebrava o INSERT; (10) emitente com valores fixos (V47: campos fiscais em loja + Painel Fiscal + recusa antes de transmitir); (11) tres rejeicoes novas da SEFAZ-SP corrigidas alinhadas ao OUTBOX ERP - cStat 373 (xProd literal na homologacao), cStat 742 (modelo 65 nao emite grupo IPI, zera vIPI/vIPIDevol) e cStat 391 (regra YA04-10: tPag 03/04/17 exige grupo card com tpIntegra=2).",
-    "blocker": "cStat 245 - Rejeicao: CNPJ Emitente nao cadastrado. O CNPJ 40187613000102 (o do certificado A1 cadastrado no Flowbox) nao tem credenciamento de emissao de NFC-e na SEFAZ-SP, nem em homologacao. A IE 151957359112 foi aceita, entao a SEFAZ conhece a empresa: falta o credenciamento, que e feito pelo contador/empresa junto a SEFAZ-SP. Secundariamente, csc e csc_id estao vazios na loja e o provedor recusa a emissao antes de transmitir.",
+    "blocker": "cStat 245 em tpAmb=2 = CNPJ sem credenciamento NO AMBIENTE DE HOMOLOGACAO da SEFAZ-SP (credenciamento de homologacao e de producao sao processos separados). Evidencia: o OUTBOX ERP emite todo dia com o mesmo CNPJ, IE, CRT e endereco, so que com ambiente=PRODUCAO. Resolucao escolhida pelo cliente: emitir em PRODUCAO, igual a referencia.",
     "evidence": "Flowbox mvn test 372/372; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; VisionBox mvn -Punit-only 423/423 + typecheck + build verdes; E2E real na VPS avancou cStat 209 -> 373 -> 742 -> 391 -> 245, com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23; cadastro do emitente gravado a partir de consulta publica (IE 151957359112 ativa, municipio 3550308, CEP 01021900)"
+  },
+  "fiscal_producao": {
+    "status": "em_implementacao",
+    "ambiente": "PRODUCAO",
+    "resumo": "Troca de HOMOLOGACAO para PRODUCAO (mesma configuracao do OUTBOX ERP), numeracao configuravel por serie com sequencia max+1 para nao dar duplicidade, e grupo <infRespTec> obrigatorio em producao.",
+    "pendencias": [
+      "V48: fiscal_serie_nfce, fiscal_serie_nfe, fiscal_numero_inicial_nfce, fiscal_numero_inicial_nfe em loja + secao correspondente no Painel Fiscal",
+      "FiscalService: trocar o ThreadLocalRandom 1..999999 por max(numero)+1 da mesma serie/ambiente, com fallback para o numero inicial configurado",
+      "Flowbox: emitir <infRespTec> fora de homologacao (regra do OUTBOX ERP:447-463) e provider enviar email/telefone da loja",
+      "Gravar dados aprovados: fiscal_ambiente=PRODUCAO, csc=2d977230-481a-4b1c-8426-89fcb74cca73, csc_id=000001, nome=I LOVE MIMOS, endereco=Rua Vinte e Cinco de Março",
+      "E2E em producao com a serie configurada, ate cStat 100"
+    ]
   },
   "web_refactor": {
     "status": "ondas_2_5_robustez_concluidas",

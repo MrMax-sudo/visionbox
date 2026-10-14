@@ -100,29 +100,27 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("ambiente", ambienteDe(loja));
 
-            // Emitente — todo dado vem do cadastro fiscal da loja (V47); nada aqui é fixo.
+            // Emitente — todo dado vem do cadastro fiscal da loja (V47/V48); nada aqui é fixo.
+            // validarCadastroFiscal já recusou a emissão quando algum desses campos está ausente.
             Map<String, Object> emitente = new LinkedHashMap<>();
-            String cnpj = (loja != null && loja.getCnpj() != null) ? loja.getCnpj().replaceAll("\\D", "") : "40187613000102";
-            if (cnpj.length() != 14) cnpj = "40187613000102";
+            String cnpj = loja.getCnpj().replaceAll("\\D", "");
             emitente.put("cnpj", cnpj);
-            emitente.put("razaoSocial", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
-            emitente.put("nomeFantasia", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
-            emitente.put("uf", (loja != null && org.springframework.util.StringUtils.hasText(loja.getUf())) ? loja.getUf().trim().toUpperCase() : "SP");
+            emitente.put("razaoSocial", loja.getNome().trim());
+            emitente.put("nomeFantasia", loja.getNome().trim());
+            emitente.put("uf", loja.getUf().trim().toUpperCase());
             emitente.put("inscricaoEstadual", loja.getInscricaoEstadual().trim());
-            emitente.put("crt", loja.getCrt() != null ? loja.getCrt().trim() : "1");
-            emitente.put("logradouro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getEndereco())) ? loja.getEndereco() : "Rua das Oticas");
-            emitente.put("numero", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNumero())) ? loja.getNumero() : "100");
-            emitente.put("bairro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getBairro())) ? loja.getBairro() : "Centro");
-            emitente.put("municipio", (loja != null && org.springframework.util.StringUtils.hasText(loja.getCidade())) ? loja.getCidade() : "Sao Paulo");
-            putSePresente(emitente, "codigoMunicipio", loja.getCodigoMunicipio());
-            if (!emitente.containsKey("codigoMunicipio")) {
-                emitente.put("codigoMunicipio", "3550308");
-            }
-            String cep = (loja != null && loja.getCep() != null) ? loja.getCep().replaceAll("\\D", "") : "01001000";
-            if (cep.length() != 8) cep = "01001000";
-            emitente.put("cep", cep);
+            emitente.put("crt", loja.getCrt() != null && org.springframework.util.StringUtils.hasText(loja.getCrt()) ? loja.getCrt().trim() : "1");
+            emitente.put("logradouro", loja.getEndereco().trim());
+            emitente.put("numero", loja.getNumero().trim());
+            emitente.put("bairro", loja.getBairro().trim());
+            emitente.put("municipio", loja.getCidade().trim());
+            emitente.put("codigoMunicipio", loja.getCodigoMunicipio());
+            emitente.put("cep", loja.getCep().replaceAll("\\D", ""));
             putSePresente(emitente, "csc", loja.getCsc());
             putSePresente(emitente, "cscId", loja.getCscId());
+            // <infRespTec> da SEFAZ: email obrigatório em produção, fone opcional (XSD TInfRespTec).
+            putSePresente(emitente, "email", loja.getEmailContato());
+            putSePresente(emitente, "telefone", loja.getTelefone());
             payload.put("emitente", emitente);
 
             // Certificado A1: só a referência. O PFX e a senha ficam cifrados no Flowbox.
@@ -255,7 +253,38 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             return "Cadastro fiscal incompleto: CSC e CSC ID da NFC-e não cadastrados — sem eles o QR Code é "
                     + "inválido. Emita no portal da NF-e da UF e cadastre em " + painel + ".";
         }
+
+        // Nada aqui é preenchido por fallback: dado ausente é recusado antes de transmitir, para a
+        // SEFAZ não rejeitar com cStat de cadastro nem a nota sair com valor inventado.
+        String cnpj = loja.getCnpj() != null ? loja.getCnpj().replaceAll("\\D", "") : "";
+        String cep = loja.getCep() != null ? loja.getCep().replaceAll("\\D", "") : "";
+        java.util.List<String> faltando = new java.util.ArrayList<>();
+        adicionarSeAusente(faltando, "CNPJ (14 dígitos)", cnpj.length() == 14 ? cnpj : null);
+        adicionarSeAusente(faltando, "Razão social (nome da loja)", loja.getNome());
+        adicionarSeAusente(faltando, "Logradouro", loja.getEndereco());
+        adicionarSeAusente(faltando, "Número", loja.getNumero());
+        adicionarSeAusente(faltando, "Bairro", loja.getBairro());
+        adicionarSeAusente(faltando, "Município", loja.getCidade());
+        adicionarSeAusente(faltando, "UF", loja.getUf());
+        adicionarSeAusente(faltando, "CEP (8 dígitos)", cep.length() == 8 ? cep : null);
+        adicionarSeAusente(faltando, "Código do município IBGE (7 dígitos)",
+                loja.getCodigoMunicipio() != null && loja.getCodigoMunicipio().matches("\\d{7}")
+                        ? loja.getCodigoMunicipio() : null);
+        if ("PRODUCAO".equals(ambienteDe(loja))) {
+            // <infRespTec> é exigido pela SEFAZ fora de homologação e o XSD obriga o <email>.
+            adicionarSeAusente(faltando, "Email (grupo infRespTec, obrigatório em produção)", loja.getEmailContato());
+        }
+        if (!faltando.isEmpty()) {
+            return "Cadastro fiscal incompleto: faltam " + String.join(", ", faltando)
+                    + " — a SEFAZ rejeita a emissão sem esses dados do emitente. Cadastre em " + painel + ".";
+        }
         return null;
+    }
+
+    private void adicionarSeAusente(java.util.List<String> faltando, String campo, String valor) {
+        if (!org.springframework.util.StringUtils.hasText(valor)) {
+            faltando.add(campo);
+        }
     }
 
     /** Ambiente da SEFAZ da loja; HOMOLOGACAO é o padrão enquanto a loja não define o seu. */

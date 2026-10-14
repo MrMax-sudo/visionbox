@@ -33,6 +33,10 @@ interface FiscalConfigData {
   codigoMunicipio?: string | null;
   crt?: string | null;
   fiscalAmbiente?: string | null;
+  fiscalSerieNfce?: string | null;
+  fiscalSerieNfe?: string | null;
+  fiscalNumeroInicialNfce?: number | null;
+  fiscalNumeroInicialNfe?: number | null;
   fiscalProvider: string;
   active: boolean;
 }
@@ -67,6 +71,11 @@ export function FiscalConfig() {
   const [codigoMunicipio, setCodigoMunicipio] = React.useState('');
   const [crt, setCrt] = React.useState('1');
   const [fiscalAmbiente, setFiscalAmbiente] = React.useState('HOMOLOGACAO');
+  // Série e primeiro número por modelo (V48) — evita duplicidade de número na SEFAZ.
+  const [serieNfce, setSerieNfce] = React.useState('');
+  const [serieNfe, setSerieNfe] = React.useState('');
+  const [numeroInicialNfce, setNumeroInicialNfce] = React.useState('');
+  const [numeroInicialNfe, setNumeroInicialNfe] = React.useState('');
   const [showCsc, setShowCsc] = React.useState(false);
   const [testResult, setTestResult] = React.useState<TestarConexaoResponse | null>(null);
 
@@ -97,6 +106,18 @@ export function FiscalConfig() {
       setCodigoMunicipio(config.codigoMunicipio || '');
       setCrt(config.crt || '1');
       setFiscalAmbiente(config.fiscalAmbiente || 'HOMOLOGACAO');
+      setSerieNfce(config.fiscalSerieNfce || '');
+      setSerieNfe(config.fiscalSerieNfe || '');
+      setNumeroInicialNfce(
+        config.fiscalNumeroInicialNfce === null || config.fiscalNumeroInicialNfce === undefined
+          ? ''
+          : String(config.fiscalNumeroInicialNfce)
+      );
+      setNumeroInicialNfe(
+        config.fiscalNumeroInicialNfe === null || config.fiscalNumeroInicialNfe === undefined
+          ? ''
+          : String(config.fiscalNumeroInicialNfe)
+      );
     }
   }, [config]);
 
@@ -116,6 +137,11 @@ export function FiscalConfig() {
         codigoMunicipio,
         crt,
         fiscalAmbiente,
+        // Série: string vazia limpa e volta ao padrão; número inicial vazio preserva o atual
+        fiscalSerieNfce: serieNfce,
+        fiscalSerieNfe: serieNfe,
+        ...(numeroInicialNfce.trim() === '' ? {} : { fiscalNumeroInicialNfce: Number(numeroInicialNfce.trim()) }),
+        ...(numeroInicialNfe.trim() === '' ? {} : { fiscalNumeroInicialNfe: Number(numeroInicialNfe.trim()) }),
       });
       return res.data;
     },
@@ -477,6 +503,72 @@ export function FiscalConfig() {
             </select>
             <p className="text-[10px] text-muted">
               Só troque para PRODUCAO com certificado A1 válido e cadastro conferido na SEFAZ.
+            </p>
+          </div>
+
+          {/* Série e numeração (V48) */}
+          <div className="space-y-2 sm:col-span-2 xl:col-span-4">
+            <p className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Server className="h-3.5 w-3.5 text-muted" />
+              Série e numeração
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-primary">Série NFC-e (65)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={serieNfce}
+                  onChange={(e) => setSerieNfce(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 001"
+                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <p className="text-[10px] text-muted">1 a 3 dígitos (0 a 999).</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-primary">Nº inicial NFC-e</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={9}
+                  value={numeroInicialNfce}
+                  onChange={(e) => setNumeroInicialNfce(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 1"
+                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <p className="text-[10px] text-muted">Primeiro nº da série quando vazia.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-primary">Série NF-e (55)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={serieNfe}
+                  onChange={(e) => setSerieNfe(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 001"
+                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <p className="text-[10px] text-muted">1 a 3 dígitos (0 a 999).</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-primary">Nº inicial NF-e</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={9}
+                  value={numeroInicialNfe}
+                  onChange={(e) => setNumeroInicialNfe(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 1"
+                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <p className="text-[10px] text-muted">Primeiro nº da série quando vazia.</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted">
+              A emissão usa sempre o maior número já usado na mesma série e ambiente + 1. Use uma série
+              própria quando outro sistema emitir pelo mesmo CNPJ, para não dividir a numeração.
             </p>
           </div>
 

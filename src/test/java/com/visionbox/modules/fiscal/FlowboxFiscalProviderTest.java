@@ -188,6 +188,47 @@ class FlowboxFiscalProviderTest {
         assertThat(payload).containsEntry("ambiente", "HOMOLOGACAO");
     }
 
+    @Test
+    @DisplayName("Deve recusar antes de transmitir quando a produção não tem email do emitente (infRespTec)")
+    void deveRecusarProducaoSemEmailDoEmitente() {
+        LojaRepository lojaRepository = Mockito.mock(LojaRepository.class);
+        Loja loja = Loja.builder()
+                .id(UUID.randomUUID())
+                .nome("I LOVE MIMOS")
+                .cnpj("40187613000102")
+                .uf("SP")
+                .inscricaoEstadual("151957359112")
+                .csc("2d977230-481a-4b1c-8426-89fcb74cca73")
+                .cscId("000001")
+                .codigoMunicipio("3550308")
+                .crt("1")
+                .fiscalAmbiente("PRODUCAO")
+                .endereco("Rua Vinte e Cinco de Março")
+                .numero("641")
+                .bairro("Centro")
+                .cidade("São Paulo")
+                .cep("01021900")
+                .build();
+        when(lojaRepository.findById(Mockito.any())).thenReturn(Optional.of(loja));
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "lojaRepository", lojaRepository);
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("001")
+                .numero(1)
+                .chaveAcesso("35261040187613000102650010000000101000000010")
+                .build();
+
+        FiscalProvider.ResultadoFiscal resultado = provider.emitir(doc, "<xml>fake</xml>");
+
+        assertThat(resultado.autorizado()).isFalse();
+        assertThat(resultado.codigoStatus()).isEqualTo("999");
+        assertThat(resultado.motivo()).contains("infRespTec");
+        Mockito.verify(restTemplate, Mockito.never())
+                .exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
+    }
+
     /** Registra a loja com o cadastro fiscal que o provedor lê antes de transmitir. */
     private void cadastrarLojaFiscal(String inscricaoEstadual, String csc, String cscId) {
         LojaRepository lojaRepository = Mockito.mock(LojaRepository.class);
@@ -201,6 +242,13 @@ class FlowboxFiscalProviderTest {
                 .cscId(cscId)
                 .codigoMunicipio("3550308")
                 .crt("1")
+                .endereco("Rua Vinte e Cinco de Março")
+                .numero("641")
+                .bairro("Centro")
+                .cidade("São Paulo")
+                .cep("01021900")
+                .emailContato("tamyres_galdino@hotmail.com")
+                .telefone("11958148028")
                 .build();
         when(lojaRepository.findById(Mockito.any())).thenReturn(Optional.of(loja));
         org.springframework.test.util.ReflectionTestUtils.setField(provider, "lojaRepository", lojaRepository);

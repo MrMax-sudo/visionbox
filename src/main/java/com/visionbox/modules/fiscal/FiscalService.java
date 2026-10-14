@@ -3,15 +3,17 @@ package com.visionbox.modules.fiscal;
 import com.visionbox.modules.fiscal.dto.NfceEmitirRequest;
 import com.visionbox.modules.fiscal.dto.NfceEmitirResponse;
 import com.visionbox.modules.fiscal.repository.DocumentoFiscalRepository;
+import com.visionbox.modules.pessoa.domain.Loja;
+import com.visionbox.modules.pessoa.repository.LojaRepository;
 import com.visionbox.shared.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -20,35 +22,33 @@ public class FiscalService {
 
     private final FiscalProvider fiscalProvider;
     private final DocumentoFiscalRepository repository;
+    private final LojaRepository lojaRepository;
 
     @Transactional
     public NfceEmitirResponse emitirNfce(NfceEmitirRequest req) {
         UUID lojaId = TenantContext.requireCurrentLojaId();
 
-        String serie = req.getSerie() != null && !req.getSerie().isBlank() ? req.getSerie().trim() : "1";
-        // normaliza para 3 dígitos se numérico curto
-        if (serie.matches("\\d+") && serie.length() < 3) {
-            serie = String.format("%03d", Integer.parseInt(serie));
-            // mantém 1 -> 001 compatível com SEFAZ, mas aceita "1" também
-            // para teste manter sem zero à esquerda se req veio "1" ??? Keep 1-char fallback handled above -> now 001
-            // If original was "1", we produce "001" which matches DocumentoFiscal serie length 3
-        }
+        Loja loja = lojaRepository.findById(lojaId).orElse(null);
+        DocumentoFiscal.ModeloFiscal modelo = parseModelo(req.getModelo());
+        boolean nfce = modelo == DocumentoFiscal.ModeloFiscal.NFCE_65;
+
+        // Série, ambiente e número inicial vêm da configuração fiscal da loja (Painel Fiscal, V48);
+        // a requisição só entra quando a loja não definiu o seu.
+        String serie = normalizarSerie(serieDe(loja, nfce, req.getSerie()));
+        String ambiente = ambienteDe(loja, req.getAmbiente());
+
         Integer numero = req.getNumero();
         if (numero == null) {
-            // gera aleatório 1..999999 para MVP; prod usa sequencia_fiscal(loja_id, modelo, serie)
-            numero = ThreadLocalRandom.current().nextInt(1, 999999);
-            // garante unicidade tentativa
-            int tent = 0;
-            String serieFinal = serie;
-            while (tent < 3) {
-                DocumentoFiscal.ModeloFiscal modTry = parseModelo(req.getModelo());
-                if (repository.findByLojaIdAndModeloAndSerieAndNumero(lojaId, modTry, serieFinal, numero).isEmpty()) break;
-                numero = ThreadLocalRandom.current().nextInt(1, 999999);
-                tent++;
+            // Sequência por série + ambiente: maior número já usado + 1. Substitui o aleatório
+            // 1..999999, que arriscava duplicidade de (CNPJ, modelo, série, número) na SEFAZ.
+            numero = proximoNumero(lojaId, modelo, serie, ambiente, loja, nfce);
+            int tentativas = 0;
+            while (tentativas < 5
+                    && repository.findByLojaIdAndModeloAndSerieAndNumero(lojaId, modelo, serie, numero).isPresent()) {
+                numero = numero + 1;
+                tentativas++;
             }
         }
-        DocumentoFiscal.ModeloFiscal modelo = parseModelo(req.getModelo());
-        String ambiente = req.getAmbiente() != null ? req.getAmbiente() : "2";
         String tpEmis = "1"; // normal
 
         UUID osId = req.getOrdemServicoId();
@@ -120,6 +120,65 @@ public class FiscalService {
     private static String limitarMotivo(String motivo) {
         if (motivo == null) return null;
         return motivo.length() <= MOTIVO_MAXIMO ? motivo : motivo.substring(0, MOTIVO_MAXIMO) + " ...";
+    }
+
+    /**
+     * Série configurada no Painel Fiscal; a requisição só vale quando a loja não definiu a sua.
+     * Série em branco cai para "1".
+     */
+    private String serieDe(Loja loja, boolean nfce, String serieRequisicao) {
+        String configurada = loja != null ? (nfce ? loja.getFiscalSerieNfce() : loja.getFiscalSerieNfe()) : null;
+        if (StringUtils.hasText(configurada)) {
+            return configurada.trim();
+        }
+        return StringUtils.hasText(serieRequisicao) ? serieRequisicao.trim() : "1";
+    }
+
+    /** Série no formato do banco (001..999). O Flowbox remove o zero à esquerda no XML (XSD TSerie). */
+    private String normalizarSerie(String serie) {
+        if (serie == null || serie.isBlank()) {
+            return "001";
+        }
+        String limpa = serie.trim();
+        return limpa.matches("\\d{1,3}") ? String.format("%03d", Integer.parseInt(limpa)) : limpa;
+    }
+
+    /**
+     * Ambiente da SEFAZ vem da configuração fiscal da loja (Painel Fiscal): a mesma fonte que o
+     * provedor usa ao montar o payload. A requisição só vale quando a loja não definiu o seu.
+     */
+    private String ambienteDe(Loja loja, String ambienteRequisicao) {
+        if (loja != null && StringUtils.hasText(loja.getFiscalAmbiente())) {
+            return loja.getFiscalAmbiente().trim().toUpperCase();
+        }
+        if (StringUtils.hasText(ambienteRequisicao)) {
+            return ambienteRequisicao.trim();
+        }
+        return "2";
+    }
+
+    /**
+     * Próximo número livre da série: o maior número já usado na mesma série e mesmo ambiente + 1,
+     * ou o número inicial configurado na loja quando a série ainda não tem documentos.
+     * É a mesma estratégia do {@code ultimo_numero_nfce} do OUTBOX ERP — evita duplicidade de
+     * (CNPJ, modelo, série, número), que a SEFAZ rejeita. Limite XSD TNF: 1..999999999.
+     */
+    private Integer proximoNumero(UUID lojaId, DocumentoFiscal.ModeloFiscal modelo, String serie,
+                                  String ambiente, Loja loja, boolean nfce) {
+        Integer maior = repository
+                .findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(lojaId, modelo, serie, ambiente)
+                .orElse(null);
+        if (maior != null) {
+            if (maior >= 999_999_999) {
+                throw new IllegalStateException("Número da série " + serie + " esgotado: máximo 999999999 (XSD TNF). "
+                        + "Configure outra série no Painel Fiscal.");
+            }
+            return maior + 1;
+        }
+        Integer inicial = loja != null
+                ? (nfce ? loja.getFiscalNumeroInicialNfce() : loja.getFiscalNumeroInicialNfe())
+                : null;
+        return inicial != null && inicial > 0 ? inicial : 1;
     }
 
     private DocumentoFiscal.ModeloFiscal parseModelo(String m) {

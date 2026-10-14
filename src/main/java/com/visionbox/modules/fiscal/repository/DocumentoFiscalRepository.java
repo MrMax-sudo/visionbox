@@ -18,6 +18,12 @@ public interface DocumentoFiscalRepository extends JpaRepository<DocumentoFiscal
 
     Optional<DocumentoFiscal> findByLojaIdAndModeloAndSerieAndNumero(UUID lojaId, DocumentoFiscal.ModeloFiscal modelo, String serie, Integer numero);
 
+    /**
+     * Maior número já usado na série no mesmo ambiente: base da sequência max+1 que substituiu o
+     * gerador aleatório (V48). Séries vazias devolvem vazio e vale o número inicial da loja.
+     */
+    Optional<Integer> findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(UUID lojaId, DocumentoFiscal.ModeloFiscal modelo, String serie, String ambiente);
+
     Optional<DocumentoFiscal> findFirstByOrdemServicoIdAndLojaIdOrderByCriadoEmDesc(UUID ordemServicoId, UUID lojaId);
 
     java.util.List<DocumentoFiscal> findAllByLojaIdAndOrdemServicoIdIn(UUID lojaId, java.util.Collection<UUID> ordemServicoIds);
