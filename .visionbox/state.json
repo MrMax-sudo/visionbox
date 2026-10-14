@@ -1,11 +1,12 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-14T01:10:00-03:00",
+  "updated_at": "2026-10-14T06:10:00-03:00",
   "fiscal_emissao_fix": {
-    "status": "concluida_2026_10_14",
-    "resumo": "Emissão NFC-e estava travada por 3 causas empilhadas: (1) visionbox-app morto sem restart policy; (2) FlowboxFiscalProvider em produção enviava payload sem emitente/itens; (3) Flowbox exigia PFX+senha inline em toda emissão. Corrigido: restart unless-stopped no app; payload com emitente/itens/pagamentos/destinatario; certificadoId aceito no Flowbox (resolverCertificado resolve do cadastro cifrado) e lido de loja.flowbox_certificado_id (V45) no VisionBox",
-    "evidence": "Flowbox mvn test 361/361; VisionBox mvn -q test -Punit-only 419/419; npm run typecheck e build verdes; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23 no Flowbox"
+    "status": "ate_a_sefaz_falta_cadastro_emitente",
+    "resumo": "Nove causas empilhadas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00 (serie/nNF zerados, tpNFC inexistente, indIntermed antes de indPres, IPI sem cEnq, QR Code fora do padrao); (8) cStat 104 tratado como layout nao reconhecido (prioriza infProt e desce um nivel em protNFe); (9) motivo varchar(255) no Flowbox quebrava o INSERT. A cadeia VisionBox->Flowbox->SEFAZ hoje transmite, valida contra o XSD oficial e devolve protocolo por documento.",
+    "blocker": "cStat 209 - Rejeicao: IE do emitente invalida. FlowboxFiscalProvider usa inscricaoEstadual/csc/cscId/codigoMunicipio/crt fixos (123456789110, 0123456789, 000001, 3550308, 1) e a entity Loja nao tem campos fiscais. Requer cadastro real de IE/CSC/CSC Id/municipio/CRT por loja.",
+    "evidence": "Flowbox mvn test 368/368; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; E2E VPS retorna statusSefaz 209 com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23 no Flowbox"
   },
   "web_refactor": {
     "status": "ondas_2_5_robustez_concluidas",
