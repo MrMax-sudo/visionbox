@@ -37,4 +37,37 @@ public class NfceEmitirRequest {
 
     /** Valor total para log/teste (não fiscal real) */
     private String valorTotal;
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DestinatarioRequest {
+        private String cpf;
+        private String nome;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ItemFiscalRequest {
+        private Integer numeroItem;
+        private String codigo;
+        private String descricao;
+        private String ncm;
+        private String cest;
+        private String cfop;
+        private String csosn;
+        private String cst;
+        private String unidade;
+        private java.math.BigDecimal quantidade;
+        private java.math.BigDecimal valorUnitario;
+        private java.math.BigDecimal valorTotal;
+        private java.math.BigDecimal valorDesconto;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class PagamentoFiscalRequest {
+        private String meio;
+        private java.math.BigDecimal valor;
+    }
+
+    private DestinatarioRequest destinatario;
+    private java.util.List<ItemFiscalRequest> itens;
+    private java.util.List<PagamentoFiscalRequest> pagamentos;
 }

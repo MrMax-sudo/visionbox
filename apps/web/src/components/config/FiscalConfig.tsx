@@ -26,6 +26,7 @@ interface FiscalConfigData {
   flowboxUrl: string;
   flowboxApiKey: string;
   flowboxWebUrl: string;
+  flowboxCertificadoId?: number | null;
   fiscalProvider: string;
   active: boolean;
 }
@@ -50,6 +51,7 @@ export function FiscalConfig() {
   const [flowboxUrl, setFlowboxUrl] = React.useState('');
   const [flowboxApiKey, setFlowboxApiKey] = React.useState('');
   const [flowboxWebUrl, setFlowboxWebUrl] = React.useState('');
+  const [certificadoId, setCertificadoId] = React.useState('');
   const [showApiKey, setShowApiKey] = React.useState(false);
   const [testResult, setTestResult] = React.useState<TestarConexaoResponse | null>(null);
 
@@ -69,6 +71,11 @@ export function FiscalConfig() {
       setFlowboxUrl(config.flowboxUrl || '');
       setFlowboxApiKey(config.flowboxApiKey || '');
       setFlowboxWebUrl(config.flowboxWebUrl || '');
+      setCertificadoId(
+        config.flowboxCertificadoId === null || config.flowboxCertificadoId === undefined
+          ? ''
+          : String(config.flowboxCertificadoId)
+      );
     }
   }, [config]);
 
@@ -79,6 +86,8 @@ export function FiscalConfig() {
         flowboxUrl,
         flowboxApiKey,
         flowboxWebUrl,
+        // vazio = preserva o valor atual; 0 = limpa e volta ao certificado padrão da aplicação
+        ...(certificadoId.trim() === '' ? {} : { flowboxCertificadoId: Number(certificadoId.trim()) }),
       });
       return res.data;
     },
@@ -255,6 +264,26 @@ export function FiscalConfig() {
               className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <p className="text-[10px] text-muted">Endereço da interface administrativa que você criou para o Flowbox.</p>
+          </div>
+
+          {/* Certificado A1 (referência no Flowbox) */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-muted" />
+              Certificado A1 (ID no Flowbox)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={certificadoId}
+              onChange={(e) => setCertificadoId(e.target.value)}
+              placeholder="Ex: 1"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <p className="text-[10px] text-muted">
+              Referência do certificado cadastrado no painel do Flowbox — o arquivo A1 e a senha nunca saem de lá.
+              Deixe vazio para manter o valor atual ou digite <span className="font-mono">0</span> para voltar ao padrão.
+            </p>
           </div>
         </div>
 

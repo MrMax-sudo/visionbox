@@ -3,6 +3,20 @@
 > **Atualizado em:** 2026-10-11 — **Refator total do frontend concluído** (tema+UI kit+AppShell+14 telas+limpeza). `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
+## Fiscal — Correção da Emissão NFC-e (2026-10-14, ✅ concluída)
+
+> Investigação a pedido do cliente: "não está rolando a emissão de notas fiscais". **Três causas empilhadas**, todas corrigidas.
+
+| Bloqueio | Causa raiz | Correção |
+|---|---|---|
+| API do VisionBox fora do ar | `visionbox-app` morto (`exit 255` em 2026-10-14 02:17 UTC, `HikariPool thread starvation` prévio) e **sem `restart:`** no serviço `app`, enquanto `web`/`postgres` tinham `unless-stopped` — por isso só o app ficou morto após o reboot do host | `docker-compose.yml`: `app` ganha `restart: unless-stopped` |
+| `400 VALIDACAO` no Flowbox (`emitente` + `itens` ausentes) | `FlowboxFiscalProvider` em produção (`3ff268a`) enviava **só** `lojaId/modelo/serie/numero/chaveAcesso/xmlAssinado` — o `EmitirNfceRequest` do Flowbox exige `emitente`, `itens`, `certificado` | Diff local pendente finalizado e commitado: payload com `emitente`, `itens`, `pagamentos` e `destinatário`; `FiscalProvider.emitir(doc, xml, req)` passa o request da venda; `NfceEmitirRequest` ganha os DTOs de item/pagamento/destinatário |
+| `certificado: Certificado A1 e obrigatorio` | `EmitirNfceRequest` exigia **PFX + senha inline em cada emissão**, mas o certificado A1 válido já está cadastrado cifrado no Flowbox (`id=1`, CNPJ `40187613000102`, válido até 2026-12-23) e `GET /api/v1/certificados/{id}` não devolve o PFX (sanitizado). O VisionBox não guarda certificado algum | **Flowbox**: `certificadoId` aceito em emitir NFC-e/NF-e, cancelar e inutilizar — `FiscalCoreService.resolverCertificado` resolve do cadastro e decifra a senha, PFX nunca sai do motor fiscal. **VisionBox**: `loja.flowbox_certificado_id` (`V45`), exposto no Painel Fiscal (vazio preserva / `0` limpa) e enviado no payload |
+
+**Validação:** Flowbox `mvn test` → **361/361 verdes** · VisionBox `mvn -q test -Punit-only` → **419/419** (era 418; +1 `deveEnviarCertificadoIdNoPayload`) · `npm run typecheck` ✅ · `npm run build` ✅ (25.9s) · fixes de testes quebrados pelo diff pendente: `FiscalServiceTest` stubava o `emitir` de 2 args (service passou a chamar o de 3) e `FlowboxFiscalProviderTest` esperava mensagem antiga do provider (`Flowbox indisponível: <causa>` agora).
+
+**Pendência sinalizada (emitente):** o payload usa `inscricaoEstadual`/`csc`/`cscId`/`codigoMunicipio` **fixos** (`123456789110`, `0123456789`, `000001`, `3550308`). Passa a validação de payload, mas a SEFAZ rejeita em produção — vem cadastro real de IE/CSC por loja (fiscal-engineer).
+
 ## Fase 4 — Refator Total do Frontend (2026-10-11, em andamento)
 
 > **Objetivo:** eliminar `index.css` legado (1.038 linhas de hacks: zoom/altura fixa/`!important`), páginas monolíticas e 131 hex hard-coded. Nova base: Tailwind 1:1 nos tokens de `theme-visionbox.css`, UI kit shadcn/ui, AppShell com `h-dvh`. **Preservar** `lib/`, `stores/`, `App.tsx`, logo oficial e `login-optica.png`; demais assets antigos removidos na limpeza.

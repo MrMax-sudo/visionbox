@@ -31,6 +31,10 @@ public class FiscalConfigService {
     @Value("${visionbox.fiscal.flowbox.api-key:flowbox_dev_key}")
     private String defaultFlowboxApiKey;
 
+    /** Certificado A1 padrão no Flowbox quando a loja não define o seu. */
+    @Value("${visionbox.fiscal.flowbox.certificado-id:1}")
+    private Long defaultFlowboxCertificadoId;
+
     @Transactional(readOnly = true)
     public FiscalConfigResponse buscarConfig(UUID lojaId) {
         Loja loja = lojaRepository.findById(lojaId).orElse(null);
@@ -47,12 +51,17 @@ public class FiscalConfigService {
                 ? loja.getFlowboxWebUrl()
                 : "";
 
+        Long certificadoId = (loja != null && loja.getFlowboxCertificadoId() != null)
+                ? loja.getFlowboxCertificadoId()
+                : defaultFlowboxCertificadoId;
+
         boolean isFlowbox = fiscalProvider instanceof FlowboxFiscalProvider;
 
         return FiscalConfigResponse.builder()
                 .flowboxUrl(url)
                 .flowboxApiKey(apiKey)
                 .flowboxWebUrl(webUrl)
+                .flowboxCertificadoId(certificadoId)
                 .fiscalProvider(isFlowbox ? "flowbox" : "mock")
                 .active(isFlowbox)
                 .build();
@@ -72,9 +81,15 @@ public class FiscalConfigService {
         if (request.getFlowboxWebUrl() != null) {
             loja.setFlowboxWebUrl(request.getFlowboxWebUrl().trim());
         }
+        // null preserva o valor atual; 0 limpa e volta ao certificado padrão da aplicação.
+        if (request.getFlowboxCertificadoId() != null) {
+            loja.setFlowboxCertificadoId(request.getFlowboxCertificadoId() > 0
+                    ? request.getFlowboxCertificadoId() : null);
+        }
 
         lojaRepository.save(loja);
-        log.info("Configuração fiscal atualizada para a loja {}: flowboxUrl={}", lojaId, loja.getFlowboxUrl());
+        log.info("Configuração fiscal atualizada para a loja {}: flowboxUrl={} certificadoId={}",
+                lojaId, loja.getFlowboxUrl(), loja.getFlowboxCertificadoId());
 
         return buscarConfig(lojaId);
     }

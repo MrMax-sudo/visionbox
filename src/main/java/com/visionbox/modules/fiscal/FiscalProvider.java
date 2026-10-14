@@ -7,6 +7,10 @@ public interface FiscalProvider {
 
     ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado);
 
+    default ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado, com.visionbox.modules.fiscal.dto.NfceEmitirRequest req) {
+        return emitir(documento, xmlAssinado);
+    }
+
     Optional<ResultadoFiscal> consultar(String chaveAcesso);
 
     ResultadoFiscal cancelar(DocumentoFiscal documento, String justificativa);

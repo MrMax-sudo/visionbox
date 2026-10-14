@@ -76,4 +76,32 @@ class FlowboxFiscalProviderTest {
         assertThat(resultado.codigoStatus()).isEqualTo("503");
         assertThat(resultado.motivo()).contains("Flowbox indisponível");
     }
+
+    @Test
+    @DisplayName("Deve enviar só a referência do certificado A1 (certificadoId), nunca o PFX inline")
+    void deveEnviarCertificadoIdNoPayload() {
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "defaultCertificadoId", 5L);
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("001")
+                .numero(102)
+                .chaveAcesso("35260900000000000000650010000001021000000013")
+                .build();
+
+        Map<String, Object> respBody = Map.of("sucesso", true);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity<>(respBody, HttpStatus.OK));
+
+        provider.emitir(doc, "<xml>fake</xml>");
+
+        org.mockito.ArgumentCaptor<HttpEntity> captor = org.mockito.ArgumentCaptor.forClass(HttpEntity.class);
+        Mockito.verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), captor.capture(), eq(Map.class));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) captor.getValue().getBody();
+        assertThat(payload).containsEntry("certificadoId", 5L);
+        assertThat(payload).doesNotContainKey("certificado");
+    }
 }

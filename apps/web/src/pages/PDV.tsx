@@ -93,6 +93,19 @@ export default function PDV() {
 
   const emitirNfceMutation = useMutation({
     mutationFn: async ({ pedidoId, modelo }: { pedidoId: string; modelo?: string }) => {
+      const itensFiscal = cart.map((it, idx) => ({
+        numeroItem: idx + 1,
+        codigo: it.sku || it.produtoId || `PRD-${idx + 1}`,
+        descricao: it.nome,
+        ncm: (it.ncm && it.ncm.replace(/\D/g, '').length === 8) ? it.ncm.replace(/\D/g, '') : '33079000',
+        cfop: '5102',
+        csosn: '102',
+        unidade: 'UN',
+        quantidade: it.qtd,
+        valorUnitario: it.preco,
+        valorTotal: Number((it.preco * it.qtd).toFixed(2)),
+      }));
+
       const res = await apiClient.post<{
         chaveAcesso?: string;
         protocolo?: string;
@@ -104,6 +117,16 @@ export default function PDV() {
         ordemServicoId: pedidoId,
         serie: '001',
         modelo: modelo || (tipoCupom === 'DANFE' ? '55' : '65'),
+        valorTotal: String(total),
+        destinatario: cliente?.cpf ? {
+          cpf: cliente.cpf.replace(/\D/g, ''),
+          nome: cliente.nome || 'Consumidor',
+        } : undefined,
+        itens: itensFiscal,
+        pagamentos: [{
+          meio: formaPagamento === 'PIX' ? '17' : formaPagamento === 'DINHEIRO' ? '01' : formaPagamento === 'CARTAO_DEBITO' ? '04' : '03',
+          valor: total,
+        }],
       });
       return res.data;
     },

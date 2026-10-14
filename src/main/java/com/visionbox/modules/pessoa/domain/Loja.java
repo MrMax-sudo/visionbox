@@ -69,4 +69,8 @@ public class Loja {
 
     @Column(name = "flowbox_web_url")
     private String flowboxWebUrl;
+
+    /** Id do certificado A1 cadastrado no Flowbox — o PFX nunca trafega (R9/ADR-004). */
+    @Column(name = "flowbox_certificado_id")
+    private Long flowboxCertificadoId;
 }

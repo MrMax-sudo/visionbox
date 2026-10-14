@@ -57,7 +57,7 @@ class FiscalServiceTest {
     @Test
     @DisplayName("NFC-e autorizada normaliza serie, preserva loja_id e retorna contrato cStat 100")
     void deveEmitirNfceAutorizadaComContratoMock() {
-        when(provider.emitir(any(DocumentoFiscal.class), anyString()))
+        when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
                 .thenReturn(FiscalProvider.ResultadoFiscal.autorizado(CHAVE_44, PROTOCOLO_15, "<ret cStat=\"100\"/>"));
 
         var response = service.emitirNfce(NfceEmitirRequest.builder()
@@ -79,7 +79,7 @@ class FiscalServiceTest {
         assertThat(response.getTpEmis()).isEqualTo("1");
 
         ArgumentCaptor<DocumentoFiscal> docCaptor = ArgumentCaptor.forClass(DocumentoFiscal.class);
-        verify(provider).emitir(docCaptor.capture(), anyString());
+        verify(provider).emitir(docCaptor.capture(), anyString(), any(NfceEmitirRequest.class));
         DocumentoFiscal enviadoAoProvider = docCaptor.getValue();
         assertThat(enviadoAoProvider.getLojaId()).isEqualTo(LOJA_ID);
         assertThat(enviadoAoProvider.getModelo()).isEqualTo(DocumentoFiscal.ModeloFiscal.NFCE_65);
@@ -89,7 +89,7 @@ class FiscalServiceTest {
     @Test
     @DisplayName("NFE_55 rejeitada deve persistir status REJEITADO sem autorizar indevidamente")
     void devePropagarRejeicaoDoProvider() {
-        when(provider.emitir(any(DocumentoFiscal.class), anyString()))
+        when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
                 .thenReturn(FiscalProvider.ResultadoFiscal.rejeitado(CHAVE_44, "539", "Duplicidade de NF-e", "<ret cStat=\"539\"/>"));
 
         var response = service.emitirNfce(NfceEmitirRequest.builder()

@@ -13,6 +13,7 @@ export type CartItem = {
   preco: number;
   produtoId?: string;
   categoria?: string;
+  ncm?: string;
 };
 
 export type Feedback = { tone: 'success' | 'error' | 'warning'; msg: string };

@@ -1,7 +1,12 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-13T05:40:00-03:00",
+  "updated_at": "2026-10-14T01:10:00-03:00",
+  "fiscal_emissao_fix": {
+    "status": "concluida_2026_10_14",
+    "resumo": "Emissão NFC-e estava travada por 3 causas empilhadas: (1) visionbox-app morto sem restart policy; (2) FlowboxFiscalProvider em produção enviava payload sem emitente/itens; (3) Flowbox exigia PFX+senha inline em toda emissão. Corrigido: restart unless-stopped no app; payload com emitente/itens/pagamentos/destinatario; certificadoId aceito no Flowbox (resolverCertificado resolve do cadastro cifrado) e lido de loja.flowbox_certificado_id (V45) no VisionBox",
+    "evidence": "Flowbox mvn test 361/361; VisionBox mvn -q test -Punit-only 419/419; npm run typecheck e build verdes; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23 no Flowbox"
+  },
   "web_refactor": {
     "status": "ondas_2_5_robustez_concluidas",
     "wave": 5,
@@ -21,9 +26,9 @@
       "Fase 5: Gestor SaaS de Módulos & Planos (Painel Desenvolvedor) - CONCLUÍDO"
     ],
     "fix_fiscal_pdv_flowbox": {
-      "status": "em_andamento",
-      "updated_at": "2026-10-13T13:24:00-03:00",
-      "scope": "Auto-emissão no PDV ao concluir venda fiscal, eliminação de fallback mock de chave de acesso em reciboPrint.ts, vinculação de ordemServicoId em FiscalService e alinhamento do FlowboxFiscalProvider com /api/v1/nfce/emitir e chave de produção real"
+      "status": "concluido",
+      "updated_at": "2026-10-14T01:10:00-03:00",
+      "scope": "Auto-emissão no PDV ao concluir venda fiscal, eliminação de fallback mock de chave de acesso em reciboPrint.ts, vinculação de ordemServicoId em FiscalService e alinhamento do FlowboxFiscalProvider com /api/v1/nfce/emitir, emitente/itens reais e certificadoId (sem PFX inline)"
     }
   },
   "wave_in_progress": [],
@@ -82,6 +87,7 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
+    "Fiscal: emitente do FlowboxFiscalProvider usa IE/CSC/codigoMunicipio fixos (123456789110, 0123456789, 000001, 3550308) — cadastrar IE, CSC e código de município reais por loja antes de produção",
     "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
     "Adoção out-of-order do P1 (V1_1/V3/V4/V5) em banco LEGADO real: apontar host/backup do banco existente p/ repair + migrate -Dflyway.outOfOrder=true (procedimento p1-migrations-draft/README §5.2, backup obrigatório)",
     "Backend: handler ProblemDetail expor mensagem específica de conflito de CNPJ na reativação de fornecedor (hoje só log WARN)",

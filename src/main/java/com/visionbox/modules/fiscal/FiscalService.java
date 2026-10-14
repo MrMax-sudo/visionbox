@@ -74,7 +74,7 @@ public class FiscalService {
 
         String xmlAssinado = req.getXmlAssinado() != null ? req.getXmlAssinado() : "<NFe><infNFe versao=\"4.00\"><ide><serie>" + serie + "</serie><nNF>" + numero + "</nNF></ide></infNFe></NFe>";
 
-        FiscalProvider.ResultadoFiscal resultado = fiscalProvider.emitir(doc, xmlAssinado);
+        FiscalProvider.ResultadoFiscal resultado = fiscalProvider.emitir(doc, xmlAssinado, req);
 
         // Persistir retorno do provider de forma generica; o mock tambem pode mutar doc.
         doc.setXmlEnviado(xmlAssinado);

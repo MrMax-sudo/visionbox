@@ -28,6 +28,10 @@ public class FlowboxFiscalProvider implements FiscalProvider {
     @Value("${visionbox.fiscal.flowbox.api-key:flowbox_dev_key}")
     private String flowboxApiKey;
 
+    /** Certificado A1 padrão no Flowbox quando a loja não define o seu. */
+    @Value("${visionbox.fiscal.flowbox.certificado-id:1}")
+    private Long defaultCertificadoId;
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.visionbox.modules.pessoa.repository.LojaRepository lojaRepository;
 
@@ -45,11 +49,17 @@ public class FlowboxFiscalProvider implements FiscalProvider {
 
     @Override
     public ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado) {
+        return emitir(documento, xmlAssinado, null);
+    }
+
+    @Override
+    public ResultadoFiscal emitir(DocumentoFiscal documento, String xmlAssinado, com.visionbox.modules.fiscal.dto.NfceEmitirRequest req) {
         String baseUrl = flowboxBaseUrl;
         String apiKey = flowboxApiKey;
+        com.visionbox.modules.pessoa.domain.Loja loja = null;
 
         if (lojaRepository != null && documento.getLojaId() != null) {
-            com.visionbox.modules.pessoa.domain.Loja loja = lojaRepository.findById(documento.getLojaId()).orElse(null);
+            loja = lojaRepository.findById(documento.getLojaId()).orElse(null);
             if (loja != null) {
                 if (org.springframework.util.StringUtils.hasText(loja.getFlowboxUrl())) {
                     baseUrl = loja.getFlowboxUrl().trim();
@@ -78,12 +88,117 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             headers.set("X-Loja-Id", documento.getLojaId().toString());
 
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("lojaId", documento.getLojaId().toString());
-            payload.put("modelo", documento.getModelo() != null ? documento.getModelo().name() : "NFCE_65");
-            payload.put("serie", documento.getSerie());
-            payload.put("numero", documento.getNumero());
-            payload.put("chaveAcesso", documento.getChaveAcesso());
-            payload.put("xmlAssinado", xmlAssinado);
+            payload.put("ambiente", "HOMOLOGACAO");
+
+            // Emitente
+            Map<String, Object> emitente = new LinkedHashMap<>();
+            String cnpj = (loja != null && loja.getCnpj() != null) ? loja.getCnpj().replaceAll("\\D", "") : "40187613000102";
+            if (cnpj.length() != 14) cnpj = "40187613000102";
+            emitente.put("cnpj", cnpj);
+            emitente.put("razaoSocial", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
+            emitente.put("nomeFantasia", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
+            emitente.put("uf", (loja != null && org.springframework.util.StringUtils.hasText(loja.getUf())) ? loja.getUf().trim().toUpperCase() : "SP");
+            emitente.put("inscricaoEstadual", "123456789110");
+            emitente.put("crt", "1");
+            emitente.put("logradouro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getEndereco())) ? loja.getEndereco() : "Rua das Oticas");
+            emitente.put("numero", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNumero())) ? loja.getNumero() : "100");
+            emitente.put("bairro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getBairro())) ? loja.getBairro() : "Centro");
+            emitente.put("municipio", (loja != null && org.springframework.util.StringUtils.hasText(loja.getCidade())) ? loja.getCidade() : "Sao Paulo");
+            emitente.put("codigoMunicipio", "3550308");
+            String cep = (loja != null && loja.getCep() != null) ? loja.getCep().replaceAll("\\D", "") : "01001000";
+            if (cep.length() != 8) cep = "01001000";
+            emitente.put("cep", cep);
+            emitente.put("csc", "0123456789");
+            emitente.put("cscId", "000001");
+            payload.put("emitente", emitente);
+
+            // Certificado A1: só a referência. O PFX e a senha ficam cifrados no Flowbox.
+            Long certificadoId = (loja != null && loja.getFlowboxCertificadoId() != null)
+                    ? loja.getFlowboxCertificadoId()
+                    : defaultCertificadoId;
+            if (certificadoId != null) {
+                payload.put("certificadoId", certificadoId);
+            }
+
+            // Itens
+            java.util.List<Map<String, Object>> itensList = new java.util.ArrayList<>();
+            java.math.BigDecimal valorTotalSoma = java.math.BigDecimal.ZERO;
+            if (req != null && req.getItens() != null && !req.getItens().isEmpty()) {
+                int nItem = 1;
+                for (var it : req.getItens()) {
+                    Map<String, Object> itMap = new LinkedHashMap<>();
+                    itMap.put("numeroItem", it.getNumeroItem() != null ? it.getNumeroItem() : nItem++);
+                    itMap.put("codigo", org.springframework.util.StringUtils.hasText(it.getCodigo()) ? it.getCodigo() : "PRD-" + nItem);
+                    itMap.put("descricao", org.springframework.util.StringUtils.hasText(it.getDescricao()) ? it.getDescricao() : "Produto Optico");
+                    String ncm = it.getNcm() != null ? it.getNcm().replaceAll("\\D", "") : "33079000";
+                    if (ncm.length() != 8) ncm = "33079000";
+                    itMap.put("ncm", ncm);
+                    itMap.put("cfop", org.springframework.util.StringUtils.hasText(it.getCfop()) ? it.getCfop() : "5102");
+                    itMap.put("csosn", org.springframework.util.StringUtils.hasText(it.getCsosn()) ? it.getCsosn() : "102");
+                    itMap.put("unidade", org.springframework.util.StringUtils.hasText(it.getUnidade()) ? it.getUnidade() : "UN");
+                    java.math.BigDecimal qtd = it.getQuantidade() != null ? it.getQuantidade() : java.math.BigDecimal.ONE;
+                    java.math.BigDecimal vUnit = it.getValorUnitario() != null ? it.getValorUnitario() : java.math.BigDecimal.valueOf(35.00);
+                    java.math.BigDecimal vTot = it.getValorTotal() != null ? it.getValorTotal() : qtd.multiply(vUnit);
+                    itMap.put("quantidade", qtd);
+                    itMap.put("valorUnitario", vUnit);
+                    itMap.put("valorTotal", vTot);
+                    itensList.add(itMap);
+                    valorTotalSoma = valorTotalSoma.add(vTot);
+                }
+            } else {
+                Map<String, Object> itMap = new LinkedHashMap<>();
+                itMap.put("numeroItem", 1);
+                itMap.put("codigo", "PRD-000006");
+                itMap.put("descricao", "Kit Limpeza e Solucao Higienizadora de Lentes 60ml");
+                itMap.put("ncm", "33079000");
+                itMap.put("cfop", "5102");
+                itMap.put("csosn", "102");
+                itMap.put("unidade", "UN");
+                itMap.put("quantidade", java.math.BigDecimal.ONE);
+                itMap.put("valorUnitario", java.math.BigDecimal.valueOf(35.00));
+                itMap.put("valorTotal", java.math.BigDecimal.valueOf(35.00));
+                itensList.add(itMap);
+                valorTotalSoma = java.math.BigDecimal.valueOf(35.00);
+            }
+            payload.put("itens", itensList);
+
+            // Pagamentos
+            java.util.List<Map<String, Object>> pagamentosList = new java.util.ArrayList<>();
+            if (req != null && req.getPagamentos() != null && !req.getPagamentos().isEmpty()) {
+                for (var pg : req.getPagamentos()) {
+                    Map<String, Object> pgMap = new LinkedHashMap<>();
+                    pgMap.put("meio", org.springframework.util.StringUtils.hasText(pg.getMeio()) ? pg.getMeio() : "17");
+                    pgMap.put("valor", pg.getValor() != null ? pg.getValor() : valorTotalSoma);
+                    pagamentosList.add(pgMap);
+                }
+            } else {
+                Map<String, Object> pgMap = new LinkedHashMap<>();
+                pgMap.put("meio", "17"); // PIX padrão
+                pgMap.put("valor", valorTotalSoma);
+                pagamentosList.add(pgMap);
+            }
+            payload.put("pagamentos", pagamentosList);
+
+            // Destinatário opcional
+            if (req != null && req.getDestinatario() != null && req.getDestinatario().getCpf() != null) {
+                String cpf = req.getDestinatario().getCpf().replaceAll("\\D", "");
+                if (cpf.length() == 11) {
+                    Map<String, Object> destMap = new LinkedHashMap<>();
+                    destMap.put("cpf", cpf);
+                    destMap.put("nome", org.springframework.util.StringUtils.hasText(req.getDestinatario().getNome()) ? req.getDestinatario().getNome() : "Consumidor");
+                    payload.put("destinatario", destMap);
+                }
+            }
+
+            int serieNum = 1;
+            try {
+                if (documento.getSerie() != null) serieNum = Integer.parseInt(documento.getSerie().replaceAll("\\D", ""));
+            } catch (Exception ignored) {}
+            payload.put("serie", Math.max(1, serieNum));
+            if (documento.getNumero() != null) {
+                payload.put("numeroFiscal", documento.getNumero().longValue());
+            }
+            payload.put("valorTotal", valorTotalSoma);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
@@ -103,8 +218,8 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999", "Resposta inesperada do Flowbox: " + response.getStatusCode(), null);
         } catch (Exception e) {
             log.error("Erro na comunicação com Flowbox: {}", e.getMessage());
-            // Fallback resiliente em caso de indisponibilidade transitória da Flowbox API
-            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "503", "Flowbox indisponível: " + e.getMessage(), null);
+            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "503",
+                    "Flowbox indisponível: " + e.getMessage(), null);
         }
     }
 

@@ -27,6 +27,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: visionbox-app
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +43,8 @@ services:
       VISIONBOX_AUTH_PUBLIC_REGISTER_ENABLED: "false"
       VISIONBOX_FISCAL_FLOWBOX_URL: ${VISIONBOX_FISCAL_FLOWBOX_URL:-http://flowbox:8085}
       VISIONBOX_FISCAL_FLOWBOX_API_KEY: ${VISIONBOX_FISCAL_FLOWBOX_API_KEY:-fb_Hc85I10tScmYD73nDJfVGkuhZU1Vsu9XKYO9d0Cd5tk}
+      # Referência do certificado A1 no cadastro do Flowbox — o PFX e a senha nunca saem de lá
+      VISIONBOX_FISCAL_FLOWBOX_CERTIFICADO_ID: ${VISIONBOX_FISCAL_FLOWBOX_CERTIFICADO_ID:-1}
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_RABBIT_ENABLED: "false"
       VISIONBOX_STORAGE_UPLOAD_DIR: /data/uploads
