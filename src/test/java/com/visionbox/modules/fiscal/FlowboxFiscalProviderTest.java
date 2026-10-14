@@ -183,7 +183,8 @@ class FlowboxFiscalProviderTest {
                 .containsEntry("csc", "CSC-REAL-9")
                 .containsEntry("cscId", "7")
                 .containsEntry("crt", "1")
-                .containsEntry("codigoMunicipio", "3550308");
+                .containsEntry("codigoMunicipio", "3550308")
+                .containsEntry("telefone", "11958148028");
         assertThat(emitente).doesNotContainEntry("inscricaoEstadual", "123456789110");
         assertThat(payload).containsEntry("ambiente", "HOMOLOGACAO");
     }

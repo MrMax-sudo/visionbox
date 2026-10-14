@@ -119,8 +119,10 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             putSePresente(emitente, "csc", loja.getCsc());
             putSePresente(emitente, "cscId", loja.getCscId());
             // <infRespTec> da SEFAZ: email obrigatório em produção, fone opcional (XSD TInfRespTec).
+            // O fone vai sem pontuação: o Flowbox valida o tamanho em dígitos e o XSD limita a 14.
             putSePresente(emitente, "email", loja.getEmailContato());
-            putSePresente(emitente, "telefone", loja.getTelefone());
+            putSePresente(emitente, "telefone",
+                    loja.getTelefone() != null ? loja.getTelefone().replaceAll("\\D", "") : null);
             payload.put("emitente", emitente);
 
             // Certificado A1: só a referência. O PFX e a senha ficam cifrados no Flowbox.

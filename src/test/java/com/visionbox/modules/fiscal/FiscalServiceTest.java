@@ -157,7 +157,7 @@ class FiscalServiceTest {
 
         assertThat(nfce.getSerie()).isEqualTo("004");
         assertThat(nfce.getNumero()).isEqualTo(127);
-        assertThat(nfce.getAmbiente()).isEqualTo("PRODUCAO");
+        assertThat(nfce.getAmbiente()).isEqualTo("1");
         assertThat(nfe.getSerie()).isEqualTo("026");
         assertThat(nfe.getNumero()).isEqualTo(34);
     }

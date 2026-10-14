@@ -146,13 +146,20 @@ public class FiscalService {
     /**
      * Ambiente da SEFAZ vem da configuração fiscal da loja (Painel Fiscal): a mesma fonte que o
      * provedor usa ao montar o payload. A requisição só vale quando a loja não definiu o seu.
+     * Devolve o código gravado em {@code documento_fiscal.ambiente} (varchar(1)): 1 produção, 2 homologação.
      */
     private String ambienteDe(Loja loja, String ambienteRequisicao) {
+        String bruto = null;
         if (loja != null && StringUtils.hasText(loja.getFiscalAmbiente())) {
-            return loja.getFiscalAmbiente().trim().toUpperCase();
+            bruto = loja.getFiscalAmbiente().trim();
+        } else if (StringUtils.hasText(ambienteRequisicao)) {
+            bruto = ambienteRequisicao.trim();
         }
-        if (StringUtils.hasText(ambienteRequisicao)) {
-            return ambienteRequisicao.trim();
+        if (bruto == null) {
+            return "2";
+        }
+        if ("PRODUCAO".equalsIgnoreCase(bruto) || "1".equals(bruto)) {
+            return "1";
         }
         return "2";
     }
