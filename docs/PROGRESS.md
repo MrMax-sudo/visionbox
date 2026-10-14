@@ -3,10 +3,10 @@
 > **Atualizado em:** 2026-10-11 — **Refator total do frontend concluído** (tema+UI kit+AppShell+14 telas+limpeza). `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
 
-## Fiscal — Correção da Emissão NFC-e (2026-10-14, 🔄 até a SEFAZ; falta cadastro de emitente)
+## Fiscal — Correção da Emissão NFC-e (2026-10-14, ✅ código concluído · ⛔ bloqueio cadastral na SEFAZ-SP)
 
-> Investigação a pedido do cliente: "não está rolando a emissão de notas fiscais". **Nove causas empilhadas**, todas corrigidas.
-> A cadeia VisionBox → Flowbox → SEFAZ hoje **transmite, é aceita, assinada, validada contra o XSD oficial e devolve o protocolo por documento**. O último retorno é cStat **209 — IE do emitente inválida**, que é dado de cadastro, não código.
+> Investigação a pedido do cliente: "não está rolando a emissão de notas fiscais". **Nove causas empilhadas + cadastro de emitente por loja**, todas corrigidas.
+> A cadeia VisionBox → Flowbox → SEFAZ hoje **transmite, é aceita, assinada, passa no leiaute 4.00, no QR Code, no emitente e na forma de pagamento**. A última rejeição é **cStat 245 — CNPJ Emitente não cadastrado**: o CNPJ `40187613000102` **não tem credenciamento de emissão NFC-e na SEFAZ-SP, nem em homologação**. É credenciamento cadastral, não código.
 
 | Bloqueio | Causa raiz | Correção |
 |---|---|---|
@@ -19,10 +19,18 @@
 | `cStat 225` — Falha no Schema XML do lote | **4 violações do leiaute 4.00**, achadas validando o XML gerado contra `enviNFe_v4.00.xsd` + `leiauteNFe_v4.00.xsd` oficiais (portal SVRS): `<serie>` zerado (`001`) e `<nNF>` zerado (`000000100`) quebravam `TSerie`/`TNF` — zero à esquerda vale só na chave de acesso; `<tpNFC>` **não existe** no leiaute; `<indIntermed>` antes de `<indPres>`; `<IPI>` sem o obrigatório `<cEnq>`; QR Code no formato `chave\|2\|tpAmb\|tpEmis\|cscId\|hash` com campo extra e CSC id zerado (padrão é `chave\|2\|tpAmb\|cIdToken\|hash40`) | Corrigido no `NfceXmlBuilder` alinhado ao Outbox ERP; validador local `VALIDATION=OK`; regressão de ordem `indPres`/`indIntermed` e ausência de `tpNFC` |
 | `cStat 104` reportado como "layout não reconhecido" | (a) resposta síncrona traz **lote `cStat=104` + `protNFe/infProt` com o status real do documento**, e `lerRetEnviNFe` lia o primeiro `cStat` do documento; (b) `lerProtocolos` passava os filhos diretos de `protNFe` (só `infProt`) ao `preencher`, então `cStat`/`xMotivo`/`nProt` nunca eram lidos | `transmitir` reconhece o protocolo no próprio envio e o prioriza, como o Outbox ERP; `camposDoProtocolo` desce um nível (afeta também `protEvento`/`protInut`) |
 | Insert do documento quebrando com a mensagem integral da SEFAZ | `tb_documentos_fiscais.motivo` era `varchar(255)` no Flowbox (mesma classe do bug do VisionBox) | `DocumentoFiscalEntity` corta `motivo` em 255 em `@PrePersist`/`@PreUpdate`; resposta integral passa a logar em `WARN` |
+| `cStat 209` — IE do emitente inválida | O emitente era remontado com valores **fixos** em `FlowboxFiscalProvider` (IE `123456789110`, CSC `0123456789`, CSC Id `000001`, município `3550308`, CRT `1`) e `Loja` não tinha nenhum campo fiscal | Opção A escolhida pelo cliente: **`V47__loja_cadastro_fiscal.sql`** cria `inscricao_estadual`, `csc`, `csc_id`, `codigo_municipio`, `crt` e `fiscal_ambiente` em `loja`; `FiscalConfigService` persiste (null preserva / vazio limpa) com validação de CRT, ambiente e IBGE; `FlowboxFiscalProvider` lê da loja e **recusa antes de transmitir** quando falta IE (ou CSC na NFC-e), com mensagem apontando o Painel Fiscal; Painel Fiscal ganha a seção **Cadastro Fiscal do Emitente**. Gravados a partir do cadastro real: IE `151957359112`, município `3550308`, CRT `1`, endereço `VINTE E CINCO DE MARCO 641 — CENTRO, SAO PAULO/SP, 01021900` |
+| `cStat 373` — descrição do primeiro item diferente de `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL` | Em homologação a SEFAZ exige esse texto literal em todo `<xProd>` | `xProd` forçado quando `ctx.homologacao`; produção mantém a descrição real do item. Mesma regra do Outbox ERP (`NfceXmlBuilder:225`) |
+| `cStat 742` — NFC-e com DANFE Simplificado Tipo 2 com grupo do IPI | `montarIpiItem` criava `<IPI>` **sempre**, inclusive no modelo 65 | Modelo 65 **não emite o grupo IPI** (e zera `vIPI`/`vIPIDevol` nos totais para não quebrar a regra W16); modelo 55 mantém. Testes de IPI migrados para NF-e 55 |
+| `cStat 391` — não informados os dados do cartão de crédito / débito | Regra **YA04-10** (NT 2023.004): `tPag` `03`, `04` **e `17` (PIX dinâmico)** exigem o grupo `<card>` | `<card><tpIntegra>2</tpIntegra></card>` para 03/04/17, idêntico ao Outbox ERP (`NfceXmlBuilder:409-413`) |
 
-**Validação:** Flowbox `mvn test` → **368/368 verdes** · validador local contra o XSD oficial da SEFAZ → `VALIDATION=OK` · VisionBox `mvn -q test -Punit-only` → **419/419** · `npm run typecheck` ✅ · `npm run build` ✅ · E2E real na VPS: `POST /api/v1/nfce/emitir` → `statusSefaz: 209`, `motivoSefaz: Rejeição: IE do emitente inválida`, `chaveAcesso` e `qrCodeUrl` preenchidos.
+**Validação:** Flowbox `mvn test` → **372/372 verdes** · validador local contra o XSD oficial da SEFAZ → `VALIDATION=OK` · VisionBox `mvn -q test -Punit-only` → **423/423** · `npm run typecheck` ✅ · `npm run build` ✅ · **E2E real na VPS** avançou `cStat 209 → 373 → 742 → 391 → 245`, sempre um passo mais fundo, com `chaveAcesso` e `qrCodeUrl` preenchidos.
 
-**Pendência sinalizada (emitente — bloqueia a autorização):** o payload usa `inscricaoEstadual`/`csc`/`cscId`/`codigoMunicipio`/`crt` **fixos** (`123456789110`, `0123456789`, `000001`, `3550308`, `1`) em `FlowboxFiscalProvider`. A SEFAZ devolve **cStat 209 — IE do emitente inválida**. `Loja` não tem campos fiscais (IE/CSC/CSC Id/código município/CRT), então é preciso cadastro real por loja (fiscal-engineer).
+**Bloqueio final (não é código):** `cStat 245 — CNPJ Emitente não cadastrado`. O CNPJ `40187613000102` é o do certificado A1 cadastrado (`GET /api/v1/certificados` confirma) e a IE `151957359112` foi aceita, ou seja, a SEFAZ-SP conhece a empresa — ela **não está credenciada para emissão de NFC-e**. O credenciamento é feito pelo contador/empresa na SEFAZ-SP, primeiro em homologação e depois em produção. Enquanto não existir, nenhuma emissão será autorizada, em nenhum sistema.
+
+**Pendência de dado (bloqueia antes do 245):** `csc` e `csc_id` da NFC-e estão **vazios** na loja — sem eles o provedor recusa a emissão com mensagem apontando o Painel Fiscal. O CSC é emitido no portal da NF-e da UF e não tem consulta pública.
+
+**Regra nova no workspace (R12):** `AGENTS.md` proíbe adivinhar — dado, regra ou comportamento não trivial vem do usuário ou de referência oficial (Outbox ERP, XSD/MOC da SEFAZ), nunca de suposição.
 
 ## Fase 4 — Refator Total do Frontend (2026-10-11, em andamento)
 

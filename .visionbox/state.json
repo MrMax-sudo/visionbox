@@ -3,10 +3,10 @@
   "version": "1.1.0-web-refactor",
   "updated_at": "2026-10-14T06:10:00-03:00",
   "fiscal_emissao_fix": {
-    "status": "ate_a_sefaz_falta_cadastro_emitente",
-    "resumo": "Nove causas empilhadas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00 (serie/nNF zerados, tpNFC inexistente, indIntermed antes de indPres, IPI sem cEnq, QR Code fora do padrao); (8) cStat 104 tratado como layout nao reconhecido (prioriza infProt e desce um nivel em protNFe); (9) motivo varchar(255) no Flowbox quebrava o INSERT. A cadeia VisionBox->Flowbox->SEFAZ hoje transmite, valida contra o XSD oficial e devolve protocolo por documento.",
-    "blocker": "cStat 209 - Rejeicao: IE do emitente invalida. FlowboxFiscalProvider usa inscricaoEstadual/csc/cscId/codigoMunicipio/crt fixos (123456789110, 0123456789, 000001, 3550308, 1) e a entity Loja nao tem campos fiscais. Requer cadastro real de IE/CSC/CSC Id/municipio/CRT por loja.",
-    "evidence": "Flowbox mvn test 368/368; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; E2E VPS retorna statusSefaz 209 com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23 no Flowbox"
+    "status": "codigo_concluido_bloqueio_cadastral_sefaz_sp",
+    "resumo": "Onze causas corrigidas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00; (8) cStat 104 tratado como layout nao reconhecido; (9) motivo varchar(255) no Flowbox quebrava o INSERT; (10) emitente com valores fixos (V47: campos fiscais em loja + Painel Fiscal + recusa antes de transmitir); (11) tres rejeicoes novas da SEFAZ-SP corrigidas alinhadas ao OUTBOX ERP - cStat 373 (xProd literal na homologacao), cStat 742 (modelo 65 nao emite grupo IPI, zera vIPI/vIPIDevol) e cStat 391 (regra YA04-10: tPag 03/04/17 exige grupo card com tpIntegra=2).",
+    "blocker": "cStat 245 - Rejeicao: CNPJ Emitente nao cadastrado. O CNPJ 40187613000102 (o do certificado A1 cadastrado no Flowbox) nao tem credenciamento de emissao de NFC-e na SEFAZ-SP, nem em homologacao. A IE 151957359112 foi aceita, entao a SEFAZ conhece a empresa: falta o credenciamento, que e feito pelo contador/empresa junto a SEFAZ-SP. Secundariamente, csc e csc_id estao vazios na loja e o provedor recusa a emissao antes de transmitir.",
+    "evidence": "Flowbox mvn test 372/372; validador local contra enviNFe_v4.00.xsd + leiauteNFe_v4.00.xsd oficiais (SVRS) = VALIDATION=OK; VisionBox mvn -Punit-only 423/423 + typecheck + build verdes; E2E real na VPS avancou cStat 209 -> 373 -> 742 -> 391 -> 245, com chaveAcesso e qrCodeUrl preenchidos; certificado A1 real id=1 CNPJ 40187613000102 valido ate 2026-12-23; cadastro do emitente gravado a partir de consulta publica (IE 151957359112 ativa, municipio 3550308, CEP 01021900)"
   },
   "web_refactor": {
     "status": "ondas_2_5_robustez_concluidas",
@@ -88,7 +88,8 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fiscal: emitente do FlowboxFiscalProvider usa IE/CSC/codigoMunicipio fixos (123456789110, 0123456789, 000001, 3550308) — cadastrar IE, CSC e código de município reais por loja antes de produção",
+    "Fiscal: CNPJ 40187613000102 sem credenciamento de emissao NFC-e na SEFAZ-SP (cStat 245) — contador/empresa precisa habilitar junto a SEFAZ-SP, homologacao e depois producao; nenhuma emissao sera autorizada antes disso, em nenhum sistema",
+    "Fiscal: cadastrar csc e csc_id no Painel Fiscal (Configuracoes -> Modulo Fiscal) — CSC sai do portal da NF-e da UF; sem eles o provedor recusa a emissao com mensagem apontando o painel",
     "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
     "Adoção out-of-order do P1 (V1_1/V3/V4/V5) em banco LEGADO real: apontar host/backup do banco existente p/ repair + migrate -Dflyway.outOfOrder=true (procedimento p1-migrations-draft/README §5.2, backup obrigatório)",
     "Backend: handler ProblemDetail expor mensagem específica de conflito de CNPJ na reativação de fornecedor (hoje só log WARN)",

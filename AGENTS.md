@@ -86,6 +86,7 @@ VisionBox/
 | R9 | Módulo Fiscal integra com a API centralizada Flowbox (`D:\TECHBOXBR\PRODUTOS\Flowbox`) | `ADR-004` / `PROJECT_CONTEXT.md` |
 | R10 | Proibido subir processos em segundo plano sem autorização e ocupar portas desnecessárias | `GOVERNANCE.md:9` |
 | R11 | Modulação SaaS: Todo novo módulo/recurso DEVE pertencer a `ModuloSistema` e ser controlado pelo Painel Desenvolvedor (`/desenvolvedor`) conforme plano do cliente | `PLANO_ROBUSTEZ_ERP_REFERENCIA_OUTBOX.md:4` |
+| R12 | **NUNCA adivinhar.** Dado, regra ou comportamento não trivial (regra SEFAZ, alíquota, CSC/IE, leiaute XML, comportamento de sistema de referência): perguntar ao usuário **ou** copiar da referência oficial (`OUTBOX ERP`, XSD/MOC da SEFAZ). Nunca inventar valor nem assumir que um chute é provisório seguro | `AGENTS.md` |
 
 ## 7) Agentes disponíveis
 
@@ -128,6 +129,7 @@ curl -H "X-Loja-Id: $LOJA" http://localhost:8080/api/v1/fiscal/nfce/emitir -d @p
 - Duplicar cor hex no JSX — use `var(--color-*)`.
 - Marcar US `done` sem evidência em `PROGRESS.md`.
 - **NUNCA realizar exclusão de arquivos, classes ou diretórios sem ordem explícita do usuário.**
+- **NUNCA adivinhar dado, regra ou comportamento.** Se não vier do usuário ou de referência oficial (`OUTBOX ERP`, XSD/MOC da SEFAZ), perguntar antes de codar — ver R12.
 - **NUNCA iniciar novas implementações sem registrar o estado e progresso em `docs/PROGRESS.md` e `.visionbox/state.json`.**
 - **NUNCA criar integrações fiscais proprietárias avulsas — o Módulo Fiscal DEVE integrar com o Flowbox.**
 - **PROIBIDO subir qualquer processo em segundo plano sem autorização e ocupar portas desnecessárias** — nunca `Start-Process`, `nohup`, `docker run -d`, `mvn spring-boot:run` em background, `npm run dev` destacável sem ordem explícita; toda execução em primeiro plano com logs visíveis; liberar `8080/5432/5173` ao final (`GOVERNANCE.md:9`).
