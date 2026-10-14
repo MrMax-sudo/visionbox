@@ -27,6 +27,12 @@ interface FiscalConfigData {
   flowboxApiKey: string;
   flowboxWebUrl: string;
   flowboxCertificadoId?: number | null;
+  inscricaoEstadual?: string | null;
+  csc?: string | null;
+  cscId?: string | null;
+  codigoMunicipio?: string | null;
+  crt?: string | null;
+  fiscalAmbiente?: string | null;
   fiscalProvider: string;
   active: boolean;
 }
@@ -53,6 +59,15 @@ export function FiscalConfig() {
   const [flowboxWebUrl, setFlowboxWebUrl] = React.useState('');
   const [certificadoId, setCertificadoId] = React.useState('');
   const [showApiKey, setShowApiKey] = React.useState(false);
+
+  // Cadastro fiscal do emitente (V47) — sem ele a SEFAZ responde cStat 209.
+  const [inscricaoEstadual, setInscricaoEstadual] = React.useState('');
+  const [csc, setCsc] = React.useState('');
+  const [cscId, setCscId] = React.useState('');
+  const [codigoMunicipio, setCodigoMunicipio] = React.useState('');
+  const [crt, setCrt] = React.useState('1');
+  const [fiscalAmbiente, setFiscalAmbiente] = React.useState('HOMOLOGACAO');
+  const [showCsc, setShowCsc] = React.useState(false);
   const [testResult, setTestResult] = React.useState<TestarConexaoResponse | null>(null);
 
   // Consulta configuração atual do backend
@@ -76,6 +91,12 @@ export function FiscalConfig() {
           ? ''
           : String(config.flowboxCertificadoId)
       );
+      setInscricaoEstadual(config.inscricaoEstadual || '');
+      setCsc(config.csc || '');
+      setCscId(config.cscId || '');
+      setCodigoMunicipio(config.codigoMunicipio || '');
+      setCrt(config.crt || '1');
+      setFiscalAmbiente(config.fiscalAmbiente || 'HOMOLOGACAO');
     }
   }, [config]);
 
@@ -88,13 +109,20 @@ export function FiscalConfig() {
         flowboxWebUrl,
         // vazio = preserva o valor atual; 0 = limpa e volta ao certificado padrão da aplicação
         ...(certificadoId.trim() === '' ? {} : { flowboxCertificadoId: Number(certificadoId.trim()) }),
+        // Cadastro fiscal: string vazia limpa o campo no backend
+        inscricaoEstadual,
+        csc,
+        cscId,
+        codigoMunicipio,
+        crt,
+        fiscalAmbiente,
       });
       return res.data;
     },
     onSuccess: (data) => {
       toast({
         title: 'Configurações Fiscais Salvas',
-        description: 'Os parâmetros de conexão com o Flowbox foram atualizados.',
+        description: 'Conexão com o Flowbox e cadastro do emitente atualizados.',
       });
       queryClient.invalidateQueries({ queryKey: ['fiscal-config'] });
       queryClient.invalidateQueries({ queryKey: ['dev-info-fiscal'] });
@@ -354,6 +382,148 @@ export function FiscalConfig() {
               <Save className="h-3.5 w-3.5" />
               {salvarMutation.isPending ? 'Salvando...' : 'Salvar Configurações'}
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Cadastro fiscal do emitente (V47) */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3.5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
+          <div className="flex items-center gap-2 font-semibold text-primary">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <span>Cadastro Fiscal do Emitente</span>
+          </div>
+          <span className="text-[10px] text-muted uppercase font-medium">Obrigatório para autorizar</span>
+        </div>
+
+        {!inscricaoEstadual.trim() && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-400">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              Inscrição Estadual ainda não cadastrada. Sem ela a SEFAZ rejeita a emissão com{' '}
+              <strong>cStat 209 — IE do emitente inválida</strong>.
+            </span>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Inscrição Estadual */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-muted" />
+              Inscrição Estadual
+            </label>
+            <input
+              type="text"
+              value={inscricaoEstadual}
+              onChange={(e) => setInscricaoEstadual(e.target.value)}
+              placeholder="Ex: 11222333444"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <p className="text-[10px] text-muted">
+              IE real do CNPJ na SEFAZ da UF. A cadeia não vale um valor inventado: a SEFAZ confere contra o cadastro.
+            </p>
+          </div>
+
+          {/* CRT */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Server className="h-3.5 w-3.5 text-muted" />
+              Regime Tributário (CRT)
+            </label>
+            <select
+              value={crt}
+              onChange={(e) => setCrt(e.target.value)}
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="1">1 — Simples Nacional</option>
+              <option value="2">2 — Lucro Presumido</option>
+              <option value="3">3 — Lucro Real</option>
+            </select>
+            <p className="text-[10px] text-muted">Define o grupo de ICMS (CSOSN para 1, CST para 2/3).</p>
+          </div>
+
+          {/* Código do Município */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-muted" />
+              Código do Município (IBGE)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={7}
+              value={codigoMunicipio}
+              onChange={(e) => setCodigoMunicipio(e.target.value.replace(/\D/g, ''))}
+              placeholder="Ex: 3550308 (São Paulo)"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <p className="text-[10px] text-muted">7 dígitos do município gerador do cMunFG.</p>
+          </div>
+
+          {/* Ambiente da SEFAZ */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Server className="h-3.5 w-3.5 text-muted" />
+              Ambiente da SEFAZ
+            </label>
+            <select
+              value={fiscalAmbiente}
+              onChange={(e) => setFiscalAmbiente(e.target.value)}
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="HOMOLOGACAO">HOMOLOGACAO (testes)</option>
+              <option value="PRODUCAO">PRODUCAO (nota válida)</option>
+            </select>
+            <p className="text-[10px] text-muted">
+              Só troque para PRODUCAO com certificado A1 válido e cadastro conferido na SEFAZ.
+            </p>
+          </div>
+
+          {/* CSC */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Key className="h-3.5 w-3.5 text-muted" />
+              CSC — Código de Segurança (NFC-e)
+            </label>
+            <div className="relative">
+              <input
+                type={showCsc ? 'text' : 'password'}
+                value={csc}
+                onChange={(e) => setCsc(e.target.value)}
+                placeholder="CSC emitido no portal da NF-e da UF"
+                className="w-full rounded-md border border-border bg-input pl-3 pr-9 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCsc(!showCsc)}
+                className="absolute right-2.5 top-2.5 text-muted hover:text-primary transition-colors"
+                title={showCsc ? 'Ocultar CSC' : 'Exibir CSC'}
+              >
+                {showCsc ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            <p className="text-[10px] text-muted">Entra no hash do QR Code; um CSC errado rejeita a nota.</p>
+          </div>
+
+          {/* CSC ID */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-primary flex items-center gap-1.5">
+              <Key className="h-3.5 w-3.5 text-muted" />
+              CSC ID
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={cscId}
+              onChange={(e) => setCscId(e.target.value.replace(/\D/g, ''))}
+              placeholder="Ex: 1"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-primary font-mono placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <p className="text-[10px] text-muted">
+              Número do CSC no portal. Vai para o XML <span className="font-mono">sem zero à esquerda</span>.
+            </p>
           </div>
         </div>
       </div>

@@ -73,4 +73,31 @@ public class Loja {
     /** Id do certificado A1 cadastrado no Flowbox — o PFX nunca trafega (R9/ADR-004). */
     @Column(name = "flowbox_certificado_id")
     private Long flowboxCertificadoId;
+
+    /**
+     * Inscrição Estadual real do emitente na SEFAZ da UF. Obrigatória: a SEFAZ rejeita a
+     * emissão com cStat 209 quando ela diverge do cadastro do CNPJ.
+     */
+    @Column(name = "inscricao_estadual", length = 20)
+    private String inscricaoEstadual;
+
+    /** CSC (Código de Segurança do Contribuinte) da NFC-e, emitido no portal da NF-e da UF. */
+    @Column(length = 64)
+    private String csc;
+
+    /** Id do CSC no portal da NF-e. Sai sem zero à esquerda no XML do QR Code. */
+    @Column(name = "csc_id", length = 6)
+    private String cscId;
+
+    /** Código IBGE de 7 dígitos do município de emissão (cMunFG). */
+    @Column(name = "codigo_municipio", length = 7)
+    private String codigoMunicipio;
+
+    /** Código de Regime Tributário: 1 Simples Nacional, 2 Lucro Presumido, 3 Lucro Real. */
+    @Column(length = 1)
+    private String crt;
+
+    /** Ambiente da SEFAZ usado na emissão: HOMOLOGACAO ou PRODUCAO. */
+    @Column(name = "fiscal_ambiente", length = 20)
+    private String fiscalAmbiente;
 }

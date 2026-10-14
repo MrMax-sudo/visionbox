@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -62,6 +64,12 @@ public class FiscalConfigService {
                 .flowboxApiKey(apiKey)
                 .flowboxWebUrl(webUrl)
                 .flowboxCertificadoId(certificadoId)
+                .inscricaoEstadual(loja != null ? loja.getInscricaoEstadual() : null)
+                .csc(loja != null ? loja.getCsc() : null)
+                .cscId(loja != null ? loja.getCscId() : null)
+                .codigoMunicipio(loja != null ? loja.getCodigoMunicipio() : null)
+                .crt(loja != null ? loja.getCrt() : null)
+                .fiscalAmbiente(loja != null ? loja.getFiscalAmbiente() : null)
                 .fiscalProvider(isFlowbox ? "flowbox" : "mock")
                 .active(isFlowbox)
                 .build();
@@ -87,11 +95,40 @@ public class FiscalConfigService {
                     ? request.getFlowboxCertificadoId() : null);
         }
 
+        // Cadastro fiscal do emitente: null preserva, string vazia limpa.
+        aplicarTexto(loja::setInscricaoEstadual, request.getInscricaoEstadual());
+        aplicarTexto(loja::setCsc, request.getCsc());
+        aplicarTexto(loja::setCscId, request.getCscId());
+        aplicarTexto(loja::setCodigoMunicipio, request.getCodigoMunicipio());
+        aplicarTexto(loja::setCrt, request.getCrt());
+        aplicarTexto(loja::setFiscalAmbiente, request.getFiscalAmbiente());
+
+        if (loja.getCrt() != null && !Set.of("1", "2", "3").contains(loja.getCrt())) {
+            throw new IllegalArgumentException("CRT inválido: use 1 (Simples Nacional), 2 (Lucro Presumido) ou 3 (Lucro Real).");
+        }
+        if (loja.getFiscalAmbiente() != null
+                && !Set.of("HOMOLOGACAO", "PRODUCAO").contains(loja.getFiscalAmbiente().toUpperCase())) {
+            throw new IllegalArgumentException("Ambiente fiscal inválido: use HOMOLOGACAO ou PRODUCAO.");
+        }
+        if (loja.getCodigoMunicipio() != null && !loja.getCodigoMunicipio().matches("\\d{7}")) {
+            throw new IllegalArgumentException("Código do município (IBGE) deve ter exatamente 7 dígitos.");
+        }
+
         lojaRepository.save(loja);
-        log.info("Configuração fiscal atualizada para a loja {}: flowboxUrl={} certificadoId={}",
-                lojaId, loja.getFlowboxUrl(), loja.getFlowboxCertificadoId());
+        log.info("Configuração fiscal atualizada para a loja {}: flowboxUrl={} certificadoId={} ambiente={} crt={} ieCadastrada={}",
+                lojaId, loja.getFlowboxUrl(), loja.getFlowboxCertificadoId(), loja.getFiscalAmbiente(),
+                loja.getCrt(), loja.getInscricaoEstadual() != null);
 
         return buscarConfig(lojaId);
+    }
+
+    /** Null preserva o valor atual; string vazia (ou só em branco) limpa o campo. */
+    private void aplicarTexto(Consumer<String> setter, String novo) {
+        if (novo == null) {
+            return;
+        }
+        String limpo = novo.trim();
+        setter.accept(limpo.isEmpty() ? null : limpo);
     }
 
     public TestarConexaoResponse testarConexao(String targetUrl, String targetApiKey) {

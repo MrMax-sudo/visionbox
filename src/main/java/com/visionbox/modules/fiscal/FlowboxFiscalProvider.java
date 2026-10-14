@@ -77,6 +77,16 @@ public class FlowboxFiscalProvider implements FiscalProvider {
         boolean isNfe = documento.getModelo() == DocumentoFiscal.ModeloFiscal.NFE_55;
         String endpoint = isNfe ? "/api/v1/nfe/emitir" : "/api/v1/nfce/emitir";
         String url = baseUrl + endpoint;
+
+        // Cadastro fiscal obrigatório: sem Inscrição Estadual a SEFAZ responde cStat 209 e sem
+        // CSC o QR Code da NFC-e fica inválido. Recusamos aqui com o painel certo indicado, em
+        // vez de gastar um ciclo de transmissão para receber uma rejeição opaca.
+        String pendencia = validarCadastroFiscal(loja, isNfe);
+        if (pendencia != null) {
+            log.warn("Cadastro fiscal incompleto para a loja {}: {}", documento.getLojaId(), pendencia);
+            return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "999", pendencia, null);
+        }
+
         log.info("Enviando documento fiscal para Flowbox: loja={} modelo={} serie={} numero={} url={}",
                 documento.getLojaId(), documento.getModelo(), documento.getSerie(), documento.getNumero(), url);
 
@@ -88,9 +98,9 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             headers.set("X-Loja-Id", documento.getLojaId().toString());
 
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("ambiente", "HOMOLOGACAO");
+            payload.put("ambiente", ambienteDe(loja));
 
-            // Emitente
+            // Emitente — todo dado vem do cadastro fiscal da loja (V47); nada aqui é fixo.
             Map<String, Object> emitente = new LinkedHashMap<>();
             String cnpj = (loja != null && loja.getCnpj() != null) ? loja.getCnpj().replaceAll("\\D", "") : "40187613000102";
             if (cnpj.length() != 14) cnpj = "40187613000102";
@@ -98,18 +108,21 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             emitente.put("razaoSocial", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
             emitente.put("nomeFantasia", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNome())) ? loja.getNome() : "VISIONBOX MATRIZ");
             emitente.put("uf", (loja != null && org.springframework.util.StringUtils.hasText(loja.getUf())) ? loja.getUf().trim().toUpperCase() : "SP");
-            emitente.put("inscricaoEstadual", "123456789110");
-            emitente.put("crt", "1");
+            emitente.put("inscricaoEstadual", loja.getInscricaoEstadual().trim());
+            emitente.put("crt", loja.getCrt() != null ? loja.getCrt().trim() : "1");
             emitente.put("logradouro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getEndereco())) ? loja.getEndereco() : "Rua das Oticas");
             emitente.put("numero", (loja != null && org.springframework.util.StringUtils.hasText(loja.getNumero())) ? loja.getNumero() : "100");
             emitente.put("bairro", (loja != null && org.springframework.util.StringUtils.hasText(loja.getBairro())) ? loja.getBairro() : "Centro");
             emitente.put("municipio", (loja != null && org.springframework.util.StringUtils.hasText(loja.getCidade())) ? loja.getCidade() : "Sao Paulo");
-            emitente.put("codigoMunicipio", "3550308");
+            putSePresente(emitente, "codigoMunicipio", loja.getCodigoMunicipio());
+            if (!emitente.containsKey("codigoMunicipio")) {
+                emitente.put("codigoMunicipio", "3550308");
+            }
             String cep = (loja != null && loja.getCep() != null) ? loja.getCep().replaceAll("\\D", "") : "01001000";
             if (cep.length() != 8) cep = "01001000";
             emitente.put("cep", cep);
-            emitente.put("csc", "0123456789");
-            emitente.put("cscId", "000001");
+            putSePresente(emitente, "csc", loja.getCsc());
+            putSePresente(emitente, "cscId", loja.getCscId());
             payload.put("emitente", emitente);
 
             // Certificado A1: só a referência. O PFX e a senha ficam cifrados no Flowbox.
@@ -220,6 +233,42 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             log.error("Erro na comunicação com Flowbox: {}", e.getMessage());
             return ResultadoFiscal.rejeitado(documento.getChaveAcesso(), "503",
                     "Flowbox indisponível: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * Verifica o cadastro fiscal da loja antes de transmitir. Retorna a mensagem do problema ou
+     * {@code null} quando está apto. A NF-e 55 não usa QR Code, então o CSC só é exigido para a NFC-e.
+     */
+    private String validarCadastroFiscal(com.visionbox.modules.pessoa.domain.Loja loja, boolean isNfe) {
+        String painel = "Configurações → Módulo Fiscal (Painel Fiscal)";
+        if (loja == null) {
+            return "Cadastro fiscal ausente: a loja da emissão não foi encontrada. "
+                    + "Cadastre os dados do emitente em " + painel + ".";
+        }
+        if (!org.springframework.util.StringUtils.hasText(loja.getInscricaoEstadual())) {
+            return "Cadastro fiscal incompleto: Inscrição Estadual não cadastrada — a SEFAZ rejeita a emissão "
+                    + "com cStat 209 (IE do emitente inválida). Cadastre em " + painel + ".";
+        }
+        if (!isNfe && (!org.springframework.util.StringUtils.hasText(loja.getCsc())
+                || !org.springframework.util.StringUtils.hasText(loja.getCscId()))) {
+            return "Cadastro fiscal incompleto: CSC e CSC ID da NFC-e não cadastrados — sem eles o QR Code é "
+                    + "inválido. Emita no portal da NF-e da UF e cadastre em " + painel + ".";
+        }
+        return null;
+    }
+
+    /** Ambiente da SEFAZ da loja; HOMOLOGACAO é o padrão enquanto a loja não define o seu. */
+    private String ambienteDe(com.visionbox.modules.pessoa.domain.Loja loja) {
+        return loja != null && org.springframework.util.StringUtils.hasText(loja.getFiscalAmbiente())
+                ? loja.getFiscalAmbiente().trim().toUpperCase()
+                : "HOMOLOGACAO";
+    }
+
+    /** Só grava o campo quando há valor — evita mandar null para campos opcionais do emitente. */
+    private void putSePresente(Map<String, Object> mapa, String chave, String valor) {
+        if (org.springframework.util.StringUtils.hasText(valor)) {
+            mapa.put(chave, valor.trim());
         }
     }
 

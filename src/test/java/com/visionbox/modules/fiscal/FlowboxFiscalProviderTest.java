@@ -1,5 +1,7 @@
 package com.visionbox.modules.fiscal;
 
+import com.visionbox.modules.pessoa.domain.Loja;
+import com.visionbox.modules.pessoa.repository.LojaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,6 +10,7 @@ import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +31,7 @@ class FlowboxFiscalProviderTest {
     @Test
     @DisplayName("Deve autorizar emissão quando Flowbox responder 200 OK com autorizado=true")
     void deveAutorizarEmissaoComFlowbox() {
+        cadastrarLojaFiscal("123456789110", "ABCDE12345", "1");
         UUID lojaId = UUID.randomUUID();
         DocumentoFiscal doc = DocumentoFiscal.builder()
                 .lojaId(lojaId)
@@ -58,6 +62,7 @@ class FlowboxFiscalProviderTest {
     @Test
     @DisplayName("Deve tratar indisponibilidade do Flowbox com rejeição resiliente")
     void deveTratarIndisponibilidadeFlowbox() {
+        cadastrarLojaFiscal("123456789110", "ABCDE12345", "1");
         UUID lojaId = UUID.randomUUID();
         DocumentoFiscal doc = DocumentoFiscal.builder()
                 .lojaId(lojaId)
@@ -80,6 +85,7 @@ class FlowboxFiscalProviderTest {
     @Test
     @DisplayName("Deve enviar só a referência do certificado A1 (certificadoId), nunca o PFX inline")
     void deveEnviarCertificadoIdNoPayload() {
+        cadastrarLojaFiscal("123456789110", "ABCDE12345", "1");
         org.springframework.test.util.ReflectionTestUtils.setField(provider, "defaultCertificadoId", 5L);
 
         DocumentoFiscal doc = DocumentoFiscal.builder()
@@ -103,5 +109,100 @@ class FlowboxFiscalProviderTest {
         Map<String, Object> payload = (Map<String, Object>) captor.getValue().getBody();
         assertThat(payload).containsEntry("certificadoId", 5L);
         assertThat(payload).doesNotContainKey("certificado");
+    }
+
+    @Test
+    @DisplayName("Deve recusar a emissão apontando o Painel Fiscal quando falta a Inscrição Estadual")
+    void deveRecusarEmissaoSemInscricaoEstadual() {
+        cadastrarLojaFiscal(null, "ABCDE12345", "1");
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("001")
+                .numero(103)
+                .chaveAcesso("35260900000000000000650010000001031000000014")
+                .build();
+
+        FiscalProvider.ResultadoFiscal resultado = provider.emitir(doc, "<xml>fake</xml>");
+
+        assertThat(resultado.autorizado()).isFalse();
+        assertThat(resultado.codigoStatus()).isEqualTo("999");
+        assertThat(resultado.motivo()).contains("Inscrição Estadual").contains("cStat 209").contains("Módulo Fiscal");
+        // Recusa antes de transmitir: não gasta um ciclo contra a SEFAZ para receber cStat 209.
+        Mockito.verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    @DisplayName("Deve recusar a NFC-e quando faltam CSC e CSC ID, que quebrariam o QR Code")
+    void deveRecusarNfceSemCsc() {
+        cadastrarLojaFiscal("11222333444", null, null);
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("001")
+                .numero(104)
+                .chaveAcesso("35260900000000000000650010000001041000000015")
+                .build();
+
+        FiscalProvider.ResultadoFiscal resultado = provider.emitir(doc, "<xml>fake</xml>");
+
+        assertThat(resultado.autorizado()).isFalse();
+        assertThat(resultado.motivo()).contains("CSC").contains("QR Code");
+        Mockito.verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    @DisplayName("Deve enviar o cadastro fiscal da loja no payload, sem nenhum valor fixo")
+    void deveEnviarCadastroFiscalDaLojaNoPayload() {
+        cadastrarLojaFiscal("11222333444", "CSC-REAL-9", "7");
+
+        DocumentoFiscal doc = DocumentoFiscal.builder()
+                .lojaId(UUID.randomUUID())
+                .modelo(DocumentoFiscal.ModeloFiscal.NFCE_65)
+                .serie("001")
+                .numero(105)
+                .chaveAcesso("35260900000000000000650010000001051000000016")
+                .build();
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity<>(Map.of("sucesso", true), HttpStatus.OK));
+
+        provider.emitir(doc, "<xml>fake</xml>");
+
+        org.mockito.ArgumentCaptor<HttpEntity> captor = org.mockito.ArgumentCaptor.forClass(HttpEntity.class);
+        Mockito.verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), captor.capture(), eq(Map.class));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) captor.getValue().getBody();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> emitente = (Map<String, Object>) payload.get("emitente");
+
+        assertThat(emitente).containsEntry("inscricaoEstadual", "11222333444")
+                .containsEntry("csc", "CSC-REAL-9")
+                .containsEntry("cscId", "7")
+                .containsEntry("crt", "1")
+                .containsEntry("codigoMunicipio", "3550308");
+        assertThat(emitente).doesNotContainEntry("inscricaoEstadual", "123456789110");
+        assertThat(payload).containsEntry("ambiente", "HOMOLOGACAO");
+    }
+
+    /** Registra a loja com o cadastro fiscal que o provedor lê antes de transmitir. */
+    private void cadastrarLojaFiscal(String inscricaoEstadual, String csc, String cscId) {
+        LojaRepository lojaRepository = Mockito.mock(LojaRepository.class);
+        Loja loja = Loja.builder()
+                .id(UUID.randomUUID())
+                .nome("Otica Teste")
+                .cnpj("40187613000102")
+                .uf("SP")
+                .inscricaoEstadual(inscricaoEstadual)
+                .csc(csc)
+                .cscId(cscId)
+                .codigoMunicipio("3550308")
+                .crt("1")
+                .build();
+        when(lojaRepository.findById(Mockito.any())).thenReturn(Optional.of(loja));
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "lojaRepository", lojaRepository);
     }
 }
