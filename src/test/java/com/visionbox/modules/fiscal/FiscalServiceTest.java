@@ -42,7 +42,7 @@ class FiscalServiceTest {
         TenantContext.setCurrentLojaId(LOJA_ID);
         // Loja sem configuração fiscal (V48): série "001", ambiente "2", número pelo máximo da série.
         when(lojaRepository.findById(LOJA_ID)).thenReturn(Optional.empty());
-        when(repository.findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(any(), any(), anyString(), anyString()))
+        when(repository.maiorNumeroDaSerie(any(), any(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
         when(repository.findByLojaIdAndModeloAndSerieAndNumero(any(), any(), anyString(), any()))
                 .thenReturn(Optional.empty());
@@ -124,7 +124,7 @@ class FiscalServiceTest {
     @Test
     @DisplayName("Sem número informado usa o maior número já usado na série + 1 (V48)")
     void deveContinuarASequenciaDaSerie() {
-        when(repository.findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(any(), any(), anyString(), anyString()))
+        when(repository.maiorNumeroDaSerie(any(), any(), anyString(), anyString()))
                 .thenReturn(Optional.of(126));
         when(provider.emitir(any(DocumentoFiscal.class), anyString(), any(NfceEmitirRequest.class)))
                 .thenReturn(FiscalProvider.ResultadoFiscal.autorizado(CHAVE_44, PROTOCOLO_15, "<ret cStat=\"100\"/>"));

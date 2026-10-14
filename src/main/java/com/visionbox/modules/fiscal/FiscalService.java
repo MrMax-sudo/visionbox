@@ -165,9 +165,7 @@ public class FiscalService {
      */
     private Integer proximoNumero(UUID lojaId, DocumentoFiscal.ModeloFiscal modelo, String serie,
                                   String ambiente, Loja loja, boolean nfce) {
-        Integer maior = repository
-                .findTopByLojaIdAndModeloAndSerieAndAmbienteOrderByNumeroDesc(lojaId, modelo, serie, ambiente)
-                .orElse(null);
+        Integer maior = repository.maiorNumeroDaSerie(lojaId, modelo, serie, ambiente).orElse(null);
         if (maior != null) {
             if (maior >= 999_999_999) {
                 throw new IllegalStateException("Número da série " + serie + " esgotado: máximo 999999999 (XSD TNF). "
