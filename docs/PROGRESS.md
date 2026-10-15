@@ -1,6 +1,18 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Banco Virgem para Novo Cliente e Correção de Estoque Concluídos** ✅. Suíte de testes e validações íntegras.
+> **Atualizado em:** 2026-10-15 — **Menu do Avatar Corrigido e Provisionamento Multi-tenant Concluídos** ✅. Suíte de testes e validações íntegras.
+
+## Menu do Avatar na Barra Superior (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Abertura de Opções do Avatar** | Ícone do avatar na barra superior parou de abrir opções. | Reintegrado `DropdownMenu` Radix no `Header` de `Layout.tsx`. Ao clicar no avatar, exibe: cabeçalho com nome, e-mail e badge do perfil; atalhos para Configurações da Empresa (`ConfiguracoesDialog`), Gestão de Usuários (`/usuarios`), Painel do Desenvolvedor (`/desenvolvedor`) e Sair do Sistema (`logout()` via `useAuthStore` com redirecionamento para `/login`). | `Layout.tsx`, build Vite ✅ |
+
+## Provisionamento Multi-tenant no Painel do Desenvolvedor (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Cadastro de Novas Empresas (Lojas)** | Onde cadastramos empresas diferentes e usuários atrelados a ela no modelo multi-tenant. | Criado endpoint `POST /api/v1/dev/lojas` e modal visual no Painel do Desenvolvedor (`/desenvolvedor`). O modal permite cadastrar: dados da empresa/ótica (Nome Fantasia, CNPJ, Telefone/WhatsApp, E-mail), plano SaaS (Start, Pro, Enterprise) e primeiro Administrador (Nome, E-mail, Senha inicial com hash BCrypt). O provisionamento inicializa automaticamente as 4 formas de pagamento essenciais no PDV (PIX, DINHEIRO, DÉBITO, CRÉDITO) e as 7 categorias canônicas de ótica, gravando auditoria. Ao concluir, atualiza a lista e seleciona a nova loja. | `ModuloDtos.java`, `ModuloConfiguracaoService.java`, `ModuloConfiguracaoController.java`, `PainelDesenvolvedor.tsx` ✅ |
 
 ## Banco Virgem para Novo Cliente (2026-10-15, ✅ concluído)
 

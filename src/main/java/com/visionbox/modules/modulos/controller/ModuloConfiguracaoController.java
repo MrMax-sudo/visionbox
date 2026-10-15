@@ -2,6 +2,8 @@ package com.visionbox.modules.modulos.controller;
 
 import com.visionbox.modules.modulos.dto.ModuloDtos.AlternarModulosRequest;
 import com.visionbox.modules.modulos.dto.ModuloDtos.AplicarPlanoRequest;
+import com.visionbox.modules.modulos.dto.ModuloDtos.CriarLojaRequest;
+import com.visionbox.modules.modulos.dto.ModuloDtos.LojaCriadaResponse;
 import com.visionbox.modules.modulos.dto.ModuloDtos.LojaResumoResponse;
 import com.visionbox.modules.modulos.dto.ModuloDtos.ModuloConfiguracaoStatusResponse;
 import com.visionbox.modules.modulos.service.ModuloConfiguracaoService;
@@ -9,12 +11,15 @@ import com.visionbox.modules.modulos.service.ModuloTenantScope;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -73,4 +78,12 @@ public class ModuloConfiguracaoController {
         return ModuloTenantScope.executar(lojaId,
                 () -> service.aplicarPlano(lojaId, req, httpRequest.getRemoteAddr()));
     }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('DESENVOLVEDOR')")
+    public LojaCriadaResponse criarLoja(@Valid @RequestBody CriarLojaRequest req, HttpServletRequest httpRequest) {
+        return service.criarNovaLoja(req, httpRequest.getRemoteAddr());
+    }
 }
+

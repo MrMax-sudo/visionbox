@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  Code2,
   Users,
   Eye,
   Package,
@@ -30,6 +31,14 @@ import {
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Toaster } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -334,14 +343,24 @@ function Header({
   theme,
   onToggleTheme,
   onOpenMobileMenu,
+  onOpenConfig,
 }: {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onOpenMobileMenu: () => void;
+  onOpenConfig?: () => void;
 }) {
   const location = useLocation();
-  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
   const title = location.pathname === '/pdv' ? 'PDV - Frente de caixa' : '';
+
+  const podeAdmin = user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-3 sm:px-5 backdrop-blur">
@@ -382,17 +401,78 @@ function Header({
         <NotificationBell />
 
         <div className="relative ml-1 flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] p-0"
-            onClick={() => {}}
-            title={user?.nome || 'Usuário'}
-          >
-            <span className="text-sm font-semibold text-[var(--color-text-on-primary)]">
-              {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
-            </span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] p-0 text-white shadow-sm transition-transform hover:opacity-90 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                aria-label="Abrir opções do usuário"
+                title={user?.nome || 'Usuário'}
+              >
+                <span className="text-sm font-semibold text-[var(--color-text-on-primary)]">
+                  {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-1.5 shadow-panel z-50">
+              <DropdownMenuLabel className="font-normal px-2 py-1.5">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-semibold leading-tight text-primary truncate">
+                    {user?.nome || 'Usuário'}
+                  </p>
+                  <p className="text-xs leading-tight text-secondary truncate">
+                    {user?.email || ''}
+                  </p>
+                  <div className="pt-1 flex items-center gap-1.5">
+                    <span className="inline-block rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-brand uppercase tracking-wider">
+                      {user?.perfil || 'OPERADOR'}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+
+              {onOpenConfig && podeAdmin && (
+                <DropdownMenuItem
+                  onClick={onOpenConfig}
+                  className="gap-2.5 text-xs font-medium cursor-pointer py-2"
+                >
+                  <Settings className="h-4 w-4 text-secondary" />
+                  Configurações da Empresa
+                </DropdownMenuItem>
+              )}
+
+              {podeAdmin && (
+                <DropdownMenuItem
+                  onClick={() => navigate('/usuarios')}
+                  className="gap-2.5 text-xs font-medium cursor-pointer py-2"
+                >
+                  <Users className="h-4 w-4 text-secondary" />
+                  Gestão de Usuários
+                </DropdownMenuItem>
+              )}
+
+              {podeAdmin && (
+                <DropdownMenuItem
+                  onClick={() => navigate('/desenvolvedor')}
+                  className="gap-2.5 text-xs font-medium cursor-pointer py-2"
+                >
+                  <Code2 className="h-4 w-4 text-secondary" />
+                  Painel do Desenvolvedor
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="gap-2.5 text-xs font-medium text-danger hover:bg-danger-light focus:bg-danger-light focus:text-danger-dark cursor-pointer py-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair do Sistema
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
@@ -1124,6 +1204,7 @@ export default function Layout() {
               theme={theme}
               onToggleTheme={toggle}
               onOpenMobileMenu={() => setMobileDrawerOpen(true)}
+              onOpenConfig={() => setConfigOpen(true)}
             />
             <main className={cn('flex-1 min-h-0', isPdv ? 'overflow-y-auto xl:overflow-hidden p-2 sm:p-3 xl:p-2' : 'overflow-y-auto p-3 sm:p-4 md:p-6')}>
               <Outlet />

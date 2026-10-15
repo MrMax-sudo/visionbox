@@ -1,7 +1,17 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T10:22:00-03:00",
+  "updated_at": "2026-10-15T10:43:00-03:00",
+  "menu_avatar_opcoes": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T10:43:00-03:00",
+    "resumo": "Correção do menu suspenso do avatar do usuário no Header. Implementado com Radix DropdownMenu exibindo nome, e-mail, badge de perfil, atalho para Configurações da Empresa, Gestão de Usuários, Painel do Desenvolvedor e Sair do Sistema (logout)."
+  },
+  "provisionamento_multi_tenant": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T10:43:00-03:00",
+    "resumo": "Provisionamento visual de novas empresas/lojas (multi-tenant) no Painel do Desenvolvedor (/desenvolvedor). Inclui modal com dados da ótica, plano SaaS (Start/Pro/Enterprise) e administrador inicial. Backend com POST /api/v1/dev/lojas criando loja com UUID isolado, admin com hash BCrypt, 4 formas de pagamento e 7 categorias canônicas de ótica."
+  },
   "banco_virgem_novo_cliente": {
     "status": "concluido",
     "updated_at": "2026-10-15T10:22:00-03:00",

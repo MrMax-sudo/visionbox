@@ -67,4 +67,26 @@ public final class ModuloDtos {
     /** Resumo mínimo de loja para o seletor do Painel (LGPD: só id + nome, sem CNPJ). */
     public record LojaResumoResponse(UUID id, String nome) {
     }
+
+    /** Payload para provisionamento de nova Loja/Empresa e seu Admin inicial. */
+    public record CriarLojaRequest(
+            @NotBlank String nome,
+            String cnpj,
+            String telefone,
+            String emailContato,
+            String plano,
+            @NotBlank String adminNome,
+            @NotBlank String adminEmail,
+            @NotBlank String adminSenha) {
+    }
+
+    /** Resposta de sucesso do provisionamento da nova loja. */
+    public record LojaCriadaResponse(
+            UUID id,
+            String nome,
+            String cnpj,
+            String adminEmail,
+            String plano) {
+    }
 }
+

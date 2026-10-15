@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell,
   Banknote,
+  Bell,
+  Building2,
+  CheckCircle2,
   ClipboardList,
   Code2,
   Cpu,
@@ -13,25 +15,31 @@ import {
   FileText,
   FlaskConical,
   Gift,
+  KeyRound,
   Lightbulb,
   ListOrdered,
   MapPin,
   MessageCircle,
   Package,
+  Plus,
   Receipt,
   RefreshCw,
   Server,
+  ShieldCheck,
   ShoppingCart,
   Smartphone,
   Sparkles,
   Star,
+  Store,
   Tag,
   Wallet,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
 import { ErrorState } from '@/components/ui/error-state';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadingRows } from '@/components/ui/loading-state';
 import { Select } from '@/components/ui/select';
@@ -180,6 +188,83 @@ export default function PainelDesenvolvedor() {
   const [salvando, setSalvando] = React.useState<string | null>(null);
   const [aviso, setAviso] = React.useState<string | null>(null);
 
+  /* Modal de Provisionamento de Nova Loja (Multi-tenant) */
+  const [modalNovaLoja, setModalNovaLoja] = React.useState(false);
+  const [criandoLoja, setCriandoLoja] = React.useState(false);
+  const [erroNovaLoja, setErroNovaLoja] = React.useState<string | null>(null);
+  const [formNovaLoja, setFormNovaLoja] = React.useState({
+    nome: '',
+    cnpj: '',
+    telefone: '',
+    emailContato: '',
+    plano: 'PRO' as 'START' | 'PRO' | 'ENTERPRISE',
+    adminNome: '',
+    adminEmail: '',
+    adminSenha: '',
+  });
+
+  const abrirModalNovaLoja = () => {
+    setFormNovaLoja({
+      nome: '',
+      cnpj: '',
+      telefone: '',
+      emailContato: '',
+      plano: 'PRO',
+      adminNome: '',
+      adminEmail: '',
+      adminSenha: '',
+    });
+    setErroNovaLoja(null);
+    setModalNovaLoja(true);
+  };
+
+  const submeterNovaLoja = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formNovaLoja.nome.trim()) {
+      setErroNovaLoja('Informe o nome da empresa/loja.');
+      return;
+    }
+    if (!formNovaLoja.adminNome.trim()) {
+      setErroNovaLoja('Informe o nome do administrador inicial.');
+      return;
+    }
+    if (!formNovaLoja.adminEmail.trim()) {
+      setErroNovaLoja('Informe o e-mail de acesso do administrador.');
+      return;
+    }
+    if (!formNovaLoja.adminSenha || formNovaLoja.adminSenha.length < 6) {
+      setErroNovaLoja('A senha inicial deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    setCriandoLoja(true);
+    setErroNovaLoja(null);
+    try {
+      const res = await apiClient.post<{
+        id: string;
+        nome: string;
+        cnpj?: string;
+        adminEmail: string;
+        plano: string;
+      }>('/v1/dev/lojas', formNovaLoja);
+
+      setModalNovaLoja(false);
+      setAviso(
+        `Empresa "${res.data.nome}" provisionada com sucesso (Plano ${res.data.plano})! Administrador: ${res.data.adminEmail}`,
+      );
+      // Recarrega lista e seleciona a nova loja
+      const listaRes = await apiClient.get<LojaResumo[]>('/v1/dev/lojas');
+      setLojas(listaRes.data);
+      setLojaSel(res.data.id);
+    } catch (err) {
+      setErroNovaLoja(
+        err instanceof ApiError ? err.message : 'Falha ao provisionar a nova empresa/loja.',
+      );
+    } finally {
+      setCriandoLoja(false);
+    }
+  };
+
   const carregarLojas = React.useCallback(async () => {
     if (!podeAcessar) return;
     try {
@@ -317,7 +402,17 @@ export default function PainelDesenvolvedor() {
             <span className="font-semibold text-primary">ADMIN</span>.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {user?.perfil === 'DESENVOLVEDOR' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={abrirModalNovaLoja}
+              className="gap-1.5 text-xs font-semibold border-brand/40 text-brand hover:bg-brand/10"
+            >
+              <Store className="h-3.5 w-3.5" aria-hidden /> + Nova Empresa / Loja
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -461,9 +556,20 @@ export default function PainelDesenvolvedor() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[16rem] flex-1 space-y-1">
-              <Label htmlFor="dev-loja-sel" className="text-xs">
-                Loja (tenant)
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="dev-loja-sel" className="text-xs">
+                  Loja (tenant)
+                </Label>
+                {user?.perfil === 'DESENVOLVEDOR' && (
+                  <button
+                    type="button"
+                    onClick={abrirModalNovaLoja}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                  >
+                    <Plus className="h-3 w-3" aria-hidden /> Nova Empresa
+                  </button>
+                )}
+              </div>
               <Select
                 id="dev-loja-sel"
                 value={lojaSel}
@@ -575,6 +681,186 @@ export default function PainelDesenvolvedor() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Modal de Provisionamento de Nova Empresa / Loja (Multi-tenant) */}
+      <Dialog
+        open={modalNovaLoja}
+        onClose={() => !criandoLoja && setModalNovaLoja(false)}
+        title="Provisionar Nova Empresa / Loja"
+        description="Cadastre um novo ambiente isolado (multi-tenant) com banco de dados seguro, plano de módulos e primeiro administrador."
+        className="max-w-[620px]"
+      >
+        <form onSubmit={submeterNovaLoja} className="space-y-4 pt-2">
+          {erroNovaLoja && (
+            <div className="rounded-card border border-danger-light bg-danger-light p-3 text-xs font-medium text-danger-dark">
+              {erroNovaLoja}
+            </div>
+          )}
+
+          {/* Seção 1: Dados da Empresa */}
+          <div className="space-y-3 rounded-card border border-border bg-subtle p-3.5">
+            <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+              <Building2 className="h-4 w-4 text-brand" /> Dados da Empresa / Ótica
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="nova-loja-nome" className="text-xs font-medium">
+                  Nome da Empresa / Fantasia <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="nova-loja-nome"
+                  required
+                  placeholder="Ex: Ótica Vista Linda Matriz"
+                  value={formNovaLoja.nome}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, nome: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nova-loja-cnpj" className="text-xs font-medium">
+                  CNPJ (opcional)
+                </Label>
+                <Input
+                  id="nova-loja-cnpj"
+                  placeholder="00.000.000/0000-00"
+                  value={formNovaLoja.cnpj}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, cnpj: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nova-loja-telefone" className="text-xs font-medium">
+                  Telefone / WhatsApp (opcional)
+                </Label>
+                <Input
+                  id="nova-loja-telefone"
+                  placeholder="(11) 99999-9999"
+                  value={formNovaLoja.telefone}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, telefone: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="nova-loja-email-contato" className="text-xs font-medium">
+                  E-mail de Contato da Empresa (opcional)
+                </Label>
+                <Input
+                  id="nova-loja-email-contato"
+                  type="email"
+                  placeholder="contato@oticalinda.com.br"
+                  value={formNovaLoja.emailContato}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, emailContato: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Seção 2: Plano SaaS */}
+          <div className="space-y-2 rounded-card border border-border bg-subtle p-3.5">
+            <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+              <Package className="h-4 w-4 text-brand" /> Plano Contratado
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {(['START', 'PRO', 'ENTERPRISE'] as const).map((plano) => {
+                const selecionado = formNovaLoja.plano === plano;
+                return (
+                  <button
+                    key={plano}
+                    type="button"
+                    onClick={() => setFormNovaLoja((prev) => ({ ...prev, plano }))}
+                    className={`flex flex-col items-center justify-center rounded-card border p-2.5 text-center transition-all ${
+                      selecionado
+                        ? 'border-brand bg-brand/10 text-primary shadow-sm ring-1 ring-brand'
+                        : 'border-border bg-card text-secondary hover:border-brand/40'
+                    }`}
+                  >
+                    <span className="text-xs font-bold">{plano}</span>
+                    <span className="mt-1 text-[10px] text-muted">
+                      {plano === 'START'
+                        ? 'PDV & Vendas'
+                        : plano === 'PRO'
+                          ? 'Núcleo Ótico'
+                          : '19 Módulos'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Seção 3: Primeiro Usuário Administrador */}
+          <div className="space-y-3 rounded-card border border-border bg-subtle p-3.5">
+            <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+              <KeyRound className="h-4 w-4 text-brand" /> Administrador Inicial da Loja
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="nova-loja-admin-nome" className="text-xs font-medium">
+                  Nome do Administrador <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="nova-loja-admin-nome"
+                  required
+                  placeholder="Ex: Carlos Silva"
+                  value={formNovaLoja.adminNome}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, adminNome: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nova-loja-admin-email" className="text-xs font-medium">
+                  E-mail de Login <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="nova-loja-admin-email"
+                  type="email"
+                  required
+                  placeholder="carlos@oticalinda.com.br"
+                  value={formNovaLoja.adminEmail}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nova-loja-admin-senha" className="text-xs font-medium">
+                  Senha Inicial (mín. 6) <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="nova-loja-admin-senha"
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="******"
+                  value={formNovaLoja.adminSenha}
+                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, adminSenha: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={criandoLoja}
+              onClick={() => setModalNovaLoja(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={criandoLoja}
+              className="gap-1.5"
+            >
+              <ShieldCheck className={criandoLoja ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+              {criandoLoja ? 'Provisionando Loja…' : 'Criar e Ativar Empresa'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

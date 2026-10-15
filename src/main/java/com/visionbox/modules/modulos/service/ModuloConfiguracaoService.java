@@ -53,6 +53,18 @@ import java.util.UUID;
  * (defesa em profundidade além do {@code /api/v1/dev/**} do SecurityConfig).
  * Toda alteração gera linha em {@code log_auditoria} (quem, quando, o quê).
  */
+import com.visionbox.modules.catalogo.domain.Categoria;
+import com.visionbox.modules.catalogo.repository.CategoriaRepository;
+import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento;
+import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
+import com.visionbox.modules.modulos.dto.ModuloDtos.CriarLojaRequest;
+import com.visionbox.modules.modulos.dto.ModuloDtos.LojaCriadaResponse;
+import com.visionbox.modules.pessoa.domain.Loja;
+import com.visionbox.modules.usuario.domain.Perfil;
+import com.visionbox.modules.usuario.domain.Usuario;
+import com.visionbox.modules.usuario.repository.UsuarioRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -69,6 +81,10 @@ public class ModuloConfiguracaoService {
     private final LojaRepository lojaRepository;
     private final LogAuditoriaRepository logAuditoriaRepository;
     private final ObjectMapper objectMapper;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final FormaPagamentoRepository formaPagamentoRepository;
+    private final CategoriaRepository categoriaRepository;
 
     // =====================================================================
     // Autorização / identidade do operador (JWT)
@@ -356,4 +372,125 @@ public class ModuloConfiguracaoService {
         }
         return false;
     }
+
+    /**
+     * Provisiona uma nova Loja / Empresa SaaS, seu primeiro Admin e sua estrutura inicial (R11).
+     * Restrito a usuários com perfil DESENVOLVEDOR.
+     */
+    @Transactional
+    public LojaCriadaResponse criarNovaLoja(CriarLojaRequest req, String ipOrigem) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean ehDev = auth != null
+                && ("DESENVOLVEDOR".equals(claim(auth, "perfil")) || temAutoridade(auth, "ROLE_DESENVOLVEDOR"));
+        if (!ehDev) {
+            throw new AccessDeniedException("Criação e provisionamento de novas empresas/lojas é restrito ao perfil DESENVOLVEDOR.");
+        }
+
+        UUID novaLojaId = UUID.randomUUID();
+        String cnpjLimpo = req.cnpj() != null ? req.cnpj().replaceAll("\\D", "") : "00000000000000";
+        if (cnpjLimpo.length() > 14) cnpjLimpo = cnpjLimpo.substring(0, 14);
+
+        Loja novaLoja = Loja.builder()
+                .id(novaLojaId)
+                .nome(req.nome().trim())
+                .cnpj(cnpjLimpo.isBlank() ? "00000000000000" : cnpjLimpo)
+                .telefone(req.telefone())
+                .emailContato(req.emailContato())
+                .build();
+        novaLoja = lojaRepository.save(novaLoja);
+
+        // Plano SaaS inicial
+        String planoStr = req.plano() != null && !req.plano().isBlank() ? req.plano().trim().toUpperCase() : "PRO";
+        PlanoSaaS plano = PlanoSaaS.parseOuDefault(planoStr, PlanoSaaS.PRO);
+        final String planoNomeEfetivo = plano.name();
+        ModuloTenantScope.executar(novaLojaId, () -> aplicarPlano(novaLojaId, new AplicarPlanoRequest(planoNomeEfetivo), ipOrigem));
+
+        // Usuário Administrador da nova loja
+        String emailAdmin = req.adminEmail().trim().toLowerCase();
+        Usuario adminUsuario = Usuario.builder()
+                .lojaId(novaLojaId)
+                .nome(req.adminNome().trim())
+                .email(emailAdmin)
+                .senhaHash(passwordEncoder.encode(req.adminSenha().trim()))
+                .perfil(Perfil.ADMIN)
+                .build();
+        usuarioRepository.save(adminUsuario);
+
+        // 4 Formas de pagamento padrão ativas no PDV
+        if (formaPagamentoRepository != null) {
+            try {
+                FormaPagamento pix = FormaPagamento.builder()
+                        .lojaId(novaLojaId)
+                        .nome("PIX")
+                        .tipo(FormaPagamento.TipoFormaPagamento.PIX)
+                        .tPagNfce("17")
+                        .ativo(true)
+                        .padrao(true)
+                        .build();
+                FormaPagamento dinheiro = FormaPagamento.builder()
+                        .lojaId(novaLojaId)
+                        .nome("DINHEIRO")
+                        .tipo(FormaPagamento.TipoFormaPagamento.DINHEIRO)
+                        .tPagNfce("01")
+                        .ativo(true)
+                        .padrao(false)
+                        .build();
+                FormaPagamento debito = FormaPagamento.builder()
+                        .lojaId(novaLojaId)
+                        .nome("DEBITO")
+                        .tipo(FormaPagamento.TipoFormaPagamento.DEBITO)
+                        .tPagNfce("04")
+                        .ativo(true)
+                        .padrao(false)
+                        .build();
+                FormaPagamento credito = FormaPagamento.builder()
+                        .lojaId(novaLojaId)
+                        .nome("CREDITO")
+                        .tipo(FormaPagamento.TipoFormaPagamento.CREDITO)
+                        .tPagNfce("03")
+                        .ativo(true)
+                        .padrao(false)
+                        .build();
+                formaPagamentoRepository.saveAll(List.of(pix, dinheiro, debito, credito));
+            } catch (Exception e) {
+                log.warn("Falha ao criar formas de pagamento para nova loja {}: {}", novaLojaId, e.getMessage());
+            }
+        }
+
+        // 7 Categorias canônicas de ótica
+        if (categoriaRepository != null) {
+            try {
+                List<String> nomesCategorias = List.of(
+                        "Armações", "Lentes", "Óculos de Sol", "Lentes de Contato", "Acessórios", "Serviços", "Lentes Oftálmicas"
+                );
+                List<Categoria> cats = nomesCategorias.stream()
+                        .map(n -> Categoria.builder().lojaId(novaLojaId).nome(n).build())
+                        .toList();
+                categoriaRepository.saveAll(cats);
+            } catch (Exception e) {
+                log.warn("Falha ao criar categorias canônicas para nova loja {}: {}", novaLojaId, e.getMessage());
+            }
+        }
+
+        // Auditoria
+        RegistroOperador op = resolverOperador(ipOrigem);
+        LogAuditoria audit = LogAuditoria.builder()
+                .lojaId(novaLojaId)
+                .usuarioId(op.id() != null ? op.id().toString() : null)
+                .usuarioNome(op.nome())
+                .entidade("loja")
+                .entidadeId(novaLojaId.toString())
+                .acao("CREATE")
+                .detalheJson(String.format("{\"nome\":\"%s\",\"cnpj\":\"%s\",\"plano\":\"%s\",\"admin\":\"%s\"}",
+                        novaLoja.getNome(), novaLoja.getCnpj(), plano.name(), emailAdmin))
+                .ipOrigem(ipOrigem)
+                .build();
+        logAuditoriaRepository.save(audit);
+
+        log.info("Nova empresa/loja provisionada lojaId={} nome={} plano={} admin={}",
+                novaLojaId, novaLoja.getNome(), plano.name(), emailAdmin);
+
+        return new LojaCriadaResponse(novaLojaId, novaLoja.getNome(), novaLoja.getCnpj(), emailAdmin, plano.name());
+    }
 }
+
