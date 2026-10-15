@@ -19,6 +19,15 @@ public class Loja {
     @Id
     private UUID id;
 
+    @Column(length = 20)
+    private String codigo;
+
+    @Column(length = 60)
+    private String subdominio;
+
+    @Column(nullable = false)
+    private boolean ativo = true;
+
     @Column(nullable = false)
     private String nome;
 

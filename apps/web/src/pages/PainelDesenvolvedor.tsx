@@ -32,6 +32,11 @@ import {
   Star,
   Store,
   Tag,
+  Trash2,
+  Pencil,
+  Globe,
+  Search,
+  AlertTriangle,
   Wallet,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +51,7 @@ import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { apiClient, ApiError } from '@/lib/apiClient';
+import { fetchCnpj } from '@/lib/cnpj';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -76,7 +82,16 @@ type EmpresaInfo = {
 
 /* ===================== Fase 5 — Gestor SaaS de Módulos & Planos ===================== */
 
-type LojaResumo = { id: string; nome: string };
+type LojaResumo = {
+  id: string;
+  nome: string;
+  codigo?: string;
+  subdominio?: string;
+  cnpj?: string;
+  telefone?: string;
+  emailContato?: string;
+  ativo?: boolean;
+};
 
 type ModuloStatusItem = {
   codigo: string;
@@ -191,17 +206,74 @@ export default function PainelDesenvolvedor() {
   /* Modal de Provisionamento de Nova Loja (Multi-tenant) */
   const [modalNovaLoja, setModalNovaLoja] = React.useState(false);
   const [criandoLoja, setCriandoLoja] = React.useState(false);
+  const [buscandoCnpjNova, setBuscandoCnpjNova] = React.useState(false);
   const [erroNovaLoja, setErroNovaLoja] = React.useState<string | null>(null);
   const [formNovaLoja, setFormNovaLoja] = React.useState({
     nome: '',
     cnpj: '',
     telefone: '',
     emailContato: '',
+    subdominio: '',
     plano: 'PRO' as 'START' | 'PRO' | 'ENTERPRISE',
     adminNome: '',
     adminEmail: '',
     adminSenha: '',
   });
+
+  /* Modal de Edição de Loja */
+  const [modalEditarLoja, setModalEditarLoja] = React.useState(false);
+  const [editandoLoja, setEditandoLoja] = React.useState(false);
+  const [buscandoCnpjEditar, setBuscandoCnpjEditar] = React.useState(false);
+  const [erroEditarLoja, setErroEditarLoja] = React.useState<string | null>(null);
+  const [formEditarLoja, setFormEditarLoja] = React.useState({
+    nome: '',
+    cnpj: '',
+    telefone: '',
+    emailContato: '',
+    subdominio: '',
+    ativo: true,
+  });
+
+  /* Modal de Exclusão de Loja */
+  const [modalExcluirLoja, setModalExcluirLoja] = React.useState(false);
+  const [excluindoLoja, setExcluindoLoja] = React.useState(false);
+  const [erroExcluirLoja, setErroExcluirLoja] = React.useState<string | null>(null);
+
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 30);
+  };
+
+  const buscarCnpjParaNovaLoja = async (cnpjDigitado?: string) => {
+    const valor = cnpjDigitado ?? formNovaLoja.cnpj;
+    const digitos = valor.replace(/\D/g, '');
+    if (digitos.length !== 14) {
+      setErroNovaLoja('Informe o CNPJ com 14 dígitos para buscar na Receita.');
+      return;
+    }
+    setBuscandoCnpjNova(true);
+    setErroNovaLoja(null);
+    try {
+      const data = await fetchCnpj(digitos);
+      const nomeEncontrado = data.nome_fantasia || data.razao_social;
+      setFormNovaLoja((prev) => ({
+        ...prev,
+        cnpj: data.cnpj,
+        nome: prev.nome || nomeEncontrado,
+        telefone: prev.telefone || data.ddd_telefone_1 || '',
+        emailContato: prev.emailContato || data.email || '',
+        subdominio: prev.subdominio || slugify(nomeEncontrado),
+      }));
+    } catch (err) {
+      setErroNovaLoja(err instanceof Error ? err.message : 'Falha ao consultar CNPJ na Receita Federal.');
+    } finally {
+      setBuscandoCnpjNova(false);
+    }
+  };
 
   const abrirModalNovaLoja = () => {
     setFormNovaLoja({
@@ -209,6 +281,7 @@ export default function PainelDesenvolvedor() {
       cnpj: '',
       telefone: '',
       emailContato: '',
+      subdominio: '',
       plano: 'PRO',
       adminNome: '',
       adminEmail: '',
@@ -243,6 +316,8 @@ export default function PainelDesenvolvedor() {
       const res = await apiClient.post<{
         id: string;
         nome: string;
+        codigo?: string;
+        subdominio?: string;
         cnpj?: string;
         adminEmail: string;
         plano: string;
@@ -250,7 +325,7 @@ export default function PainelDesenvolvedor() {
 
       setModalNovaLoja(false);
       setAviso(
-        `Empresa "${res.data.nome}" provisionada com sucesso (Plano ${res.data.plano})! Administrador: ${res.data.adminEmail}`,
+        `Empresa "${res.data.nome}" (${res.data.codigo || 'LJ-Novo'}) provisionada com sucesso (Plano ${res.data.plano})! Subdomínio: ${res.data.subdominio || 'loja'}.techboxbr.app.br. Administrador: ${res.data.adminEmail}`,
       );
       // Recarrega lista e seleciona a nova loja
       const listaRes = await apiClient.get<LojaResumo[]>('/v1/dev/lojas');
@@ -262,6 +337,96 @@ export default function PainelDesenvolvedor() {
       );
     } finally {
       setCriandoLoja(false);
+    }
+  };
+
+  const abrirModalEditarLoja = () => {
+    const lojaAtual = lojas.find((l) => l.id === lojaSel);
+    if (!lojaAtual) return;
+    setFormEditarLoja({
+      nome: lojaAtual.nome || '',
+      cnpj: lojaAtual.cnpj || '',
+      telefone: lojaAtual.telefone || '',
+      emailContato: lojaAtual.emailContato || '',
+      subdominio: lojaAtual.subdominio || '',
+      ativo: lojaAtual.ativo ?? true,
+    });
+    setErroEditarLoja(null);
+    setModalEditarLoja(true);
+  };
+
+  const buscarCnpjParaEditarLoja = async () => {
+    const digitos = formEditarLoja.cnpj.replace(/\D/g, '');
+    if (digitos.length !== 14) {
+      setErroEditarLoja('Informe o CNPJ com 14 dígitos para buscar na Receita.');
+      return;
+    }
+    setBuscandoCnpjEditar(true);
+    setErroEditarLoja(null);
+    try {
+      const data = await fetchCnpj(digitos);
+      const nomeEncontrado = data.nome_fantasia || data.razao_social;
+      setFormEditarLoja((prev) => ({
+        ...prev,
+        cnpj: data.cnpj,
+        nome: prev.nome || nomeEncontrado,
+        telefone: prev.telefone || data.ddd_telefone_1 || '',
+        emailContato: prev.emailContato || data.email || '',
+        subdominio: prev.subdominio || slugify(nomeEncontrado),
+      }));
+    } catch (err) {
+      setErroEditarLoja(err instanceof Error ? err.message : 'Falha ao consultar CNPJ na Receita Federal.');
+    } finally {
+      setBuscandoCnpjEditar(false);
+    }
+  };
+
+  const submeterEditarLoja = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formEditarLoja.nome.trim()) {
+      setErroEditarLoja('Informe o nome da empresa.');
+      return;
+    }
+    setEditandoLoja(true);
+    setErroEditarLoja(null);
+    try {
+      await apiClient.put<LojaResumo>(`/v1/dev/lojas/${lojaSel}`, formEditarLoja);
+      setModalEditarLoja(false);
+      setAviso(`Empresa "${formEditarLoja.nome}" atualizada com sucesso!`);
+      const listaRes = await apiClient.get<LojaResumo[]>('/v1/dev/lojas');
+      setLojas(listaRes.data);
+    } catch (err) {
+      setErroEditarLoja(
+        err instanceof ApiError ? err.message : 'Falha ao atualizar dados da empresa.',
+      );
+    } finally {
+      setEditandoLoja(false);
+    }
+  };
+
+  const abrirModalExcluirLoja = () => {
+    setErroExcluirLoja(null);
+    setModalExcluirLoja(true);
+  };
+
+  const submeterExcluirLoja = async () => {
+    setExcluindoLoja(true);
+    setErroExcluirLoja(null);
+    try {
+      await apiClient.delete(`/v1/dev/lojas/${lojaSel}`);
+      setModalExcluirLoja(false);
+      setAviso('Empresa excluída com sucesso.');
+      const listaRes = await apiClient.get<LojaResumo[]>('/v1/dev/lojas');
+      setLojas(listaRes.data);
+      if (listaRes.data.length > 0) {
+        setLojaSel(listaRes.data[0].id);
+      }
+    } catch (err) {
+      setErroExcluirLoja(
+        err instanceof ApiError ? err.message : 'Falha ao excluir empresa.',
+      );
+    } finally {
+      setExcluindoLoja(false);
     }
   };
 
@@ -554,39 +719,95 @@ export default function PainelDesenvolvedor() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[16rem] flex-1 space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="dev-loja-sel" className="text-xs">
-                  Loja (tenant)
-                </Label>
+          {/* Barra de Seleção e Gestão de Empresas */}
+          <div className="space-y-2 rounded-card border border-border bg-subtle p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="dev-loja-sel" className="text-xs font-bold uppercase tracking-wider text-primary">
+                <Store className="inline-block mr-1.5 h-3.5 w-3.5 text-brand" /> Empresa Selecionada (Tenant)
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={abrirModalEditarLoja}
+                  disabled={!lojaSel}
+                  className="h-7 gap-1 px-2.5 text-xs text-primary"
+                >
+                  <Pencil className="h-3 w-3 text-secondary" aria-hidden /> Editar Dados
+                </Button>
                 {user?.perfil === 'DESENVOLVEDOR' && (
-                  <button
-                    type="button"
-                    onClick={abrirModalNovaLoja}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
-                  >
-                    <Plus className="h-3 w-3" aria-hidden /> Nova Empresa
-                  </button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={abrirModalExcluirLoja}
+                      disabled={!lojaSel || lojaSel === '00000000-0000-0000-0000-000000000001'}
+                      className="h-7 gap-1 px-2.5 text-xs text-danger hover:bg-danger/10 border-danger/30"
+                      title={lojaSel === '00000000-0000-0000-0000-000000000001' ? 'A Matriz LJ-001 não pode ser excluída' : 'Excluir esta empresa'}
+                    >
+                      <Trash2 className="h-3 w-3" aria-hidden /> Excluir
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={abrirModalNovaLoja}
+                      className="h-7 gap-1 px-2.5 text-xs font-semibold"
+                    >
+                      <Plus className="h-3 w-3" aria-hidden /> Nova Empresa
+                    </Button>
+                  </>
                 )}
               </div>
-              <Select
-                id="dev-loja-sel"
-                value={lojaSel}
-                onChange={(e) => setLojaSel(e.target.value)}
-                disabled={lojas.length === 0}
-              >
-                {lojas.length === 0 ? (
-                  <option value={lojaSel || '—'}>Carregando lojas…</option>
-                ) : (
-                  lojas.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.nome}
-                    </option>
-                  ))
-                )}
-              </Select>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-2">
+                <Select
+                  id="dev-loja-sel"
+                  value={lojaSel}
+                  onChange={(e) => setLojaSel(e.target.value)}
+                  disabled={lojas.length === 0}
+                  className="font-medium"
+                >
+                  {lojas.length === 0 ? (
+                    <option value={lojaSel || '—'}>Carregando lojas…</option>
+                  ) : (
+                    lojas.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.codigo ? `${l.codigo} • ` : ''}{l.nome} ({l.subdominio || 'loja'}.techboxbr.app.br){!l.ativo ? ' [INATIVA]' : ''}
+                      </option>
+                    ))
+                  )}
+                </Select>
+              </div>
+
+              {/* Badges de Identificação da Loja Atual */}
+              {(() => {
+                const atual = lojas.find((l) => l.id === lojaSel);
+                return (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <Badge variant="outline" className="font-mono font-bold text-brand">
+                      {atual?.codigo || 'LJ-???'}
+                    </Badge>
+                    <Badge variant={atual?.ativo !== false ? 'success' : 'warning'}>
+                      {atual?.ativo !== false ? 'Ativa' : 'Inativa'}
+                    </Badge>
+                    {atual?.subdominio && (
+                      <span className="flex items-center gap-1 rounded bg-card px-2 py-1 font-mono text-[11px] text-secondary border border-border">
+                        <Globe className="h-3 w-3 text-brand" />
+                        {atual.subdominio}.techboxbr.app.br
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3 pt-1">
 
             <div className="space-y-1">
               <Label className="text-xs">Plano rápido</Label>
@@ -712,20 +933,63 @@ export default function PainelDesenvolvedor() {
                   required
                   placeholder="Ex: Ótica Vista Linda Matriz"
                   value={formNovaLoja.nome}
-                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, nome: e.target.value }))}
+                  onChange={(e) => {
+                    const novoNome = e.target.value;
+                    setFormNovaLoja((prev) => ({
+                      ...prev,
+                      nome: novoNome,
+                      subdominio: prev.subdominio || slugify(novoNome),
+                    }));
+                  }}
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="nova-loja-cnpj" className="text-xs font-medium">
-                  CNPJ (opcional)
+                  CNPJ (opcional — preenche nome, telefone, email e subdomínio)
                 </Label>
-                <Input
-                  id="nova-loja-cnpj"
-                  placeholder="00.000.000/0000-00"
-                  value={formNovaLoja.cnpj}
-                  onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, cnpj: e.target.value }))}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="nova-loja-cnpj"
+                    placeholder="00.000.000/0000-00"
+                    value={formNovaLoja.cnpj}
+                    onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, cnpj: e.target.value }))}
+                    onBlur={() => {
+                      if (formNovaLoja.cnpj.replace(/\D/g, '').length === 14 && !formNovaLoja.nome) {
+                        void buscarCnpjParaNovaLoja();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void buscarCnpjParaNovaLoja()}
+                    disabled={buscandoCnpjNova}
+                    className="shrink-0 gap-1 text-xs"
+                    title="Consultar dados na Receita Federal via BrasilAPI"
+                  >
+                    <Search className={buscandoCnpjNova ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+                    {buscandoCnpjNova ? 'Consultando…' : 'Buscar Receita'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="nova-loja-subdominio" className="text-xs font-medium">
+                  Subdomínio de Acesso (URL dedicada)
+                </Label>
+                <div className="flex items-center rounded border border-border bg-card px-2.5">
+                  <Globe className="h-3.5 w-3.5 text-brand shrink-0 mr-1.5" />
+                  <input
+                    id="nova-loja-subdominio"
+                    className="w-full bg-transparent py-1.5 text-xs font-mono text-primary outline-none"
+                    placeholder="ex: oticalinda"
+                    value={formNovaLoja.subdominio}
+                    onChange={(e) => setFormNovaLoja((prev) => ({ ...prev, subdominio: slugify(e.target.value) }))}
+                  />
+                  <span className="text-xs font-mono text-muted shrink-0">.techboxbr.app.br</span>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -740,7 +1004,7 @@ export default function PainelDesenvolvedor() {
                 />
               </div>
 
-              <div className="space-y-1 sm:col-span-2">
+              <div className="space-y-1">
                 <Label htmlFor="nova-loja-email-contato" className="text-xs font-medium">
                   E-mail de Contato da Empresa (opcional)
                 </Label>
@@ -860,6 +1124,210 @@ export default function PainelDesenvolvedor() {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Modal de Edição de Empresa / Loja */}
+      <Dialog
+        open={modalEditarLoja}
+        onClose={() => !editandoLoja && setModalEditarLoja(false)}
+        title="Editar Dados da Empresa / Loja"
+        description="Atualize a identificação, subdomínio e dados de contato do ambiente."
+        className="max-w-[560px]"
+      >
+        <form onSubmit={submeterEditarLoja} className="space-y-4 pt-2">
+          {erroEditarLoja && (
+            <div className="rounded-card border border-danger-light bg-danger-light p-3 text-xs font-medium text-danger-dark">
+              {erroEditarLoja}
+            </div>
+          )}
+
+          <div className="space-y-3 rounded-card border border-border bg-subtle p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold text-brand">
+                Código: {lojas.find((l) => l.id === lojaSel)?.codigo || 'LJ-???'}
+              </span>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="editar-loja-ativo" className="text-xs font-medium">
+                  Ambiente Ativo:
+                </Label>
+                <Switch
+                  id="editar-loja-ativo"
+                  checked={formEditarLoja.ativo}
+                  onCheckedChange={(checked) => setFormEditarLoja((prev) => ({ ...prev, ativo: checked }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="editar-loja-nome" className="text-xs font-medium">
+                Nome da Empresa / Fantasia <span className="text-danger">*</span>
+              </Label>
+              <Input
+                id="editar-loja-nome"
+                required
+                value={formEditarLoja.nome}
+                onChange={(e) => setFormEditarLoja((prev) => ({ ...prev, nome: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="editar-loja-cnpj" className="text-xs font-medium">
+                CNPJ
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="editar-loja-cnpj"
+                  placeholder="00.000.000/0000-00"
+                  value={formEditarLoja.cnpj}
+                  onChange={(e) => setFormEditarLoja((prev) => ({ ...prev, cnpj: e.target.value }))}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void buscarCnpjParaEditarLoja()}
+                  disabled={buscandoCnpjEditar}
+                  className="shrink-0 gap-1 text-xs"
+                  title="Atualizar dados cadastrais via Receita Federal"
+                >
+                  <Search className={buscandoCnpjEditar ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+                  {buscandoCnpjEditar ? 'Buscando…' : 'Buscar Receita'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="editar-loja-subdominio" className="text-xs font-medium">
+                Subdomínio (URL única)
+              </Label>
+              <div className="flex items-center rounded border border-border bg-card px-2.5">
+                <Globe className="h-3.5 w-3.5 text-brand shrink-0 mr-1.5" />
+                <input
+                  id="editar-loja-subdominio"
+                  className="w-full bg-transparent py-1.5 text-xs font-mono text-primary outline-none"
+                  placeholder="ex: oticanacional"
+                  value={formEditarLoja.subdominio}
+                  onChange={(e) => setFormEditarLoja((prev) => ({ ...prev, subdominio: slugify(e.target.value) }))}
+                />
+                <span className="text-xs font-mono text-muted shrink-0">.techboxbr.app.br</span>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="editar-loja-telefone" className="text-xs font-medium">
+                  Telefone / WhatsApp
+                </Label>
+                <Input
+                  id="editar-loja-telefone"
+                  placeholder="(11) 99999-9999"
+                  value={formEditarLoja.telefone}
+                  onChange={(e) => setFormEditarLoja((prev) => ({ ...prev, telefone: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="editar-loja-email" className="text-xs font-medium">
+                  E-mail de Contato
+                </Label>
+                <Input
+                  id="editar-loja-email"
+                  type="email"
+                  placeholder="contato@empresa.com.br"
+                  value={formEditarLoja.emailContato}
+                  onChange={(e) => setFormEditarLoja((prev) => ({ ...prev, emailContato: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={editandoLoja}
+              onClick={() => setModalEditarLoja(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={editandoLoja}
+            >
+              {editandoLoja ? 'Salvando…' : 'Salvar Alterações'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Modal de Exclusão de Empresa / Loja */}
+      <Dialog
+        open={modalExcluirLoja}
+        onClose={() => !excluindoLoja && setModalExcluirLoja(false)}
+        title="Excluir Empresa / Loja"
+        description="Atenção: esta ação remove ou inativa o ambiente multi-tenant selecionado."
+        className="max-w-[480px]"
+      >
+        <div className="space-y-4 pt-2">
+          {erroExcluirLoja && (
+            <div className="rounded-card border border-danger-light bg-danger-light p-3 text-xs font-medium text-danger-dark">
+              {erroExcluirLoja}
+            </div>
+          )}
+
+          {lojaSel === '00000000-0000-0000-0000-000000000001' ? (
+            <div className="rounded-card border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-600 dark:text-amber-400">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4" /> Loja Matriz Protegida (LJ-001)
+              </p>
+              <p className="mt-1">
+                Esta é a loja principal do sistema. Ela não pode ser excluída para preservar a integridade das configurações mestres.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs text-secondary">
+              <p>
+                Você tem certeza que deseja excluir a empresa{' '}
+                <span className="font-bold text-primary">
+                  {lojas.find((l) => l.id === lojaSel)?.nome} (
+                  {lojas.find((l) => l.id === lojaSel)?.codigo || 'LJ-???'}
+                </span>
+                ?
+              </p>
+              <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-xs text-danger font-medium">
+                Se a empresa já tiver transações registradas (vendas, caixa ou ordens de serviço), ela será inativada com segurança para preservar o histórico fiscal. Se não houver vínculos, o tenant será excluído permanentemente.
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={excluindoLoja}
+              onClick={() => setModalExcluirLoja(false)}
+            >
+              Cancelar
+            </Button>
+            {lojaSel !== '00000000-0000-0000-0000-000000000001' && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={excluindoLoja}
+                onClick={submeterExcluirLoja}
+                className="gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {excluindoLoja ? 'Excluindo…' : 'Confirmar Exclusão'}
+              </Button>
+            )}
+          </div>
+        </div>
       </Dialog>
     </div>
   );

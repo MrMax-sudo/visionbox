@@ -1,6 +1,18 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Plano e Matriz dos 19 Módulos SaaS Registrados** ✅. Menu do Avatar e Provisionamento Multi-tenant Concluídos.
+> **Atualizado em:** 2026-10-15 — **Gestão de Lojas, Subdomínio Multi-tenant e Automação CNPJ/CEP 100% Concluídos** ✅. Suíte de testes e compilação frontend/backend íntegras.
+
+## Gestão de Lojas, Subdomínio Multi-tenant e Automação CNPJ/CEP (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Status |
+|---|---|---|---|
+| **CRUD de Lojas (Editar e Excluir)** | Como editar e excluir lojas no Painel do Desenvolvedor. | Endpoints `PUT /api/v1/dev/lojas/{id}` e `DELETE /api/v1/dev/lojas/{id}` com modais visuais de edição e exclusão segura com confirmação no Painel Dev. A Matriz LJ-001 é protegida contra exclusão acidental. | ✅ Concluído |
+| **Identificador Amigável e Subdomínio** | ID de loja UUID é enorme e incontrolável com o tempo; separação por subdomínio. | Adicionadas colunas `codigo` (`LJ-001`, `LJ-002`, `LJ-003`) e `subdominio` (`opticanacional`) na tabela `loja` (`V54`). Seletor exibe `LJ-001 • Nome (subdomínio.techboxbr.app.br)`. Resolução de tenant via Host/Subdomínio no `TenantFilter`. | ✅ Concluído |
+| **Automação por CNPJ (Receita Federal)** | Preencher automaticamente os dados da empresa ao digitar o CNPJ. | Módulo `cnpj.ts` com integração à API pública oficial da Receita Federal (BrasilAPI): preenche Razão Social, Nome Fantasia, CEP, Endereço, Telefone e E-mail automaticamente no cadastro de Nova Loja, Edição de Loja, Configurações da Empresa e Cadastro de Fornecedores. | ✅ Concluído |
+| **Automação por CEP (ViaCEP)** | Preencher endereço ao digitar o CEP nos cadastros de empresa. | Integração do `fetchViaCEP` com botão de busca e disparo automático nos formulários de criação/edição de loja e configurações da empresa. | ✅ Concluído |
+| **Autonomia do Desenvolvedor** | Promover `desenvolvedor@techboxbr.com.br` para perfil `DESENVOLVEDOR`. | Migração `V54` atualiza o perfil do e-mail desenvolvedor para `DESENVOLVEDOR` permitindo pleno acesso cross-tenant e governança no Painel Dev. | ✅ Concluído |
+
+---
 
 ## Plano e Matriz dos 19 Módulos SaaS (`/desenvolvedor`) (2026-10-15, 📋 registrado)
 

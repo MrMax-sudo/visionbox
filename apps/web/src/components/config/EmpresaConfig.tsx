@@ -1,10 +1,14 @@
 import * as React from 'react';
-import { AlertCircle, Building2, Check, Loader2, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, Building2, Check, Loader2, Upload, Trash2, Image as ImageIcon, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { LoadingRows } from '@/components/ui/loading-state';
 import { TextField } from '@/components/ui/field';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient, ApiError } from '@/lib/apiClient';
+import { fetchCnpj } from '@/lib/cnpj';
+import { fetchViaCEP } from '@/lib/viacep';
 import { useEmpresaStore } from '@/stores/empresaStore';
 
 type EmpresaForm = {
@@ -61,6 +65,80 @@ export function EmpresaConfig() {
   const [carregado, setCarregado] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   const [salvando, setSalvando] = React.useState(false);
+  const [buscandoCnpj, setBuscandoCnpj] = React.useState(false);
+  const [buscandoCep, setBuscandoCep] = React.useState(false);
+
+  const buscarCnpj = async (cnpjDigitado?: string) => {
+    const digitos = (cnpjDigitado ?? form.cnpj).replace(/\D/g, '');
+    if (digitos.length !== 14) {
+      toast({ variant: 'destructive', title: 'CNPJ incompleto', description: 'Digite os 14 números do CNPJ.' });
+      return;
+    }
+    setBuscandoCnpj(true);
+    try {
+      const data = await fetchCnpj(digitos);
+      const nomeEncontrado = data.nome_fantasia || data.razao_social;
+      setForm((prev) => ({
+        ...prev,
+        nome: prev.nome || nomeEncontrado,
+        telefone: prev.telefone || data.ddd_telefone_1 || '',
+        emailContato: prev.emailContato || data.email || '',
+        endereco: prev.endereco || data.logradouro || '',
+        numero: prev.numero || data.numero || '',
+        complemento: prev.complemento || data.complemento || '',
+        bairro: prev.bairro || data.bairro || '',
+        cidade: prev.cidade || data.municipio || '',
+        uf: prev.uf || data.uf || '',
+        cep: prev.cep || data.cep?.replace(/\D/g, '') || '',
+      }));
+      toast({
+        variant: 'success',
+        title: 'Dados preenchidos pela Receita Federal',
+        description: nomeEncontrado,
+      });
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na consulta do CNPJ',
+        description: e instanceof Error ? e.message : 'Falha ao consultar CNPJ.',
+      });
+    } finally {
+      setBuscandoCnpj(false);
+    }
+  };
+
+  const buscarCep = async (cepDigitado?: string) => {
+    const digitos = (cepDigitado ?? form.cep).replace(/\D/g, '');
+    if (digitos.length !== 8) {
+      toast({ variant: 'destructive', title: 'CEP incompleto', description: 'Digite os 8 números do CEP.' });
+      return;
+    }
+    setBuscandoCep(true);
+    try {
+      const res = await fetchViaCEP(digitos);
+      setForm((prev) => ({
+        ...prev,
+        endereco: res.logradouro || prev.endereco,
+        bairro: res.bairro || prev.bairro,
+        cidade: res.cidade || prev.cidade,
+        uf: res.uf.toUpperCase() || prev.uf,
+        complemento: res.complemento || prev.complemento,
+      }));
+      toast({
+        variant: 'success',
+        title: 'Endereço localizado via CEP!',
+        description: `${res.logradouro}, ${res.bairro} — ${res.cidade}/${res.uf}`,
+      });
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na consulta do CEP',
+        description: e instanceof Error ? e.message : 'Falha ao buscar CEP.',
+      });
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
 
   React.useEffect(() => {
     if (!empresa || carregado) return;
@@ -219,14 +297,39 @@ export function EmpresaConfig() {
                 maxLength={200}
                 placeholder="Ótica VisionBox"
               />
-              <TextField
-                label="CNPJ"
-                value={form.cnpj}
-                onChange={set('cnpj')}
-                maxLength={14}
-                inputMode="numeric"
-                placeholder="Somente números"
-              />
+              <div className="space-y-1.5">
+                <Label htmlFor="empresa-cnpj">CNPJ (Receita Federal)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="empresa-cnpj"
+                    value={form.cnpj}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 14);
+                      setForm((prev) => ({ ...prev, cnpj: val }));
+                    }}
+                    onBlur={() => {
+                      if (form.cnpj.replace(/\D/g, '').length === 14 && !form.nome) {
+                        void buscarCnpj();
+                      }
+                    }}
+                    maxLength={14}
+                    inputMode="numeric"
+                    placeholder="Somente números"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void buscarCnpj()}
+                    disabled={buscandoCnpj}
+                    className="shrink-0 gap-1 text-xs"
+                    title="Buscar dados na Receita Federal via BrasilAPI"
+                  >
+                    <Search className={buscandoCnpj ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+                    {buscandoCnpj ? 'Consultando…' : 'Buscar Receita'}
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -266,6 +369,39 @@ export function EmpresaConfig() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-6">
+              <div className="sm:col-span-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="empresa-cep">CEP</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="empresa-cep"
+                      value={form.cep}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        setForm((prev) => ({ ...prev, cep: val }));
+                        if (val.length === 8) {
+                          void buscarCep(val);
+                        }
+                      }}
+                      maxLength={8}
+                      inputMode="numeric"
+                      placeholder="00000000"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void buscarCep()}
+                      disabled={buscandoCep}
+                      className="shrink-0 gap-1 text-xs px-2.5"
+                      title="Buscar endereço nos Correios via ViaCEP"
+                    >
+                      <Search className={buscandoCep ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+                      {buscandoCep ? '…' : 'Buscar'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
               <div className="sm:col-span-4">
                 <TextField
                   label="Endereço"
@@ -275,6 +411,9 @@ export function EmpresaConfig() {
                   placeholder="Av. Paulista, 1000"
                 />
               </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-6">
               <div className="sm:col-span-2">
                 <TextField
                   label="Número"
@@ -284,46 +423,37 @@ export function EmpresaConfig() {
                   placeholder="1000"
                 />
               </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="Complemento"
-                value={form.complemento}
-                onChange={set('complemento')}
-                maxLength={120}
-              />
-              <TextField
-                label="Bairro"
-                value={form.bairro}
-                onChange={set('bairro')}
-                maxLength={120}
-              />
+              <div className="sm:col-span-4">
+                <TextField
+                  label="Complemento"
+                  value={form.complemento}
+                  onChange={set('complemento')}
+                  maxLength={120}
+                />
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="sm:col-span-2">
                 <TextField
-                  label="Cidade"
-                  value={form.cidade}
-                  onChange={set('cidade')}
+                  label="Bairro"
+                  value={form.bairro}
+                  onChange={set('bairro')}
                   maxLength={120}
                 />
               </div>
+              <TextField
+                label="Cidade"
+                value={form.cidade}
+                onChange={set('cidade')}
+                maxLength={120}
+              />
               <TextField
                 label="UF"
                 value={form.uf}
                 onChange={set('uf')}
                 maxLength={2}
                 placeholder="SP"
-              />
-              <TextField
-                label="CEP"
-                value={form.cep}
-                onChange={set('cep')}
-                maxLength={8}
-                inputMode="numeric"
-                placeholder="Somente números"
               />
             </div>
 

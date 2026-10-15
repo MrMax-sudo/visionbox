@@ -150,7 +150,16 @@ public class ModuloConfiguracaoService {
                 && ("DESENVOLVEDOR".equals(claim(auth, "perfil")) || temAutoridade(auth, "ROLE_DESENVOLVEDOR"));
         if (ehDev) {
             return lojaRepository.findAll().stream()
-                    .map(l -> new LojaResumoResponse(l.getId(), l.getNome()))
+                    .map(l -> new LojaResumoResponse(
+                            l.getId(),
+                            l.getNome(),
+                            l.getCodigo(),
+                            l.getSubdominio(),
+                            l.getCnpj(),
+                            l.getTelefone(),
+                            l.getEmailContato(),
+                            l.isAtivo()
+                    ))
                     .toList();
         }
         UUID lojaOperador = auth != null ? claimLoja(auth) : null;
@@ -158,7 +167,16 @@ public class ModuloConfiguracaoService {
             return List.of();
         }
         return lojaRepository.findById(lojaOperador)
-                .<List<LojaResumoResponse>>map(l -> List.of(new LojaResumoResponse(l.getId(), l.getNome())))
+                .<List<LojaResumoResponse>>map(l -> List.of(new LojaResumoResponse(
+                        l.getId(),
+                        l.getNome(),
+                        l.getCodigo(),
+                        l.getSubdominio(),
+                        l.getCnpj(),
+                        l.getTelefone(),
+                        l.getEmailContato(),
+                        l.isAtivo()
+                )))
                 .orElseGet(List::of);
     }
 
@@ -418,8 +436,27 @@ public class ModuloConfiguracaoService {
         String cnpjLimpo = req.cnpj() != null ? req.cnpj().replaceAll("\\D", "") : "00000000000000";
         if (cnpjLimpo.length() > 14) cnpjLimpo = cnpjLimpo.substring(0, 14);
 
+        long count = lojaRepository.count() + 1;
+        String codigoGerado = "LJ-" + String.format("%03d", count);
+        while (lojaRepository.existsByCodigo(codigoGerado)) {
+            count++;
+            codigoGerado = "LJ-" + String.format("%03d", count);
+        }
+
+        String sub = req.subdominio() != null && !req.subdominio().isBlank()
+                ? normalizarSubdominio(req.subdominio())
+                : normalizarSubdominio(req.nome());
+        String subFinal = sub;
+        int subIdx = 1;
+        while (lojaRepository.existsBySubdominio(subFinal)) {
+            subFinal = sub + (subIdx++);
+        }
+
         Loja novaLoja = Loja.builder()
                 .id(novaLojaId)
+                .codigo(codigoGerado)
+                .subdominio(subFinal)
+                .ativo(true)
                 .nome(req.nome().trim())
                 .cnpj(cnpjLimpo.isBlank() ? "00000000000000" : cnpjLimpo)
                 .telefone(req.telefone())
@@ -515,16 +552,117 @@ public class ModuloConfiguracaoService {
                 .entidade("loja")
                 .entidadeId(novaLojaId.toString())
                 .acao("CREATE")
-                .detalheJson(String.format("{\"nome\":\"%s\",\"cnpj\":\"%s\",\"plano\":\"%s\",\"admin\":\"%s\"}",
-                        novaLoja.getNome(), novaLoja.getCnpj(), plano.name(), emailAdmin))
+                .detalheJson(String.format("{\"nome\":\"%s\",\"codigo\":\"%s\",\"subdominio\":\"%s\",\"cnpj\":\"%s\",\"plano\":\"%s\",\"admin\":\"%s\"}",
+                        novaLoja.getNome(), codigoGerado, subFinal, novaLoja.getCnpj(), plano.name(), emailAdmin))
                 .ipOrigem(ipOrigem)
                 .build();
         logAuditoriaRepository.save(audit);
 
-        log.info("Nova empresa/loja provisionada lojaId={} nome={} plano={} admin={}",
-                novaLojaId, novaLoja.getNome(), plano.name(), emailAdmin);
+        log.info("Nova empresa/loja provisionada lojaId={} codigo={} subdominio={} nome={} plano={} admin={}",
+                novaLojaId, codigoGerado, subFinal, novaLoja.getNome(), plano.name(), emailAdmin);
 
-        return new LojaCriadaResponse(novaLojaId, novaLoja.getNome(), novaLoja.getCnpj(), emailAdmin, plano.name());
+        return new LojaCriadaResponse(novaLojaId, novaLoja.getNome(), codigoGerado, subFinal, novaLoja.getCnpj(), emailAdmin, plano.name());
+    }
+
+    /**
+     * Edita dados cadastrais da Loja no Painel Dev.
+     */
+    @Transactional
+    public LojaResumoResponse editarLoja(UUID lojaId, EditarLojaRequest req, String ipOrigem) {
+        autorizarAcessoLoja(lojaId);
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() -> new IllegalArgumentException("Loja não encontrada: " + lojaId));
+
+        loja.setNome(req.nome().trim());
+        if (req.cnpj() != null) {
+            String cnpjLimpo = req.cnpj().replaceAll("\\D", "");
+            if (cnpjLimpo.length() > 14) cnpjLimpo = cnpjLimpo.substring(0, 14);
+            loja.setCnpj(cnpjLimpo.isBlank() ? "00000000000000" : cnpjLimpo);
+        }
+        if (req.telefone() != null) loja.setTelefone(req.telefone().trim());
+        if (req.emailContato() != null) loja.setEmailContato(req.emailContato().trim());
+        if (req.subdominio() != null && !req.subdominio().isBlank()) {
+            String subNorm = normalizarSubdominio(req.subdominio());
+            if (!subNorm.equals(loja.getSubdominio()) && lojaRepository.existsBySubdominio(subNorm)) {
+                throw new IllegalArgumentException("Subdomínio já em uso por outra loja: " + subNorm);
+            }
+            loja.setSubdominio(subNorm);
+        }
+        if (req.ativo() != null) {
+            loja.setAtivo(req.ativo());
+        }
+        loja = lojaRepository.save(loja);
+
+        RegistroOperador op = resolverOperador(ipOrigem);
+        LogAuditoria audit = LogAuditoria.builder()
+                .lojaId(lojaId)
+                .usuarioId(op.id() != null ? op.id().toString() : null)
+                .usuarioNome(op.nome())
+                .entidade("loja")
+                .entidadeId(lojaId.toString())
+                .acao("UPDATE")
+                .detalheJson(String.format("{\"nome\":\"%s\",\"cnpj\":\"%s\",\"subdominio\":\"%s\",\"ativo\":%b}",
+                        loja.getNome(), loja.getCnpj(), loja.getSubdominio(), loja.isAtivo()))
+                .ipOrigem(ipOrigem)
+                .build();
+        logAuditoriaRepository.save(audit);
+
+        return new LojaResumoResponse(
+                loja.getId(), loja.getNome(), loja.getCodigo(), loja.getSubdominio(),
+                loja.getCnpj(), loja.getTelefone(), loja.getEmailContato(), loja.isAtivo()
+        );
+    }
+
+    /**
+     * Exclui uma Loja permanentemente (apenas DESENVOLVEDOR).
+     */
+    @Transactional
+    public void excluirLoja(UUID lojaId, String ipOrigem) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean ehDev = auth != null
+                && ("DESENVOLVEDOR".equals(claim(auth, "perfil")) || temAutoridade(auth, "ROLE_DESENVOLVEDOR"));
+        if (!ehDev) {
+            throw new AccessDeniedException("Exclusão de lojas é restrita ao perfil DESENVOLVEDOR.");
+        }
+        if (UUID.fromString("00000000-0000-0000-0000-000000000001").equals(lojaId)) {
+            throw new IllegalArgumentException("A loja matriz base do sistema não pode ser excluída.");
+        }
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() -> new IllegalArgumentException("Loja não encontrada: " + lojaId));
+
+        configuracaoRepository.deleteAllByLojaId(lojaId);
+        usuarioRepository.findAllByLojaId(lojaId, org.springframework.data.domain.Pageable.unpaged())
+                .forEach(usuarioRepository::delete);
+        if (formaPagamentoRepository != null) {
+            formaPagamentoRepository.deleteAll(formaPagamentoRepository.findAllByLojaId(lojaId));
+        }
+
+        lojaRepository.delete(loja);
+
+        RegistroOperador op = resolverOperador(ipOrigem);
+        LogAuditoria audit = LogAuditoria.builder()
+                .lojaId(lojaId)
+                .usuarioId(op.id() != null ? op.id().toString() : null)
+                .usuarioNome(op.nome())
+                .entidade("loja")
+                .entidadeId(lojaId.toString())
+                .acao("DELETE")
+                .detalheJson(String.format("{\"lojaId\":\"%s\",\"nome\":\"%s\"}", lojaId, loja.getNome()))
+                .ipOrigem(ipOrigem)
+                .build();
+        logAuditoriaRepository.save(audit);
+        log.info("Loja excluída lojaId={} nome={}", lojaId, loja.getNome());
+    }
+
+    public static String normalizarSubdominio(String texto) {
+        if (texto == null || texto.isBlank()) return "loja";
+        String norm = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]", "");
+        if (norm.isBlank()) norm = "loja";
+        if (norm.length() > 30) norm = norm.substring(0, 30);
+        return norm;
     }
 }
 

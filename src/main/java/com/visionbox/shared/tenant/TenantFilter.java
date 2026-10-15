@@ -1,5 +1,7 @@
 package com.visionbox.shared.tenant;
 
+import com.visionbox.modules.pessoa.domain.Loja;
+import com.visionbox.modules.pessoa.repository.LojaRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -47,15 +49,17 @@ public class TenantFilter extends OncePerRequestFilter {
     public static final String MDC_LOJA_ID = "loja_id";
 
     private final MeterRegistry meterRegistry;
+    private LojaRepository lojaRepository;
 
     /** Construtor para testes unitários (sem MeterRegistry). */
     public TenantFilter() {
-        this(null);
+        this(null, null);
     }
 
     @Autowired
-    public TenantFilter(MeterRegistry meterRegistry) {
+    public TenantFilter(MeterRegistry meterRegistry, @Autowired(required = false) LojaRepository lojaRepository) {
         this.meterRegistry = meterRegistry;
+        this.lojaRepository = lojaRepository;
     }
 
     @Override
@@ -157,7 +161,39 @@ public class TenantFilter extends OncePerRequestFilter {
         if (jwtLojaId != null) {
             return TenantResolution.resolved(jwtLojaId);
         }
-        return TenantResolution.resolved(headerLojaId);
+        if (headerLojaId != null) {
+            return TenantResolution.resolved(headerLojaId);
+        }
+
+        UUID subLojaId = resolveSubdomainLoja(request);
+        if (subLojaId != null) {
+            return TenantResolution.resolved(subLojaId);
+        }
+
+        return TenantResolution.resolved(null);
+    }
+
+    UUID resolveSubdomainLoja(HttpServletRequest request) {
+        if (lojaRepository == null) return null;
+        String host = request.getHeader("Host");
+        if (!StringUtils.hasText(host)) host = request.getServerName();
+        if (!StringUtils.hasText(host)) return null;
+        if (host.contains(":")) host = host.substring(0, host.indexOf(":"));
+        if (host.matches("^\\d+\\.\\d+\\.\\d+\\.\\d+$") || host.equalsIgnoreCase("localhost")) {
+            return null;
+        }
+        String[] parts = host.split("\\.");
+        if (parts.length >= 2) {
+            String sub = parts[0].toLowerCase().trim();
+            if (!sub.equals("www") && !sub.equals("app") && !sub.equals("api") && !sub.equals("admin")) {
+                try {
+                    return lojaRepository.findBySubdominio(sub).map(Loja::getId).orElse(null);
+                } catch (Exception e) {
+                    log.debug("Nenhuma loja encontrada para o subdomínio {}: {}", sub, e.getMessage());
+                }
+            }
+        }
+        return null;
     }
 
     private UUID parseJwtTenant(Jwt jwt) {

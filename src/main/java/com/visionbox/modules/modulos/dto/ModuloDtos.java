@@ -64,8 +64,19 @@ public final class ModuloDtos {
     public record AplicarPlanoRequest(@NotBlank String plano) {
     }
 
-    /** Resumo mínimo de loja para o seletor do Painel (LGPD: só id + nome, sem CNPJ). */
-    public record LojaResumoResponse(UUID id, String nome) {
+    /** Resumo da loja para o seletor do Painel e gestão SaaS. */
+    public record LojaResumoResponse(
+            UUID id,
+            String nome,
+            String codigo,
+            String subdominio,
+            String cnpj,
+            String telefone,
+            String emailContato,
+            boolean ativo) {
+        public LojaResumoResponse(UUID id, String nome) {
+            this(id, nome, null, null, null, null, null, true);
+        }
     }
 
     /** Payload para provisionamento de nova Loja/Empresa e seu Admin inicial. */
@@ -74,19 +85,35 @@ public final class ModuloDtos {
             String cnpj,
             String telefone,
             String emailContato,
+            String subdominio,
             String plano,
             @NotBlank String adminNome,
             @NotBlank String adminEmail,
             @NotBlank String adminSenha) {
     }
 
+    /** Payload para edição cadastral da Loja no Painel Dev. */
+    public record EditarLojaRequest(
+            @NotBlank String nome,
+            String cnpj,
+            String telefone,
+            String emailContato,
+            String subdominio,
+            Boolean ativo) {
+    }
+
     /** Resposta de sucesso do provisionamento da nova loja. */
     public record LojaCriadaResponse(
             UUID id,
             String nome,
+            String codigo,
+            String subdominio,
             String cnpj,
             String adminEmail,
             String plano) {
+        public LojaCriadaResponse(UUID id, String nome, String cnpj, String adminEmail, String plano) {
+            this(id, nome, null, null, cnpj, adminEmail, plano);
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.visionbox.modules.modulos.controller;
 import com.visionbox.modules.modulos.dto.ModuloDtos.AlternarModulosRequest;
 import com.visionbox.modules.modulos.dto.ModuloDtos.AplicarPlanoRequest;
 import com.visionbox.modules.modulos.dto.ModuloDtos.CriarLojaRequest;
+import com.visionbox.modules.modulos.dto.ModuloDtos.EditarLojaRequest;
 import com.visionbox.modules.modulos.dto.ModuloDtos.LojaCriadaResponse;
 import com.visionbox.modules.modulos.dto.ModuloDtos.LojaResumoResponse;
 import com.visionbox.modules.modulos.dto.ModuloDtos.ModuloConfiguracaoStatusResponse;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -84,6 +86,21 @@ public class ModuloConfiguracaoController {
     @PreAuthorize("hasRole('DESENVOLVEDOR')")
     public LojaCriadaResponse criarLoja(@Valid @RequestBody CriarLojaRequest req, HttpServletRequest httpRequest) {
         return service.criarNovaLoja(req, httpRequest.getRemoteAddr());
+    }
+
+    @PutMapping("/{lojaId}")
+    public LojaResumoResponse editarLoja(
+            @PathVariable UUID lojaId,
+            @Valid @RequestBody EditarLojaRequest req,
+            HttpServletRequest httpRequest) {
+        return service.editarLoja(lojaId, req, httpRequest.getRemoteAddr());
+    }
+
+    @DeleteMapping("/{lojaId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('DESENVOLVEDOR')")
+    public void excluirLoja(@PathVariable UUID lojaId, HttpServletRequest httpRequest) {
+        service.excluirLoja(lojaId, httpRequest.getRemoteAddr());
     }
 }
 

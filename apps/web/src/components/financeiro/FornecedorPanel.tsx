@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/apiClient';
 import { ApiError } from '@/lib/apiClient';
+import { fetchCnpj } from '@/lib/cnpj';
 import { maskTelefone, unmask } from '@/lib/masks';
 import { FINANCEIRO_KEYS, useFornecedores } from './queries';
 import {
@@ -326,6 +327,7 @@ function FornecedorFormModal({
   const [nome, setNome] = React.useState('');
   const [cnpj, setCnpj] = React.useState('');
   const [cnpjTocado, setCnpjTocado] = React.useState(false);
+  const [buscandoCnpj, setBuscandoCnpj] = React.useState(false);
   const [contato, setContato] = React.useState('');
   const [telefone, setTelefone] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -336,12 +338,46 @@ function FornecedorFormModal({
       setNome(fornecedor?.nome ?? '');
       setCnpj('');
       setCnpjTocado(false);
+      setBuscandoCnpj(false);
       setContato(fornecedor?.contato ?? '');
       setTelefone(fornecedor?.telefone ?? '');
       setEmail(fornecedor?.email ?? '');
       setErro(null);
     }
   }, [open, fornecedor]);
+
+  const buscarCnpjReceita = async () => {
+    const digitos = unmask(cnpj);
+    if (!digitos || digitos.length !== 14) {
+      toast({
+        variant: 'destructive',
+        title: 'CNPJ incompleto',
+        description: 'Digite o CNPJ completo com 14 números para consultar a Receita.',
+      });
+      return;
+    }
+    setBuscandoCnpj(true);
+    try {
+      const data = await fetchCnpj(digitos);
+      const nomeEncontrado = data.nome_fantasia || data.razao_social;
+      setNome(nomeEncontrado);
+      if (data.ddd_telefone_1) setTelefone(maskTelefone(data.ddd_telefone_1));
+      if (data.email) setEmail(data.email);
+      toast({
+        variant: 'success',
+        title: 'Dados do fornecedor localizados!',
+        description: nomeEncontrado,
+      });
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao consultar CNPJ',
+        description: e instanceof Error ? e.message : 'Falha na consulta.',
+      });
+    } finally {
+      setBuscandoCnpj(false);
+    }
+  };
 
   const salvando = useMutation({
     mutationFn: async () => {
@@ -407,21 +443,44 @@ function FornecedorFormModal({
           hint={
             fornecedor
               ? `Atual: ${fornecedor.cnpjMasked ?? 'sem CNPJ'}. Deixe vazio para manter; digite para alterar.`
-              : 'Opcional — 14 dígitos, com ou sem máscara.'
+              : 'Opcional — 14 dígitos, preenche nome, telefone e email automaticamente.'
           }
         >
-          <Input
-            value={cnpj}
-            onChange={(e) => {
-              setCnpjTocado(true);
-              setCnpj(maskCNPJ(e.target.value));
-            }}
-            placeholder={fornecedor?.cnpjMasked ?? '00.000.000/0000-00'}
-            inputMode="numeric"
-            disabled={salvando.isPending}
-            className="tabular-nums"
-            aria-invalid={cnpjTocado && !isCNPJCompleto(cnpj) && cnpj !== '' ? true : undefined}
-          />
+          <div className="flex gap-2">
+            <Input
+              value={cnpj}
+              onChange={(e) => {
+                setCnpjTocado(true);
+                const masked = maskCNPJ(e.target.value);
+                setCnpj(masked);
+                const dig = unmask(masked);
+                if (dig.length === 14 && !nome) {
+                  fetchCnpj(dig).then((data) => {
+                    setNome(data.nome_fantasia || data.razao_social);
+                    if (data.ddd_telefone_1) setTelefone(maskTelefone(data.ddd_telefone_1));
+                    if (data.email) setEmail(data.email);
+                  }).catch(() => undefined);
+                }
+              }}
+              placeholder={fornecedor?.cnpjMasked ?? '00.000.000/0000-00'}
+              inputMode="numeric"
+              disabled={salvando.isPending}
+              className="tabular-nums"
+              aria-invalid={cnpjTocado && !isCNPJCompleto(cnpj) && cnpj !== '' ? true : undefined}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={buscarCnpjReceita}
+              disabled={salvando.isPending || buscandoCnpj}
+              className="shrink-0 gap-1 text-xs"
+              title="Buscar dados do fornecedor na Receita Federal via BrasilAPI"
+            >
+              <Search className={buscandoCnpj ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+              {buscandoCnpj ? 'Consultando…' : 'Buscar Receita'}
+            </Button>
+          </div>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

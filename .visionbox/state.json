@@ -1,7 +1,19 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T11:18:00-03:00",
+  "updated_at": "2026-10-15T18:32:00-03:00",
+  "gestao_lojas_subdominio_cnpj_cep": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T18:32:00-03:00",
+    "itens": [
+      "CRUD de lojas no Painel Dev: PUT /api/v1/dev/lojas/{id} e DELETE /api/v1/dev/lojas/{id}",
+      "Identificador curto 'codigo' (LJ-001) e 'subdominio' (opticanacional) na entidade Loja e migration V54",
+      "Resolucao de tenant por subdominio no TenantFilter",
+      "Automacao por CNPJ na Receita Federal via BrasilAPI (lib/cnpj.ts)",
+      "Automacao por CEP via ViaCEP nos modais de loja, configuracao da empresa e fornecedores",
+      "Promocao de desenvolvedor@techboxbr.com.br para perfil DESENVOLVEDOR"
+    ]
+  },
   "matriz_19_modulos_saas": {
     "status": "planejamento_e_mapeamento_concluido",
     "updated_at": "2026-10-15T11:18:00-03:00",
