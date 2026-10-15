@@ -76,23 +76,33 @@
     }
   },
   "flowbox_escopo_cnpj": {
-    "status": "em_andamento",
-    "updated_at": "2026-10-15T00:00:00-03:00",
+    "status": "concluido",
+    "updated_at": "2026-10-15T07:45:00-03:00",
     "pedido": "Escopo de API key por CNPJ no Flowbox - varios clientes no mesmo container",
     "decisoes": {
       "vinculacao": "Admin provisiona por API (endpoints /api/v1/admin/usuarios); registro publico fica sem escopo ate vincular",
-      "usuario_sem_cnpj": "Nega tudo (403 fail-closed); pre-deploy vincular 40187613000102 ao dono da chave fb_Hc85 da VisionBox e testar E2E",
+      "usuario_sem_cnpj": "Nega tudo (403 fail-closed); listagem sem cnpj explicito devolve 200 vazio",
       "abrangencia": "Nucleo fiscal: documentos/empresas/certificados/emitir NFC-e+NF-e/cancelar/inutilizar/consultar/fila/contingencia/SAT/SAF; config global, webhooks e logs inalterados",
-      "admin_e_chave_global": "Sem restricao"
+      "admin_e_chave_global": "Sem restricao",
+      "chave_visionbox": "fb_Hc85 pertence a admin@flowbox.com.br (ROLE_ADMIN, irrestrito) - nenhum provisionamento necessario"
     },
-    "plano_tecnico": [
-      "migration V7__escopo_usuario_cnpj (tb_usuario_empresas usuario_id+cnpj)",
-      "UsuarioEmpresaEntity + UsuarioEmpresaRepository",
-      "EscopoService (le flowbox.usuario do ApiKeyAuthFilter; exigir(cnpj) -> 403)",
-      "enforcement nos controllers do nucleo fiscal",
-      "testes de isolamento cross-tenant + mvn test",
-      "deploy VPS + provisionamento CNPJ VisionBox + E2E emissao"
-    ]
+    "evidencia": {
+      "commit": "flowbox a786b17 (push)",
+      "testes": "391 verdes (mvn test, 0 falhas); EscopoCnpjIntegrationTest com 9 cenarios",
+      "deploy": "VPS 192.168.15.90: V7 aplicada (now at version v7), container novo, /admin/usuarios 200",
+      "producao": "usuario sem vinculo -> lista vazia + 403 ESCOPO_NAO_PERMITIDO em ?cnpj= fora do escopo; admin vincula 40187613000102 -> 200 imediato; chave VisionBox 200 inalterada"
+    }
+  },
+  "flowbox_ajustes": {
+    "status": "em_andamento",
+    "updated_at": "2026-10-15T07:45:00-03:00",
+    "pedido": "AJUSTES FLOWBOX.md: busca topbar, filtro por clientes, vinculo nota-cliente, botao consulta SEFAZ, templates fiels as referencias, contadores",
+    "decisoes": {
+      "contadores": "Sim - ROLE_USER com multiplos vinculos CNPJ (escopo ja suporta) + tela /usuarios no painel + botoes emissao/cancelamento visiveis",
+      "sintegra": "Fora deste ciclo (backlog; perguntas P10-P14 no relatorio de analise)",
+      "templates": "HTML imprimivel (motor Thymeleaf + window.print, fiel as referencias em templates recibos)",
+      "vinculo_nota_cliente": "Join por CNPJ (sem migration V8); coluna Cliente nas listas resolvendo nome via /empresas"
+    }
   },
   "wave_in_progress": [],
   "p1_aplicacao": {

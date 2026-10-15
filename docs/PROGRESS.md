@@ -19,18 +19,18 @@
 | **Receitas (CRUD)** | Faltava CRUD completo de receitas. | Criado CRUD completo com listagem, busca, filtros de anexo, criação, edição com pré-preenchimento e exclusão com diálogo de confirmação. | `Receitas.tsx`, `ReceitaCard.tsx`, `ReceitaFormDialog.tsx` |
 | **Roles & Segurança** | Admin: tudo exceto DEV; Desenvolvedor: DEV, Usuários, Fiscal; Fiscal somente Admin e Desenvolvedor. | Atualizada matriz de rotas do `SecurityConfig.java`, testes `SecurityConfigRbacRouteTest.java` e guardas de rota do React. | 42 testes backend ✅ (`BUILD SUCCESS`), frontend build ✅ |
 
-## Flowbox — Escopo de API key por CNPJ (multi-cliente) (2026-10-15, 🔄 em andamento)
+## Flowbox — Escopo de API key por CNPJ (multi-cliente) (2026-10-15, ✅ concluída)
 
 > **Pedido do cliente:** "adicione o escopo sim, iremos ter vários clientes". Hoje qualquer API key válida opera em qualquer CNPJ (`README.md:525`); o container é único e o isolamento só é por coluna `cnpj`.
 
 | Decisão (validada com o cliente) | Escolha |
 |---|---|
 | Quem vincula CNPJ ao usuário | **Admin provisiona por API** — endpoints novos `GET/POST/DELETE /api/v1/admin/usuarios/**` (ROLE_ADMIN); registro público continua, conta nova fica sem escopo até vincular |
-| Usuário sem nenhum CNPJ vinculado | **Nega tudo** (403 fail-closed) — pré-deploy: vincular `40187613000102` ao dono da chave `fb_Hc85...` da VisionBox (ou promover a admin) e testar E2E para não derrubar a emissão |
+| Usuário sem nenhum CNPJ vinculado | **Nega tudo** (403 fail-closed) — listagem sem `cnpj` explícito devolve 200 vazio; detalhe/emissão/`?cnpj=` fora do escopo → 403 `ESCOPO_NAO_PERMITIDO` |
 | Abrangência da validação | **Núcleo fiscal**: documentos (lista/detalhe/XML/DANFE/métricas), empresas, certificados, emitir NFC-e/NF-e, cancelar, inutilizar, consultar, fila, contingência, SAT/SAF. Config global, webhooks e logs ficam como estão |
 | Chave global (`OUTBOX_FISCAL_API_KEY`) e `ROLE_ADMIN` | Sem restrição (operador/admin provisiona e enxerga tudo) |
 
-**Escopo técnico previsto:** migration `V7__escopo_usuario_cnpj` (`tb_usuario_empresas usuario_id+cnpj`), `UsuarioEmpresaEntity/Repository`, `EscopoService` (lê `flowbox.usuario` do `ApiKeyAuthFilter`, `exigir(cnpj)` → 403), enforcement nos controllers do núcleo, testes de isolamento cross-tenant, `mvn test`, deploy VPS + provisionamento do CNPJ da VisionBox + E2E.
+**Resultado (2026-10-15):** implementado em 7 frentes paralelas + suíte única. Migration `V7__vinculo_usuario_empresa` (`tb_usuario_empresa usuario_id+cnpj`, índice em `cnpj` + índice `idx_documento_cnpj`), `UsuarioEmpresaEntity/Repository`, `EscopoService` (`exigir(cnpj)`/`cnpjsPermitidos()`/`exigirAdministrador()`; flag `outbox.fiscal.escopo.habilitado` default true), enforcement em 11 controllers, admin API, `EscopoCnpjIntegrationTest` (9 cenários de isolamento). **391 testes verdes** (`mvn test`, 0 falhas). Commit Flowbox `a786b17` (push). Deploy VPS: V7 aplicada ("now at version v7"), `/admin/usuarios` 200. Validação em produção: usuário novo sem vínculo → lista vazia e 403 em `?cnpj=` fora do escopo; admin vincula `40187613000102` → efeito imediato (200); chave VisionBox `fb_Hc85...` é do `admin@flowbox.com.br` (ROLE_ADMIN → irrestrito, nenhuma provisionamento necessário, emissão nunca bloqueada). Usuário de teste `escopo-e2e@flowbox.com.br` criado na validação (sem emissão de nota — cliente orientou que validação não gera documento fiscal).
 
 ## Fiscal — Produção: NF-e 55 E2E (emitida + cancelada) e consulta de chave (2026-10-15, ✅ concluída)
 
