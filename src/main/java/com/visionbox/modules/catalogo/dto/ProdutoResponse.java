@@ -32,5 +32,6 @@ public class ProdutoResponse {
     private Integer estoqueReservado;
     private boolean ativoVenda;
     private boolean ativo;
+    private String imagemUrl;
     private OffsetDateTime criadoEm;
 }

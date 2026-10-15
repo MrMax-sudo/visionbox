@@ -91,6 +91,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/clientes/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO")
                         .requestMatchers("/api/v1/ordens-servico/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO", "TECNICO", "LABORATORIO")
                         .requestMatchers("/api/v1/vendas/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
+                        .requestMatchers("/api/v1/orcamentos/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO")
                         .requestMatchers("/api/v1/compras/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
                         .requestMatchers("/api/v1/modulos/**").authenticated()
                         .requestMatchers("/api/v1/relatorios/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")

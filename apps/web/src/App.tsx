@@ -24,6 +24,8 @@ const LabPortal = React.lazy(() => import('@/pages/LabPortal'));
 const RastreioPortal = React.lazy(() => import('@/pages/RastreioPortal'));
 const PainelDesenvolvedor = React.lazy(() => import('@/pages/PainelDesenvolvedor'));
 const FiscalConfigPage = React.lazy(() => import('@/pages/FiscalConfigPage'));
+const Orcamentos = React.lazy(() => import('@/pages/Orcamentos'));
+const Etiquetas = React.lazy(() => import('@/pages/Etiquetas'));
 
 function PageLoading() {
   return (
@@ -131,6 +133,8 @@ export default function App() {
           <Route path="comissoes" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Comissoes /></GuardaModulo></LazyPage>} />
           <Route path="os" element={<LazyPage><GuardaModulo modulo="ORDEM_SERVICO"><DashboardKanban /></GuardaModulo></LazyPage>} />
           <Route path="os/:id" element={<LazyPage><GuardaModulo modulo="ORDEM_SERVICO"><OSDetail /></GuardaModulo></LazyPage>} />
+          <Route path="orcamentos" element={<LazyPage><GuardaModulo modulo="ORCAMENTO_ONLINE"><Orcamentos /></GuardaModulo></LazyPage>} />
+          <Route path="etiquetas" element={<LazyPage><GuardaModulo modulo="ETIQUETAS"><Etiquetas /></GuardaModulo></LazyPage>} />
           <Route path="financeiro" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Financeiro /></GuardaModulo></LazyPage>} />
           <Route path="usuarios" element={<AdminOnly><LazyPage><UserManagement /></LazyPage></AdminOnly>} />
           <Route path="fiscal" element={<AdminOnly><LazyPage><FiscalConfigPage /></LazyPage></AdminOnly>} />

@@ -17,7 +17,7 @@ import { ResumoVendaPanel } from '@/components/pdv/ResumoVendaPanel';
 import { VendaConcluidaDialog } from '@/components/pdv/VendaConcluidaDialog';
 import { FeedbackBanner } from '@/components/pdv/FeedbackBanner';
 import { apiClient, ApiError } from '@/lib/apiClient';
-import type { ClienteDTO, CriarOrdemServicoPayload, PageResponse, ProdutoDTO } from '@/lib/types';
+import type { ClienteDTO, CriarOrdemServicoPayload, OrcamentoDTO, PageResponse, ProdutoDTO } from '@/lib/types';
 import { normalizeProduto, unwrapPage } from '@/lib/types';
 import { useDebounce, useOnline } from '@/hooks/useOnline';
 import {
@@ -521,26 +521,53 @@ export default function PDV() {
     setClienteRemovido(true);
   }
 
-  function gerarPrevia() {
+  async function gerarPrevia() {
     if (vendaConcluida) return;
     if (cart.length === 0) {
       setFeedback({ tone: 'warning', msg: 'Carrinho vazio. Adicione produtos para gerar o orçamento.' });
       return;
     }
-    const orcNumero = `ORC-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-    setVendaConcluida({
-      osId: 'PREVIA',
-      osNumero: orcNumero,
-      itens: [...cart],
-      subtotal,
-      desconto: descontoAplicado,
-      total,
-      formaPagamento,
-      clienteNome: cliente?.nome ?? 'Consumidor',
-      clienteCpf: cliente?.cpf,
-      clienteTelefone: cliente?.telefone,
-      tipoDocumento: 'ORCAMENTO',
-    });
+    try {
+      const payload = {
+        clienteId: cliente?.id || null,
+        clienteNome: cliente?.nome || 'Consumidor Final',
+        clienteCpf: cliente?.cpf || null,
+        clienteTelefone: cliente?.telefone || null,
+        valorSubtotal: subtotal,
+        desconto: descontoAplicado,
+        valorTotal: total,
+        validadeDias: 15,
+        condicoesPagamento: formaPagamento,
+        itens: cart.map((item) => ({
+          produtoId: (item as any).produtoId || null,
+          sku: item.sku,
+          descricao: item.nome,
+          quantidade: item.qtd,
+          precoUnitario: item.preco,
+          desconto: 0,
+          subtotal: item.preco * item.qtd,
+        })),
+      };
+      const res = await apiClient.post<OrcamentoDTO>('/v1/orcamentos', payload);
+      const orc = res.data;
+      setVendaConcluida({
+        osId: orc.id,
+        osNumero: orc.numero,
+        itens: [...cart],
+        subtotal: orc.valorSubtotal,
+        desconto: orc.desconto,
+        total: orc.valorTotal,
+        formaPagamento,
+        clienteNome: orc.clienteNome,
+        clienteCpf: orc.clienteCpf,
+        clienteTelefone: orc.clienteTelefone,
+        tipoDocumento: 'ORCAMENTO',
+      });
+      setFeedback({ tone: 'success', msg: `Orçamento ${orc.numero} gravado com sucesso!` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao salvar orçamento no banco.';
+      setFeedback({ tone: 'error', msg });
+    }
   }
 
   async function copiarResumo() {

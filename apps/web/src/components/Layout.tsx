@@ -24,6 +24,7 @@ import {
   Receipt,
   FileSpreadsheet,
   ShieldCheck,
+  Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toast';
@@ -386,6 +387,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
     { label: 'Clientes', to: '/clientes', icon: Users },
     ...(temModulo('RECEITAS_CLINICAS') ? [{ label: 'Receitas', to: '/receitas', icon: Eye, modulo: 'RECEITAS_CLINICAS' }] : []),
     ...(temModulo('ORDEM_SERVICO') ? [{ label: 'OS', to: '/os', icon: ClipboardList, modulo: 'ORDEM_SERVICO' }] : []),
+    { label: 'Orçamentos', to: '/orcamentos', icon: FileText, modulo: 'ORCAMENTO_ONLINE' },
   ];
 
   // Itens Financeiros
@@ -404,6 +406,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
   // Itens Estoque
   const estoqueItems: SubmenuItem[] = [
     { label: 'Catálogo', to: '/catalogo', icon: Package },
+    { label: 'Etiquetas', to: '/etiquetas', icon: Tag, modulo: 'ETIQUETAS' },
   ];
 
   // Itens Administrativos (ADMIN e DESENVOLVEDOR)

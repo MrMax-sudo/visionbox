@@ -65,26 +65,28 @@ export function ProdutosBuscaCard({
         </Button>
       </header>
 
-      <div className="relative shrink-0 px-3.5 pt-2.5">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted"
-          strokeWidth={1.8}
-          aria-hidden
-        />
-        <Input
-          ref={skuRef}
-          value={busca}
-          onChange={(e) => onBuscaChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              onEnter();
-            }
-          }}
-          placeholder="Buscar por produto, SKU, código de barras..."
-          aria-label="Buscar produto, SKU ou código de barras"
-          className="h-10 rounded-[10px] pl-9"
-        />
+      <div className="shrink-0 px-3.5 pt-2.5">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted"
+            strokeWidth={1.8}
+            aria-hidden
+          />
+          <Input
+            ref={skuRef}
+            value={busca}
+            onChange={(e) => onBuscaChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onEnter();
+              }
+            }}
+            placeholder="Buscar por produto, SKU, código de barras..."
+            aria-label="Buscar produto, SKU ou código de barras"
+            className="h-10 rounded-[10px] pl-9"
+          />
+        </div>
       </div>
 
       <div className="flex shrink-0 flex-wrap gap-1.5 px-3.5 pt-2.5" role="group" aria-label="Filtrar por categoria">
@@ -156,10 +158,10 @@ export function ProdutosBuscaCard({
                   <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded border border-[var(--color-pdv-border)] bg-card-soft">
                     <Package className="h-4 w-4 text-muted" aria-hidden />
                     <img
-                      src={`/assets/produtos/${produto.sku}.jpg`}
+                      src={produto.imagemUrl || `/assets/produtos/${produto.sku}.jpg`}
                       alt=""
                       loading="lazy"
-                      className="absolute inset-0.5 h-9 w-9 object-contain"
+                      className="absolute inset-0.5 h-9 w-9 object-contain rounded"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}

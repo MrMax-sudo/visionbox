@@ -89,6 +89,24 @@ public class ProdutoController {
         return service.atualizar(id, req);
     }
 
+    @PostMapping(value = "/{id}/imagem")
+    public ResponseEntity<ProdutoResponse> uploadImagem(
+            @PathVariable UUID id,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestBody(required = false) java.util.Map<String, String> body
+    ) throws java.io.IOException {
+        String base64Data = null;
+        if (file != null && !file.isEmpty()) {
+            String mime = file.getContentType() != null ? file.getContentType() : "image/jpeg";
+            base64Data = "data:" + mime + ";base64," + java.util.Base64.getEncoder().encodeToString(file.getBytes());
+        } else if (body != null && body.containsKey("imagemUrl")) {
+            base64Data = body.get("imagemUrl");
+        } else if (body != null && body.containsKey("base64")) {
+            base64Data = body.get("base64");
+        }
+        return ResponseEntity.ok(service.salvarImagem(id, base64Data));
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remover(@PathVariable UUID id) {

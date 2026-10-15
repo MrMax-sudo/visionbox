@@ -32,4 +32,5 @@ public class ProdutoRequest {
     private BigDecimal precoVenda;
     private Integer estoqueQuantidade;
     private Boolean ativoVenda;
+    private String imagemUrl;
 }

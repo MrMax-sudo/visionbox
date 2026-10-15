@@ -36,6 +36,7 @@ export const produtoSchema = z.object({
     .optional()
     .or(z.literal('')),
   codigoBarras: z.string().max(50, 'Código de barras máximo 50 caracteres').optional().or(z.literal('')),
+  imagemUrl: z.string().optional().or(z.literal('')),
 });
 
 export type ProdutoForm = z.infer<typeof produtoSchema>;
@@ -50,6 +51,7 @@ export const PRODUTO_DEFAULT_VALUES: ProdutoForm = {
   estoqueQuantidade: 0,
   ncm: '',
   codigoBarras: '',
+  imagemUrl: '',
 };
 
 /** Normaliza a categoria vinda do backend (ARMACAO/LENTE/…) para o label da UI. */

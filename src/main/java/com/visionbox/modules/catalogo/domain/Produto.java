@@ -86,6 +86,9 @@ public class Produto extends EntidadeBase {
     @lombok.Builder.Default
     private boolean ativoVenda = true;
 
+    @Column(name = "imagem_url")
+    private String imagemUrl;
+
     public enum TipoProduto {
         ARMACAO, LENTE, LENTE_CONTATO, ACESSORIO, SERVICO
     }

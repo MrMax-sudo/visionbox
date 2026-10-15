@@ -58,6 +58,7 @@ export type ProdutoDTO = {
   estoque: number;
   ncm?: string;
   ativo?: boolean;
+  imagemUrl?: string;
 };
 
 type ProdutoApiDTO = ProdutoDTO & {
@@ -65,6 +66,41 @@ type ProdutoApiDTO = ProdutoDTO & {
   estoqueQuantidade?: number;
   tipoProduto?: string;
   ativoVenda?: boolean;
+  imagemUrl?: string;
+};
+
+export type OrcamentoItemDTO = {
+  id?: string;
+  produtoId?: string;
+  sku?: string;
+  descricao: string;
+  quantidade: number;
+  precoUnitario: number;
+  desconto?: number;
+  subtotal: number;
+};
+
+export type OrcamentoDTO = {
+  id: string;
+  lojaId?: string;
+  numero: string;
+  clienteId?: string;
+  clienteNome: string;
+  clienteCpf?: string;
+  clienteTelefone?: string;
+  vendedorId?: string;
+  vendedorNome?: string;
+  valorSubtotal: number;
+  desconto: number;
+  valorTotal: number;
+  validadeDias: number;
+  status: 'ABERTO' | 'APROVADO' | 'CONVERTIDO' | 'CANCELADO' | 'EXPIRADO';
+  observacoes?: string;
+  condicoesPagamento?: string;
+  vendaId?: string;
+  itens: OrcamentoItemDTO[];
+  criadoEm: string;
+  atualizadoEm?: string;
 };
 
 export function normalizeProduto(raw: ProdutoApiDTO): ProdutoDTO {

@@ -21,7 +21,7 @@ export function ProdutoCard({ produto: p, onEdit, onDelete }: ProdutoCardProps) 
       <div className="group relative flex h-44 items-center justify-center border-b border-border bg-card-soft p-3">
         <Package className="absolute h-12 w-12 text-muted" aria-hidden />
         <img
-          src={`/assets/produtos/${p.sku}.jpg`}
+          src={p.imagemUrl || `/assets/produtos/${p.sku}.jpg`}
           alt={p.nome}
           loading="lazy"
           className="relative h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"

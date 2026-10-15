@@ -206,24 +206,32 @@ export function ComprovanteImpressao({
 
           <div className="my-2 border-b border-dashed border-black" />
           <h4 className="font-bold text-xs text-center uppercase tracking-wider">
-            {formato === 'CUPOM'
-              ? 'CUPOM NÃO FISCAL'
-              : formato === 'NFCE'
-                ? (chaveNfce ? 'DANFE NFC-e (MOD. 65)' : 'NFC-e (MOD. 65) — PENDENTE SEFAZ')
-                : (chaveNfce ? 'DANFE NF-e (MOD. 55)' : 'NF-e (MOD. 55) — PENDENTE SEFAZ')}
+            {formato === 'ORCAMENTO'
+              ? 'ORÇAMENTO COMERCIAL'
+              : formato === 'CUPOM'
+                ? 'CUPOM NÃO FISCAL'
+                : formato === 'NFCE'
+                  ? (chaveNfce ? 'DANFE NFC-e (MOD. 65)' : 'NFC-e (MOD. 65) — PENDENTE SEFAZ')
+                  : (chaveNfce ? 'DANFE NF-e (MOD. 55)' : 'NF-e (MOD. 55) — PENDENTE SEFAZ')}
           </h4>
           <div className="my-2 border-b border-dashed border-black" />
 
-          {/* Dados da Venda */}
+          {/* Dados da Venda / Orçamento */}
           <div className="text-[11px] space-y-0.5">
             <div className="flex justify-between">
-              <span>Venda / OS N°:</span>
+              <span>{formato === 'ORCAMENTO' ? 'Orçamento N°:' : 'Venda / OS N°:'}</span>
               <strong className="font-bold">{osNumero}</strong>
             </div>
             <div className="flex justify-between">
               <span>Data:</span>
               <span>{dataFormatada}</span>
             </div>
+            {formato === 'ORCAMENTO' && (
+              <div className="flex justify-between">
+                <span>Validade:</span>
+                <span className="font-semibold text-gray-700">15 dias</span>
+              </div>
+            )}
           </div>
 
           <div className="my-2 border-b border-dashed border-black" />
@@ -305,25 +313,36 @@ export function ComprovanteImpressao({
           </div>
 
           <div className="my-3 border-b border-dashed border-black" />
-          <div className="text-center font-bold text-[11px] leading-tight">
-            OBRIGADO PELA PREFERENCIA!<br />
-            Volte Sempre &#9829;
-          </div>
-          <div className="my-2 border-b border-dashed border-black" />
-
-          <div className="text-[9px] text-center text-gray-600 mt-2 leading-tight">
-            Garantia: 90 dias contra defeitos de fabricação na armação e adaptação de lentes conforme CDC.
-            <div className="border-t border-gray-400 mt-4 pt-1">
-              Assinatura do Cliente / Comprovante de Retirada
+          {formato === 'ORCAMENTO' ? (
+            <div className="text-[10px] text-center text-gray-700 mt-2 leading-tight">
+              <div className="font-semibold">Proposta comercial válida por 15 dias.</div>
+              <div className="text-[9px] mt-0.5 text-gray-500">Valores e itens sujeitos a confirmação de disponibilidade de estoque.</div>
+              <div className="border-t border-gray-400 mt-5 pt-1 font-semibold text-[10px]">
+                Assinatura do Vendedor / Ótica
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="text-center font-bold text-[11px] leading-tight">
+                OBRIGADO PELA PREFERENCIA!<br />
+                Volte Sempre &#9829;
+              </div>
+              <div className="my-2 border-b border-dashed border-black" />
+              <div className="text-[9px] text-center text-gray-600 mt-2 leading-tight">
+                Garantia: 90 dias contra defeitos de fabricação na armação e adaptação de lentes conforme CDC.
+                <div className="border-t border-gray-400 mt-4 pt-1">
+                  Assinatura do Cliente / Comprovante de Retirada
+                </div>
+              </div>
+            </>
+          )}
         </section>
       </div>
 
       {/* Ação de impressão */}
       <div className="flex justify-end gap-2">
         <Button onClick={handlePrint} className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm">
-          <Printer className="h-4 w-4" aria-hidden /> Imprimir {formato === 'CUPOM' ? 'Cupom Não-Fiscal' : formato === 'NFCE' ? 'NFC-e' : 'DANFE'}
+          <Printer className="h-4 w-4" aria-hidden /> Imprimir {formato === 'ORCAMENTO' ? 'Orçamento (A4)' : formato === 'CUPOM' ? 'Recibo 80mm' : formato === 'NFCE' ? 'NFC-e (Mod. 65)' : 'DANFE (Mod. 55)'}
         </Button>
       </div>
     </div>

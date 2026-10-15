@@ -201,6 +201,7 @@ public class ProdutoService {
                 .estoqueQuantidade(req.getEstoqueQuantidade() != null ? req.getEstoqueQuantidade() : 0)
                 .estoqueReservado(0)
                 .ativoVenda(req.getAtivoVenda() != null ? req.getAtivoVenda() : true)
+                .imagemUrl(req.getImagemUrl())
                 .build();
         p = repository.save(p);
         return mapper.toResponse(p);
@@ -250,6 +251,17 @@ public class ProdutoService {
         if (req.getPrecoVenda() != null) p.setPrecoVenda(req.getPrecoVenda());
         if (req.getEstoqueQuantidade() != null) p.setEstoqueQuantidade(req.getEstoqueQuantidade());
         if (req.getAtivoVenda() != null) p.setAtivoVenda(req.getAtivoVenda());
+        if (req.getImagemUrl() != null) p.setImagemUrl(req.getImagemUrl().isBlank() ? null : req.getImagemUrl());
+        repository.save(p);
+        return mapper.toResponse(p);
+    }
+
+    @Transactional
+    public ProdutoResponse salvarImagem(UUID id, String imagemUrl) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        Produto p = repository.findByIdAndLojaId(id, lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+        p.setImagemUrl(imagemUrl);
         repository.save(p);
         return mapper.toResponse(p);
     }

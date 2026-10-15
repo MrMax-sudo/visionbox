@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Image as ImageIcon, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -89,6 +89,7 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
       estoqueQuantidade: Number(produto.estoque ?? 0),
       ncm: produto.ncm ?? '',
       codigoBarras: produto.codigoBarras ?? '',
+      imagemUrl: produto.imagemUrl ?? '',
     });
   }, [open, produto, form, carregarSugestao]);
 
@@ -124,6 +125,23 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
     onClose();
   };
 
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setActionError('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      form.setValue('imagemUrl', base64, { shouldValidate: true });
+    };
+    reader.readAsDataURL(file);
+  };
+
   function onSalvarProduto(values: ProdutoForm) {
     setActionError(null);
     const catBd = categoriasQuery.data?.find((c: Categoria) => c.nome.toLowerCase() === values.categoria.toLowerCase());
@@ -140,6 +158,7 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
       estoqueQuantidade: values.estoqueQuantidade,
       ncm: values.ncm?.trim() ? values.ncm.trim() : null,
       codigoBarras: values.codigoBarras?.trim() ? values.codigoBarras.trim() : null,
+      imagemUrl: values.imagemUrl?.trim() ? values.imagemUrl.trim() : null,
       ativoVenda: true,
     };
     saveMutation.mutate(payload);
@@ -223,6 +242,63 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
           <Field label="Estoque" id="produto-estoque" required error={errors.estoqueQuantidade}>
             <Input type="number" step="1" min={0} {...form.register('estoqueQuantidade', { valueAsNumber: true })} />
           </Field>
+        </div>
+
+        {/* Foto do Produto */}
+        <div className="rounded-lg border border-border bg-card/50 p-3">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted">
+            Foto do Produto
+          </label>
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/20">
+              {form.watch('imagemUrl') ? (
+                <img
+                  src={form.watch('imagemUrl')}
+                  alt="Pré-visualização do produto"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <ImageIcon className="h-8 w-8 text-muted/50" />
+              )}
+            </div>
+
+            <div className="flex-1 space-y-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  {form.watch('imagemUrl') ? 'Trocar foto' : 'Enviar foto'}
+                </Button>
+                {form.watch('imagemUrl') && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-danger hover:bg-danger/10"
+                    onClick={() => form.setValue('imagemUrl', '', { shouldValidate: true })}
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    Remover
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted">
+                Formatos aceitos: JPG, PNG, WebP. Exibida no Catálogo e PDV.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
