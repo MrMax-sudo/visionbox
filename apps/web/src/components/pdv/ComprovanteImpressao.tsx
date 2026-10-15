@@ -7,6 +7,7 @@ import {
   gerarHtmlReciboNaoFiscal,
   gerarHtmlNfce,
   gerarHtmlDanfeNfe,
+  gerarHtmlOrcamento,
   type DadosImpressao,
   type ItemImpressao,
 } from '@/lib/reciboPrint';
@@ -19,7 +20,7 @@ export interface ComprovanteItem extends ItemImpressao {
   ncm?: string;
 }
 
-export type TipoDocumentoFiscal = 'CUPOM' | 'NFCE' | 'DANFE';
+export type TipoDocumentoFiscal = 'CUPOM' | 'NFCE' | 'DANFE' | 'ORCAMENTO';
 
 export interface ComprovanteProps {
   osNumero?: string;
@@ -129,6 +130,8 @@ export function ComprovanteImpressao({
       executarImpressao(gerarHtmlNfce(dados));
     } else if (formato === 'DANFE') {
       executarImpressao(gerarHtmlDanfeNfe(dados));
+    } else if (formato === 'ORCAMENTO') {
+      executarImpressao(gerarHtmlOrcamento(dados));
     } else {
       executarImpressao(gerarHtmlReciboNaoFiscal(dados));
     }
@@ -139,9 +142,18 @@ export function ComprovanteImpressao({
       {/* Seletor de Formatos / Abas de Visualização */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-border bg-page p-2">
         <span className="text-xs font-semibold text-secondary flex items-center gap-1.5">
-          <FileText className="h-4 w-4 text-brand" /> Modelo do Recibo:
+          <FileText className="h-4 w-4 text-brand" /> Modelo do Documento:
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            variant={formato === 'ORCAMENTO' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => handleSelectFormato('ORCAMENTO')}
+            className="h-7 text-xs gap-1"
+          >
+            <FileText className="h-3.5 w-3.5" /> Orçamento (A4)
+          </Button>
           <Button
             type="button"
             variant={formato === 'CUPOM' ? 'primary' : 'outline'}
@@ -149,7 +161,7 @@ export function ComprovanteImpressao({
             onClick={() => handleSelectFormato('CUPOM')}
             className="h-7 text-xs gap-1"
           >
-            <ReceiptText className="h-3.5 w-3.5" /> Cupom (Não-Fiscal)
+            <ReceiptText className="h-3.5 w-3.5" /> Recibo 80mm
           </Button>
           <Button
             type="button"

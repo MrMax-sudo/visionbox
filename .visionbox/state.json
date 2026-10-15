@@ -14,7 +14,9 @@
     "fiscal_texto": "Menção a outbox substituida por mensagem institucional do VisionBox",
     "receitas_crud": "CRUD completo concluido com criacao, edicao com pre-preenchimento, listagem com filtros e exclusao com confirmacao",
     "roles_acessos": "ADMIN tem tudo exceto DEV; DESENVOLVEDOR acessa DEV, Usuarios, Fiscal; Fiscal restrito a ADMIN e DESENVOLVEDOR. 42 testes de seguranca verdes",
-    "tunnel_hostname": "https://opticanacional.techboxbr.app.br/ configurado no nginx.conf (server_name com fallback para visionbox.techboxbr.app.br)"
+    "tunnel_hostname": "https://opticanacional.techboxbr.app.br/ configurado no nginx.conf (server_name com fallback para visionbox.techboxbr.app.br)",
+    "layout_ativo_app": "App.tsx atualizado para utilizar o novo Layout com submenus, TooltipProvider e Toaster",
+    "pdv_orcamento": "Botao Orcamento no PDV gera proposta A4 comercial com numero proprio (ORC-...) e modal de impressao direto"
   },
   "fiscal_emissao_fix": {
     "status": "EM_PRODUCAO_AUTORIZADO_CSTAT_100",

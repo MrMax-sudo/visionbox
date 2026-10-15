@@ -25,6 +25,8 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Toaster } from '@/components/ui/toast';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useEmpresaStore, whatsappSuporteUrl } from '@/stores/empresaStore';
@@ -610,32 +612,35 @@ export default function Layout() {
   }, [carregarEmpresa, carregarModulos]);
 
   return (
-    <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
-      <div className={cn('flex', isPdv ? 'h-full overflow-hidden' : 'min-h-screen')}>
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((value) => !value)}
-          onOpenConfig={() => setConfigOpen(true)}
-        />
-        <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', isPdv && 'h-full')}>
-          <Header theme={theme} onToggleTheme={toggle} />
-          <main className={cn('flex-1 min-h-0', isPdv ? 'pdv-main-shell' : 'overflow-y-auto p-4 sm:p-6')}>
-            <Outlet />
-          </main>
-          <MobileNav />
-          <footer className="shrink-0 flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
-            <span>VisionBox • Um novo olhar em gestão.</span>
-            <span>Desenvolvido por TechboxBR 2026</span>
-          </footer>
+    <TooltipProvider>
+      <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
+        <div className={cn('flex', isPdv ? 'h-full overflow-hidden' : 'min-h-screen')}>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed((value) => !value)}
+            onOpenConfig={() => setConfigOpen(true)}
+          />
+          <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', isPdv && 'h-full')}>
+            <Header theme={theme} onToggleTheme={toggle} />
+            <main className={cn('flex-1 min-h-0', isPdv ? 'pdv-main-shell' : 'overflow-y-auto p-4 sm:p-6')}>
+              <Outlet />
+            </main>
+            <MobileNav />
+            <footer className="shrink-0 flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
+              <span>VisionBox • Um novo olhar em gestão.</span>
+              <span>Desenvolvido por TechboxBR 2026</span>
+            </footer>
+          </div>
         </div>
-      </div>
 
-      <ConfiguracoesDialog
-        open={configOpen}
-        onClose={() => setConfigOpen(false)}
-        theme={theme}
-        onToggleTheme={toggle}
-      />
-    </div>
+        <ConfiguracoesDialog
+          open={configOpen}
+          onClose={() => setConfigOpen(false)}
+          theme={theme}
+          onToggleTheme={toggle}
+        />
+        <Toaster />
+      </div>
+    </TooltipProvider>
   );
 }

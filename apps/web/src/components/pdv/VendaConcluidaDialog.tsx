@@ -103,15 +103,40 @@ export function VendaConcluidaDialog({
     >
       <DialogContent className="max-w-[680px]">
         <DialogHeader>
-          <DialogTitle>{isPrevia ? 'Orçamento / Prévia da Venda' : 'Venda Concluída com Sucesso!'}</DialogTitle>
+          <DialogTitle>
+            {venda.tipoDocumento === 'ORCAMENTO'
+              ? 'Orçamento Comercial Gerado'
+              : isPrevia
+                ? 'Prévia da Venda'
+                : 'Venda Concluída com Sucesso!'}
+          </DialogTitle>
           <DialogDescription>
-            {isPrevia ? 'Prévia pronta para impressão — nenhuma OS foi criada ainda.' : `Ordem de Serviço: ${venda.osNumero}`}
+            {venda.tipoDocumento === 'ORCAMENTO'
+              ? `Proposta comercial ${venda.osNumero} pronta para impressão.`
+              : isPrevia
+                ? 'Prévia pronta para impressão — nenhuma OS foi criada ainda.'
+                : `Ordem de Serviço: ${venda.osNumero}`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Status e Ação de Emissão Fiscal */}
-          {venda.tipoDocumento === 'CUPOM' ? (
+          {venda.tipoDocumento === 'ORCAMENTO' ? (
+            <div className="flex items-center justify-between gap-3 rounded-card border border-border bg-page p-3 text-sm">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+                <div className="min-w-0">
+                  <p className="font-semibold text-primary">Orçamento Comercial (A4)</p>
+                  <p className="truncate text-xs text-secondary">
+                    Documento de proposta pronto para impressão ou envio ao cliente (sem valor fiscal).
+                  </p>
+                </div>
+              </div>
+              <span className="rounded bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 px-2.5 py-1 text-xs font-semibold">
+                Orçamento
+              </span>
+            </div>
+          ) : venda.tipoDocumento === 'CUPOM' ? (
             <div className="flex items-center justify-between gap-3 rounded-card border border-border bg-page p-3 text-sm">
               <div className="flex min-w-0 items-center gap-2">
                 <FileText className="h-5 w-5 shrink-0 text-brand" aria-hidden />

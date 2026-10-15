@@ -527,9 +527,10 @@ export default function PDV() {
       setFeedback({ tone: 'warning', msg: 'Carrinho vazio. Adicione produtos para gerar o orçamento.' });
       return;
     }
+    const orcNumero = `ORC-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
     setVendaConcluida({
       osId: 'PREVIA',
-      osNumero: 'ORÇAMENTO',
+      osNumero: orcNumero,
       itens: [...cart],
       subtotal,
       desconto: descontoAplicado,
@@ -538,7 +539,7 @@ export default function PDV() {
       clienteNome: cliente?.nome ?? 'Consumidor',
       clienteCpf: cliente?.cpf,
       clienteTelefone: cliente?.telefone,
-      tipoDocumento: tipoCupom,
+      tipoDocumento: 'ORCAMENTO',
     });
   }
 

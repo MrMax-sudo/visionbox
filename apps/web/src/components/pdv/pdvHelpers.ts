@@ -22,7 +22,7 @@ export type DescontoTipo = 'valor' | 'percentual';
 
 export type ProdutoPdv = ProdutoDTO & { tipoProduto?: string };
 
-export type TipoCupom = 'CUPOM' | 'NFCE' | 'DANFE';
+export type TipoCupom = 'CUPOM' | 'NFCE' | 'DANFE' | 'ORCAMENTO';
 
 export type VendaConcluida = {
   osId: string;
