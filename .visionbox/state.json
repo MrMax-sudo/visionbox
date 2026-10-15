@@ -1,7 +1,7 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-14T12:30:00-03:00",
+  "updated_at": "2026-10-15T00:35:00-03:00",
   "fiscal_emissao_fix": {
     "status": "EM_PRODUCAO_AUTORIZADO_CSTAT_100",
     "resumo": "Onze causas corrigidas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00; (8) cStat 104 tratado como layout nao reconhecido; (9) motivo varchar(255) no Flowbox quebrava o INSERT; (10) emitente com valores fixos (V47: campos fiscais em loja + Painel Fiscal + recusa antes de transmitir); (11) tres rejeicoes novas da SEFAZ-SP corrigidas alinhadas ao OUTBOX ERP - cStat 373 (xProd literal na homologacao), cStat 742 (modelo 65 nao emite grupo IPI, zera vIPI/vIPIDevol) e cStat 391 (regra YA04-10: tPag 03/04/17 exige grupo card com tpIntegra=2).",
@@ -10,22 +10,25 @@
     "resultado_final": "cStat 100 na SEFAZ-SP em PRODUCAO (tpAmb=1) em 2026-10-14: nota serie 090 n. 2, chave 35261040187613000102650900000000021624523010, protocolo 13526007063048832, gravada em documento_fiscal com status AUTORIZADO; nota n. 5 emitida 15:07:40 e CANCELADA 15:07:41 (cStat 135, evento protocolo 13526007064496914); infRespTec/CNPJ/contato/fone e tpAmb=1 confirmados no XML devolvido"
   },
   "fiscal_producao": {
-    "status": "emissao_autorizada_pendencias_abertas",
+    "status": "nfc_e_e_nfe55_emissao_cancelamento_consulta_ok",
     "ambiente": "PRODUCAO",
-    "resumo": "Emissao NFC-e em PRODUCAO autorizada (cStat 100) e persistida; serie/numero configuraveis por loja (V48) com sequencia max+1; <infRespTec> presente; fuso America/Sao_Paulo nos containers app e flowbox.",
+    "resumo": "NFC-e (65) e NF-e (55) emitidas e canceladas em PRODUCAO pela cadeia VisionBox -> Flowbox -> SEFAZ-SP; consulta de chave devolve cStat 100; nfeProc gravado em xml_retorno; serie/numero configuraveis por loja (V48) com sequencia max+1; tela /fiscal + botao cancelar no PDV; fuso America/Sao_Paulo nos containers.",
     "concluido": [
       "V48 serie/numero configuraveis + V49 documento_fiscal.protocolo VARCHAR(20) (a SEFAZ-SP devolve nProt de 17 digitos, o XSD TProt=15 nao reflete o dado real)",
       "numeração max(numero)+1 da serie no mesmo ambiente; fiscal_serie_nfce=090, fiscal_numero_inicial_nfce=2",
       "grupo <infRespTec> emitido em producao (CNPJ, contato, email, fone) e <card><tpIntegra>2 em tPag 03/04/17",
       "E2E ate cStat 100: nota 090/2 gravada AUTORIZADO com protocolo 13526007063048832; nota 090/5 emitida e cancelada (cStat 135)",
-      "POST /api/v1/fiscal/nfce/cancelar CONCLUIDO (d39f433): payload completo do Flowbox (emitente/ambiente/certificado/protocolo da emissao, com busca no Flowbox quando ausente); 4xx do Flowbox expoe o cStat REAL (539/501) em vez de 503; E2E nota 090/6 cancelada a +16,5 min (cStat 135, CANCELADO no VisionBox e no Flowbox)"
+      "POST /api/v1/fiscal/nfce/cancelar CONCLUIDO (d39f433): payload completo do Flowbox (emitente/ambiente/certificado/protocolo da emissao, com busca no Flowbox quando ausente); 4xx do Flowbox expoe o cStat REAL (539/501) em vez de 503; E2E nota 090/6 cancelada a +16,5 min (cStat 135, CANCELADO no VisionBox e no Flowbox)",
+      "E2E NF-e 55 CONCLUIDO 2026-10-15: serie 090 n. 3 autorizada (cStat 100, chave 35261040187613000102550900000000031819584004, protocolo 135264369800195) e cancelada (cStat 135, evento 135264369947092); xml_retorno = <nfeProc>",
+      "cStat 388 do IPI resolvido (Flowbox e797458): item sem IPI nao emite o grupo IPI e vIPI 0.00 nos totais, como no OUTBOX ERP",
+      "cStat 618 do cancelamento de NF-e resolvido (Flowbox 5ed35ea): detectarModeloChave le a chave de ID110111/<chNFe> em vez dos primeiros 44 digitos do XML",
+      "consulta de chave resolvida (Flowbox 8616110): SOAP 1.2 + tpAmb + versao 4.00 -> cStat 100, protocolo 13526007063048832, HTTP 200",
+      "tela /fiscal propria (FiscalConfigPage no menu) + botao Cancelar NFC-e no PDV + pulo do cStat 539 (ate 5) — 52f4335",
+      "nota 090/1 orfa registrada em documento_fiscal (AUTORIZADO, protocolo 13526007062662399)"
     ],
     "pendencias": [
       "numeração colide com o histórico da SEFAZ: serie 090 n. 3 e 4 ja usados por OUTRO sistema em setembro/2026 (cStat 539 duplicidade com chave diferente) — definir serie/limite com o cliente",
-      "gravar o XML autorizado (nfeProc) em documento_fiscal.xml_retorno: hoje guarda o envelope enviNFe (fallback do Flowbox xmlAutorizado=xmlEnvio)",
-      "consulta de chave da Flowbox devolve HTTP 500 na SEFAZ-SP (SOAPAction/envelope a conferir contra OUTBOX)",
       "janela de cancelamento NFC-e = 30 min apos autorizacao (Ajuste SINIEF 07/2018, obrigatorio em todas as UFs): notas 090/1 e 090/2 ficaram fora e NAO sao mais cancelaveis por evento (AUTORIZADAS; so NF-e 55 de devolucao ou cancelamento extemporaneo na SEFAZ-SP); NF-e 55 segue 24h",
-      "UI sem acao de cancelar: o endpoint existe mas Painel/OS/PDV nao tem botao — hoje e API so",
       "quando consolidar o fiscal, voltar serie 090 -> 001",
       "TZ do HOST continua UTC (mudanca exige sudo com senha)"
     ]
@@ -110,9 +113,7 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fiscal: botao de cancelar na UI (a acao de cancelamento existe no backend e na SEFAZ, mas Painel/OS/PDV nao chama) — lembrar o operador da janela de 30 min da NFC-e",
-    "Fiscal: definir serie/limite de numeracao com o cliente (serie 090 n. 3 e 4 ocupados na SEFAZ desde setembro/2026)",
-    "Fiscal: gravar nfeProc e mapear cStat real do Flowbox na resposta do VisionBox",
+    "Fiscal: definir serie/limite de numeracao com o cliente (serie 090 n. 3 e 4 ocupados na SEFAZ desde setembro/2026); ao consolidar, serie 090 -> 001",
     "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
     "Adoção out-of-order do P1 (V1_1/V3/V4/V5) em banco LEGADO real: apontar host/backup do banco existente p/ repair + migrate -Dflyway.outOfOrder=true (procedimento p1-migrations-draft/README §5.2, backup obrigatório)",
     "Backend: handler ProblemDetail expor mensagem específica de conflito de CNPJ na reativação de fornecedor (hoje só log WARN)",
@@ -120,6 +121,7 @@
     "Front/pre-existente: @media print no DANFE"
   ],
   "last_evidence": {
+    "fiscal_nfe55_2026_10_15": "NF-e 55 E2E completa em PRODUCAO: serie 090 n. 3 autorizada (cStat 100, chave 35261040187613000102550900000000031819584004, protocolo 135264369800195) e cancelada (cStat 135, evento 135264369947092, CANCELADO nos dois sistemas); xml_retorno = <nfeProc> (NFe + protNFe). Tres defeitos corrigidos pela evidencia da SEFAZ/referencia OUTBOX: (1) 388 IPI = grupo IPINT sem cadastro (CST 55 + cEnq 999) -> grupo omitido e vIPI 0.00 como no OUTBOX (Flowbox e797458); (2) 618 no cancelamento = detectarModeloChave varria os primeiros 44 digitos (versao/idLote/Id) e mandava evento de NF-e p/ endpoint de 65 -> chave agora lida de ID110111/<chNFe> (Flowbox 5ed35ea + NfceSoapClientModeloEventoTest); (3) consulta de chave = SOAP 1.1 + consSitNFe sem tpAmb/versao (fault VersionMismatch, cStat 215) -> SOAP 1.2 + tpAmb + versao 4.00 (Flowbox 8616110), cStat 100 proto 13526007063048832 HTTP 200. Also no VisionBox 52f4335: tela /fiscal, botao Cancelar NFC-e no PDV, pulo cStat 539, nota 090/1 orfa registrada (proto 13526007062662399). Flowbox 380 testes verdes, VisionBox 439 verdes; commits pushados e deployados.",
     "fiscal_cancelamento_2026_10_14": "Cancelamento E2E concluido: POST /api/v1/fiscal/nfce/cancelar (novo, d39f433) -> Flowbox -> SEFAZ; nota 090/6 autorizada 20:21:14 e cancelada 20:37:45 (+16,5 min), cStat 135, protocolo do evento 13526007075279469, CANCELADO no VisionBox e no Flowbox; janela NFC-e = 30 min (Ajuste SINIEF 07/2018) confirmada por medicao propria (+1s e +16,5min = 135; +36..+60min = 501) e pela historia do OUTBOX (6 cancelamentos, todos +1..+9 min); 4xx do Flowbox agora devolve o cStat real (539/501) em vez de 503; mvn test verdes (+5 testes)",
     "fiscal_cstat100_2026_10_14": "Emissao NFC-e PRODUCAO autorizada na SEFAZ-SP e persistida: nota serie 090 n. 2 (chave 35261040187613000102650900000000021624523010, protocolo 13526007063048832, HTTP 201, AUTORIZADO/100) via cadeia VisionBox -> Flowbox -> SEFAZ; nota 090/5 emitida 15:07:40 e CANCELADA 15:07:41 (cStat 135, protocolo de evento 13526007064496914, Flowbox CANCELADO); V49 (protocolo VARCHAR(20)) + Flowbox REGEX_PROTOCOLO 20 + lerProtocolos lendo retEvento/infEvento (antes liamos o cStat 128 do lote e nunca o 135 do evento); nProt real de 17 digitos confirmado em autorizacao E em evento; n. 3/4 rejeitados 539 (serie 090 ocupada desde setembro/2026); mvn Flowbox verdes; commits VisionBox 0bb4a8f/1fe5d38 e Flowbox 5500adc/a2331db; containers app+flowbox com TZ America/Sao_Paulo",
     "onda_simultanea_2026_10_13": "Fases 2-5 Robustez ERP simultâneas + P1: V33 caixa (fechamento cego SOBRA/QUEBRA/EXATO, sangria/suprimento motivo obrigatório, extrato, relatório por modalidade) + V34 financeiro (conta_receber_pagamento, fornecedor CNPJ AES-GCM+HMAC, valor_aberto GENERATED, conta_pagar fornecedor/competencia) + V35 compras (parser XML NF-e XXE-safe zero dependências, de-para EAN, ContaPagar por duplicata, maquininha MDR HALF_EVEN, comissão GERAL/CATEGORIA idempotente) + V36 modulo_configuracao_loja (19 módulos, @RequerModulo interceptor 403 MODULO_NAO_CONTRATADO, planos START/PRO/ENTERPRISE, GuardaModulo + AppShell filtrado) + P1 draft validado 1:1 entidades JPA; SecurityConfig +compras +modulos; App.tsx rotas com GuardaModulo; mvn 344/344 verdes; typecheck 0 erros; build 2.29s",

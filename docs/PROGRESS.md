@@ -1,7 +1,27 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-14 — **NFC-e autorizada em PRODUÇÃO (cStat 100)** pela cadeia VisionBox → Flowbox → SEFAZ, e cancelamento testado (cStat 135). Refator frontend completo (2026-10-11): `typecheck` ✅ `build` ✅ hex=0.
+> **Atualizado em:** 2026-10-15 — **NF-e 55 autorizada (cStat 100) e cancelada (cStat 135) em PRODUÇÃO**, consulta de chave OK (cStat 100), tela `/fiscal` + botão cancelar no PDV no ar. NFC-e autorizada 2026-10-14. Refator frontend completo (2026-10-11): `typecheck` ✅ `build` ✅ hex=0.
 > **Estado legível por humano; máquina lê `.visionbox/state.json`**
+
+## Fiscal — Produção: NF-e 55 E2E (emitida + cancelada) e consulta de chave (2026-10-15, ✅ concluída)
+
+> **Marco:** NF-e modelo 55 emitida **e** cancelada em PRODUCAO pela mesma cadeia VisionBox → Flowbox → SEFAZ-SP. Cada correção saiu da resposta crua da SEFAZ ou da referência OUTBOX — nada deduzido.
+
+| Frente | Resultado | Evidência |
+|---|---|---|
+| Emissão NF-e 55 | Série 090 nº 3 → **cStat 100** | chave `35261040187613000102550900000000031819584004`, protocolo `135264369800195`, `status=AUTORIZADO`; `xml_retorno` gravado como **`<nfeProc>`** (NFe + protNFe), não mais `enviNFe` |
+| Cancelamento NF-e 55 | Evento 110111 → **cStat 135** "Evento registrado e vinculado a NF-e" | protocolo do evento `135264369947092`, `CANCELADO` nos **dois** sistemas, HTTP 200 |
+| Rejeição 388 (IPI) | Grupo IPI era emitido sem cadastro (`IPINT` CST 55 + `cEnq 999`) → "CST do IPI incompatível com o enquadramento" | Flowbox `e797458`: item sem IPI → grupo **fora** da nota e `vIPI 0.00` nos totais (mesmo do OUTBOX, que zera vIPI); com IPI tributado no cadastro o grupo entra |
+| Rejeição 618 (cancelamento) | `detectarModeloChave` varria os **primeiros 44 dígitos** do XML do evento (`versao`, `idLote`, `Id ID110111`) e o evento de NF-e caía no endpoint de NFC-e | Flowbox `5ed35ea`: chave lida de `ID110111`/`<chNFe>`; regressão `NfceSoapClientModeloEventoTest` |
+| Consulta de chave | 3 defeitos: SOAP 1.1 (fault `VersionMismatch` HTTP 500), `consSitNFe` sem `tpAmb`/`versao` (cStat 215), `SOAPAction` com aspas | Flowbox `8616110`: SOAP 1.2 + `tpAmb` + `versao="4.00"` → **cStat 100**, protocolo `13526007063048832`, HTTP 200 |
+| `motivoSefaz` | resposta traz `cStat - xMotivo` da SEFAZ; `erro` só preenchido em falha real | `FiscalCoreService.consultarChave` |
+| Rota de cancelamento NF-e 55 | `POST /api/v1/nfe/cancelar` no VisionBox; o Flowbox roteia o evento pelo modelo da chave | `NfeRestController` + `FlowboxFiscalProvider` |
+| Destinatário NF-e 55 | Endereço completo obrigatório (CEP 8 dígitos, logradouro, nº, bairro, município, UF) | `NfceEmitirRequest.DestinatarioRequest` + `FlowboxFiscalProvider` |
+| Tela `/fiscal` | Página própria no menu lateral (pedido do cliente: igual OUTBOX) + botão **Cancelar NFC-e** no `VendaConcluidaDialog` (aviso da janela de 30 min) + pulo do cStat 539 (até 5 pulos) | VisionBox `52f4335`, no ar em produção |
+| Nota órfã 090/1 | Registrada em `documento_fiscal` (AUTORIZADO, proto `13526007062662399`); 090/3 e 090/4 agora mostram **539** real em vez de 503 mascarado | INSERT de evidência + `lerRespostaFlowbox` |
+| Testes | Flowbox `mvn test` ✅ (380, inclui `NfceSoapClientModeloEventoTest`) · VisionBox ✅ (439) | executados neste ciclo |
+
+**Commits:** VisionBox `52f4335` · Flowbox `8616110`, `5ed35ea`, `e797458` — todos pushados e deployados na VPS.
 
 ## Fiscal — Produção: NFC-e autorizada (cStat 100) + cancelamento (cStat 135) (2026-10-14, ✅ emissão / 🔄 cancelamento)
 
@@ -26,11 +46,11 @@
 **Pendências abertas:**
 1. ~~cStat 501 sem causa~~ **Resolvido**: janela de 30 min para NFC-e (Ajuste SINIEF 07/2018) — notas 090/1 e 090/2 ficaram fora da janela e **não são mais canceláveis por evento** (ficam AUTORIZADAS; só NF-e 55 de devolução referenciando a chave ou cancelamento extemporâneo na SEFAZ-SP).
 2. ~~`POST /cancelar` inexistente~~ **Resolvido** (`d39f433`): endpoint + payload completo do Flowbox (emitente, ambiente, certificado, protocolo da emissão; sem protocolo gravado, busca no Flowbox).
-3. **UI sem ação de cancelar**: o endpoint existe, mas Painel/OS/PDV não têm botão de cancelamento — hoje é API só.
-4. Gravar `nfeProc` (XML autorizado) em `xml_retorno` — hoje guarda o envelope `enviNFe`.
+3. ~~UI sem ação de cancelar~~ **Resolvido** (`52f4335`): tela `/fiscal` própria no menu + botão "Cancelar NFC-e" no `VendaConcluidaDialog` do PDV.
+4. ~~Gravar `nfeProc` em `xml_retorno`~~ **Resolvido** (Flowbox `5ed35ea`): resposta agora monta `<nfeProc>` = NFe + protNFe.
 5. ~~cStat 503 mascarando o real~~ **Resolvido** (`d39f433`): 4xx do Flowbox devolve o cStat verdadeiro (539/501).
-6. Consulta de chave da Flowbox → HTTP 500 da SEFAZ-SP.
-7. Nota 090/1 órfã (sem linha no VisionBox — o 409 do protocolo de 17 dígitos reverteu a transação antes do V49).
+6. ~~Consulta de chave HTTP 500~~ **Resolvido** (Flowbox `8616110`): SOAP 1.2 + `tpAmb`/`versao` → cStat 100, HTTP 200.
+7. ~~Nota 090/1 órfã~~ **Resolvido**: linha gravada em `documento_fiscal` (AUTORIZADO, protocolo `13526007062662399`).
 8. Decisões do cliente: série/limite novo (090 nº 3 e 4 ocupados na SEFAZ desde setembro/2026); série 090 → 001 ao consolidar; TZ do host (sudo).
 
 **Commits deste ciclo:** VisionBox `0bb4a8f` (V49) e `1fe5d38` (TZ app) · Flowbox `5500adc` (parser + regex) e `a2331db` (TZ) — todos pushados e deployados na VPS.
