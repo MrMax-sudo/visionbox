@@ -255,3 +255,39 @@ Para aplicar um plano ou ajustar os módulos de uma ótica cliente:
    * **`Enterprise`**: Ativa todos os 19 módulos do sistema.
 4. Caso o cliente queira módulos avulsos, clique individualmente nos **interruptores (switches)** de cada cartão para ligar ou desligar o recurso instantaneamente (o status mudará para *Personalizado*).
 5. O sistema salva a configuração imediatamente na tabela `modulo_configuracao_loja`, e os usuários daquela loja já passam a operar com as permissões atualizadas sem necessidade de reiniciar servidores.
+
+---
+
+## 6. Tabela de Precificação e Políticas Comerciais Sugeridas
+
+> **Estratégia de Monetização SaaS:** Precificação benchmark baseada nos líderes do mercado nacional de ERPs óticos, desenhada para garantir barreira de entrada quase nula no Plano Start, alta conversão no Plano Pro (carro-chefe) e margens expressivas no Plano Enterprise e redes.
+
+### 6.1. Grade de Preços (Mensalidade por Loja)
+
+| Plano | Módulos Inclusos | Mensal Recorrente | Plano Anual *(com desconto)* | Taxa de Implantação *(Setup único)* |
+|---|:---:|:---:|:---:|:---:|
+| 🔹 **START** | **3 módulos** *(PDV, Caixa, Vendas)* | **R$ 119,00** /mês | **R$ 99,00** /mês *(R$ 1.188/ano)* | R$ 190,00 |
+| 🔸 **PRO** *(Carro-Chefe)* | **10 módulos** *(Start + OS 12 status, Lab, Receitas, Fiscal, Financeiro)* | **R$ 249,00** /mês | **R$ 199,00** /mês *(R$ 2.388/ano)* | R$ 390,00 |
+| 👑 **ENTERPRISE** | **19 módulos** *(Todos: XML, Etiquetas, Orçamento WhatsApp, Alertas)* | **R$ 449,00** /mês | **R$ 379,00** /mês *(R$ 4.548/ano)* | R$ 590,00 |
+
+---
+
+### 6.2. Políticas Comerciais e Condições Especiais
+
+#### 🏢 Redes e Múltiplas Lojas (Filiais)
+* **Loja Matriz:** Valor integral do plano contratado.
+* **Filiais (a partir da 2ª loja do mesmo grupo/CNPJ):** **40% de desconto** na mensalidade da filial.
+  * *Exemplo:* Uma ótica com 3 lojas no Plano Pro paga: R$ 249 (Matriz) + R$ 149 (Filial 1) + R$ 149 (Filial 2) = **R$ 547,00/mês total**.
+
+#### 🧩 Add-ons Avulsos (Modo Personalizado)
+Para clientes no Plano Start ou Pro que desejam contratar funcionalidades pontuais sem migrar de pacote:
+* **Módulo Emissão Fiscal (Flowbox):** + R$ 69,00/mês
+* **Módulo Compras & Importação XML:** + R$ 49,00/mês
+* **Módulo Impressão de Etiquetas:** + R$ 39,00/mês
+* **Módulo Orçamento WhatsApp + PIN:** + R$ 39,00/mês
+* **Módulo Alertas no Telegram:** + R$ 29,00/mês
+
+#### 🛠️ Taxa de Implantação e Onboarding (Setup)
+* Cobre a parametrização do certificado digital, modelos de recibos oficiais, carga inicial de cadastros e treinamento da equipe.
+* **Gatilho Comercial:** Pode ser concedida como **isenção promocional** para fechamento imediato no contrato de pagamento anual.
+
