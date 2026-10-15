@@ -127,19 +127,17 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setActionError('A imagem deve ter no máximo 5MB.');
-      return;
+    try {
+      setActionError(null);
+      const { comprimirImagem } = await import('@/lib/imageCompress');
+      const base64Otimizado = await comprimirImagem(file, 1024, 0.82);
+      form.setValue('imagemUrl', base64Otimizado, { shouldValidate: true });
+    } catch {
+      setActionError('Falha ao processar e otimizar imagem do produto.');
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      form.setValue('imagemUrl', base64, { shouldValidate: true });
-    };
-    reader.readAsDataURL(file);
   };
 
   function onSalvarProduto(values: ProdutoForm) {

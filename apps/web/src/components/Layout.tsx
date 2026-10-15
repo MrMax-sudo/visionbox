@@ -25,6 +25,9 @@ import {
   FileSpreadsheet,
   ShieldCheck,
   Tag,
+  Menu,
+  X,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toast';
@@ -192,14 +195,33 @@ function NotificationBell() {
   );
 }
 
-function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleTheme: () => void }) {
+function Header({
+  theme,
+  onToggleTheme,
+  onOpenMobileMenu,
+}: {
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  onOpenMobileMenu: () => void;
+}) {
   const location = useLocation();
   const { user } = useAuthStore();
   const title = location.pathname === '/pdv' ? 'PDV - Frente de caixa' : '';
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-5 backdrop-blur">
-      <div className="flex min-w-0 flex-1 items-center" />
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-3 sm:px-5 backdrop-blur">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onOpenMobileMenu}
+          className="md:hidden h-9 w-9 text-foreground cursor-pointer"
+          aria-label="Abrir menu de navegação"
+          title="Menu de navegação"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
       {title && (
         <h1 className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-[var(--font-sans)] text-[20px] font-bold tracking-normal text-[var(--color-pdv-text)]">
           {title}
@@ -557,34 +579,379 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
   );
 }
 
-function MobileNav() {
+function MobileDrawer({
+  open,
+  onClose,
+  onOpenConfig,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenConfig: () => void;
+}) {
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
+  const temModulo = useModulosStore((s) => s.temModulo);
+  const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
+
+  const isAdmin = user?.perfil === 'ADMIN';
+  const isDev = user?.perfil === 'DESENVOLVEDOR';
+  const podeAdminOuDev = isAdmin || isDev;
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 md:hidden">
+      {/* Backdrop com blur */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Painel lateral deslizante */}
+      <div className="fixed inset-y-0 left-0 flex w-[290px] max-w-[85vw] flex-col bg-card border-r border-border shadow-2xl animate-in slide-in-from-left duration-200">
+        {/* Cabeçalho do Menu Mobile */}
+        <div className="flex h-14 items-center justify-between border-b border-border px-4">
+          <img
+            src="/assets/visionbox-logo.png"
+            alt="VisionBox"
+            className="h-7 w-auto object-contain"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 text-foreground"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Lista de Navegação Mobile Completa */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* Principal */}
+          <div className="space-y-1">
+            <NavLink
+              to="/"
+              end
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : 'text-foreground hover:bg-muted',
+                )
+              }
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span>Dashboard</span>
+            </NavLink>
+
+            {temModulo('PDV_BALCAO') && (
+              <NavLink
+                to="/pdv"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    'flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground font-semibold'
+                      : 'text-foreground hover:bg-muted',
+                  )
+                }
+              >
+                <ShoppingCart className="h-4 w-4" />
+                <span>PDV (Frente de Caixa)</span>
+              </NavLink>
+            )}
+          </div>
+
+          {/* Operacional */}
+          <div className="space-y-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted">Operacional</p>
+            <NavLink
+              to="/clientes"
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+              }
+            >
+              <Users className="h-4 w-4" />
+              <span>Clientes</span>
+            </NavLink>
+            {temModulo('RECEITAS_CLINICAS') && (
+              <NavLink
+                to="/receitas"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <Eye className="h-4 w-4" />
+                <span>Receitas</span>
+              </NavLink>
+            )}
+            {temModulo('ORDEM_SERVICO') && (
+              <NavLink
+                to="/os"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <ClipboardList className="h-4 w-4" />
+                <span>Ordens de Serviço</span>
+              </NavLink>
+            )}
+            <NavLink
+              to="/orcamentos"
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+              }
+            >
+              <FileText className="h-4 w-4" />
+              <span>Orçamentos</span>
+            </NavLink>
+          </div>
+
+          {/* Financeiro */}
+          <div className="space-y-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted">Financeiro</p>
+            {temModulo('CAIXA_TURNOS') && (
+              <NavLink
+                to="/caixas"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <Coins className="h-4 w-4" />
+                <span>Caixas & Turnos</span>
+              </NavLink>
+            )}
+            {temModulo('CENTRAL_VENDAS') && (
+              <NavLink
+                to="/vendas"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <Receipt className="h-4 w-4" />
+                <span>Vendas Realizadas</span>
+              </NavLink>
+            )}
+            {temModulo('COMPRAS_XML') && (
+              <NavLink
+                to="/compras"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Compras XML</span>
+              </NavLink>
+            )}
+            {temModulo('FINANCEIRO_COMPLETO') && (
+              <>
+                <NavLink
+                  to="/financeiro"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                      isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                  }
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span>DRE & Contas</span>
+                </NavLink>
+                <NavLink
+                  to="/maquininhas"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                      isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                  }
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>Maquininhas</span>
+                </NavLink>
+                <NavLink
+                  to="/comissoes"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                      isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                  }
+                >
+                  <Coins className="h-4 w-4" />
+                  <span>Comissões</span>
+                </NavLink>
+              </>
+            )}
+          </div>
+
+          {/* Estoque */}
+          <div className="space-y-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted">Estoque</p>
+            <NavLink
+              to="/catalogo"
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+              }
+            >
+              <Package className="h-4 w-4" />
+              <span>Catálogo de Produtos</span>
+            </NavLink>
+            <NavLink
+              to="/etiquetas"
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+              }
+            >
+              <Tag className="h-4 w-4" />
+              <span>Impressão de Etiquetas</span>
+            </NavLink>
+          </div>
+
+          {/* Administrativo */}
+          <div className="space-y-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted">Administrativo</p>
+            {podeAdminOuDev && (
+              <NavLink
+                to="/usuarios"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <Users className="h-4 w-4" />
+                <span>Gestão de Usuários</span>
+              </NavLink>
+            )}
+            {podeAdminOuDev && temModulo('FISCAL_FLOWBOX') && (
+              <NavLink
+                to="/fiscal"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <FileText className="h-4 w-4" />
+                <span>Configuração Fiscal</span>
+              </NavLink>
+            )}
+            {isDev && (
+              <NavLink
+                to="/desenvolvedor"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn('flex h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors',
+                    isActive ? 'bg-primary/15 text-primary font-semibold' : 'text-foreground/80 hover:bg-muted')
+                }
+              >
+                <Settings className="h-4 w-4" />
+                <span>Painel Desenvolvedor</span>
+              </NavLink>
+            )}
+            <button
+              type="button"
+              onClick={onOpenConfig}
+              className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-xs font-medium transition-colors text-foreground/80 hover:bg-muted cursor-pointer"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Configurações</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Rodapé do Menu Mobile */}
+        <div className="border-t border-border p-3 space-y-2 bg-card-soft/50">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-foreground">{user?.nome || 'Operador'}</p>
+              <p className="text-[11px] text-muted">{user?.perfil || 'USUARIO'}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="h-8 gap-1 text-xs text-danger hover:bg-danger/10"
+              title="Sair do sistema"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair
+            </Button>
+          </div>
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-center text-[11px] font-semibold text-primary underline underline-offset-2"
+            >
+              Suporte via WhatsApp
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileNav({ onOpenMore }: { onOpenMore: () => void }) {
   const mobileItems = [
-    { label: 'Dashboard', to: '/', icon: LayoutGrid },
+    { label: 'Início', to: '/', icon: LayoutGrid },
     { label: 'PDV', to: '/pdv', icon: ShoppingCart },
-    { label: 'Clientes', to: '/clientes', icon: Users },
     { label: 'OS', to: '/os', icon: ClipboardList },
-    { label: 'Catálogo', to: '/catalogo', icon: Package },
+    { label: 'Orçamentos', to: '/orcamentos', icon: FileText },
   ];
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-t border-[var(--color-border)] bg-[var(--color-bg-card)] p-2 md:hidden" aria-label="Navegação mobile">
+    <nav className="flex items-center justify-around border-t border-border bg-card/95 backdrop-blur py-1.5 px-2 md:hidden shrink-0 z-20" aria-label="Navegação rápida mobile">
       {mobileItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium',
+              'flex flex-col items-center justify-center gap-0.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors',
               isActive
-                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
-                : 'bg-[var(--color-bg-page)] text-[var(--color-text-secondary)]',
+                ? 'text-primary font-semibold'
+                : 'text-secondary hover:text-foreground',
             )
           }
         >
-          <item.icon className="h-3.5 w-3.5" />
-          {item.label}
+          <item.icon className="h-4 w-4" />
+          <span>{item.label}</span>
         </NavLink>
       ))}
+      <button
+        type="button"
+        onClick={onOpenMore}
+        className="flex flex-col items-center justify-center gap-0.5 rounded-lg px-2.5 py-1 text-[11px] font-medium text-secondary hover:text-foreground cursor-pointer"
+        aria-label="Abrir todos os módulos"
+      >
+        <Menu className="h-4 w-4" />
+        <span>Mais</span>
+      </button>
     </nav>
   );
 }
@@ -594,6 +961,7 @@ export default function Layout() {
   const isPdv = location.pathname === '/pdv';
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => localStorage.getItem('visionbox-sidebar-collapsed') === 'true');
   const [configOpen, setConfigOpen] = React.useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
   const { theme, toggle } = useTheme();
   const carregarEmpresa = useEmpresaStore((s) => s.carregar);
   const carregarModulos = useModulosStore((s) => s.carregar);
@@ -609,25 +977,38 @@ export default function Layout() {
 
   return (
     <TooltipProvider>
-      <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>
-        <div className={cn('flex', isPdv ? 'h-full overflow-hidden' : 'min-h-screen')}>
+      <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'min-h-screen xl:h-screen xl:overflow-hidden' : 'min-h-screen')}>
+        <div className={cn('flex', isPdv ? 'min-h-screen xl:h-full xl:overflow-hidden' : 'min-h-screen')}>
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed((value) => !value)}
             onOpenConfig={() => setConfigOpen(true)}
           />
-          <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', isPdv && 'h-full')}>
-            <Header theme={theme} onToggleTheme={toggle} />
-            <main className={cn('flex-1 min-h-0', isPdv ? 'pdv-main-shell' : 'overflow-y-auto p-4 sm:p-6')}>
+          <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', isPdv && 'xl:h-full')}>
+            <Header
+              theme={theme}
+              onToggleTheme={toggle}
+              onOpenMobileMenu={() => setMobileDrawerOpen(true)}
+            />
+            <main className={cn('flex-1 min-h-0', isPdv ? 'overflow-y-auto xl:overflow-hidden p-2 sm:p-3 xl:p-2' : 'overflow-y-auto p-3 sm:p-4 md:p-6')}>
               <Outlet />
             </main>
-            <MobileNav />
-            <footer className="shrink-0 flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
+            <MobileNav onOpenMore={() => setMobileDrawerOpen(true)} />
+            <footer className="shrink-0 hidden sm:flex h-9 items-center justify-between border-t border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)] px-5 text-xs text-[var(--color-pdv-footer)]">
               <span>VisionBox • Um novo olhar em gestão.</span>
               <span>Desenvolvido por TechboxBR 2026</span>
             </footer>
           </div>
         </div>
+
+        <MobileDrawer
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          onOpenConfig={() => {
+            setMobileDrawerOpen(false);
+            setConfigOpen(true);
+          }}
+        />
 
         <ConfiguracoesDialog
           open={configOpen}
