@@ -102,10 +102,50 @@ function SyncIndicator() {
   return null;
 }
 
+interface AlertaItemOS {
+  id: string;
+  numero: string;
+  clienteNome: string;
+  status: string;
+  previsaoEntrega?: string;
+  horasAtraso?: number;
+  ultimaAtualizacao?: string;
+  diasSemMovimentacao?: number;
+}
+
+interface AlertasOSResponse {
+  totalAlertas: number;
+  atrasadas: AlertaItemOS[];
+  semMovimentacao: AlertaItemOS[];
+}
+
 function NotificationBell() {
   const [open, setOpen] = React.useState(false);
   const [pendentes, setPendentes] = React.useState<Array<{ _ts?: number }>>([]);
+  const [alertas, setAlertas] = React.useState<AlertasOSResponse>({
+    totalAlertas: 0,
+    atrasadas: [],
+    semMovimentacao: [],
+  });
   const boxRef = React.useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  const fetchAlertas = React.useCallback(async () => {
+    try {
+      const res = await apiClient.get<AlertasOSResponse>('/v1/ordens-servico/alertas');
+      if (res.data) {
+        setAlertas(res.data);
+      }
+    } catch {
+      // Falha silenciosa quando offline ou sem rede
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchAlertas();
+    const id = window.setInterval(fetchAlertas, 30_000);
+    return () => window.clearInterval(id);
+  }, [fetchAlertas]);
 
   React.useEffect(() => {
     const read = () => {
@@ -128,6 +168,7 @@ function NotificationBell() {
 
   React.useEffect(() => {
     if (!open) return;
+    fetchAlertas();
     const onDoc = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -140,22 +181,24 @@ function NotificationBell() {
       document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, fetchAlertas]);
+
+  const totalNotificacoes = (alertas.totalAlertas ?? 0) + pendentes.length;
 
   return (
     <div className="relative" ref={boxRef}>
       <Button
         variant="ghost"
         size="icon"
-        className="relative h-9 w-9"
+        className="relative h-9 w-9 text-secondary hover:text-primary"
         aria-label={open ? 'Fechar notificações' : 'Notificações'}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         <Bell className="h-4 w-4" />
-        {pendentes.length > 0 && (
-          <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[11px] font-bold leading-none text-[var(--color-text-on-danger)]">
-            {pendentes.length}
+        {totalNotificacoes > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[10px] font-bold leading-none text-[var(--color-text-on-danger)] shadow-sm animate-pulse">
+            {totalNotificacoes > 99 ? '99+' : totalNotificacoes}
           </span>
         )}
       </Button>
@@ -163,32 +206,124 @@ function NotificationBell() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-2 w-72 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4 shadow-[var(--shadow-panel)]"
+          className="absolute right-0 top-full z-40 mt-2 w-80 sm:w-96 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4 shadow-[var(--shadow-panel)]"
         >
-          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Notificações</p>
-
-          {pendentes.length > 0 ? (
-            <>
-              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                {pendentes.length} venda(s) aguardando sincronização com o servidor.
-              </p>
-              <ul className="mt-3 space-y-2">
-                {pendentes.slice(-5).map((item, idx) => (
-                  <li
-                    key={`${item._ts ?? idx}`}
-                    className="rounded-[var(--radius)] border border-[var(--color-warning-light)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning-dark)]"
-                  >
-                    Venda offline pendente
-                    {item._ts ? ` • ${new Date(item._ts).toLocaleString('pt-BR')}` : ''}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="mt-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-4 text-center text-xs text-[var(--color-text-muted)]">
-              Nenhuma notificação no momento.
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2.5">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+              Central de Notificações
             </p>
-          )}
+            {totalNotificacoes > 0 && (
+              <span className="rounded-full bg-[var(--color-primary-light)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-brand)]">
+                {totalNotificacoes} pendência(s)
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3 max-h-[70vh] overflow-y-auto space-y-4 pr-1">
+            {/* 1. OS Atrasadas */}
+            {alertas.atrasadas.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-danger-dark)] mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
+                    OS Atrasadas ({alertas.atrasadas.length})
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {alertas.atrasadas.slice(0, 5).map((os) => (
+                    <button
+                      key={os.id}
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`/os/${os.id}`);
+                      }}
+                      className="w-full text-left rounded-[var(--radius)] border border-[var(--color-danger-light)] bg-[var(--color-danger-light)]/40 p-2 text-xs transition-colors hover:bg-[var(--color-danger-light)]"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-[var(--color-text-primary)]">
+                          {os.numero}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[var(--color-danger-dark)]">
+                          {os.horasAtraso && os.horasAtraso > 24
+                            ? `${Math.floor(os.horasAtraso / 24)}d atrasada`
+                            : `${os.horasAtraso ?? 1}h atrasada`}
+                        </span>
+                      </div>
+                      <p className="truncate text-secondary mt-0.5">{os.clienteNome}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. OS Sem Movimentação > 1 dia */}
+            {alertas.semMovimentacao.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-warning-dark)] mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-warning)]" />
+                    Sem Movimentação &gt; 1 dia ({alertas.semMovimentacao.length})
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {alertas.semMovimentacao.slice(0, 5).map((os) => (
+                    <button
+                      key={os.id}
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`/os/${os.id}`);
+                      }}
+                      className="w-full text-left rounded-[var(--radius)] border border-[var(--color-warning-light)] bg-[var(--color-warning-light)]/40 p-2 text-xs transition-colors hover:bg-[var(--color-warning-light)]"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-[var(--color-text-primary)]">
+                          {os.numero}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[var(--color-warning-dark)]">
+                          {os.diasSemMovimentacao ?? 1}d sem alteração
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-secondary mt-0.5">
+                        <span className="truncate">{os.clienteNome}</span>
+                        <span className="text-[10px] text-muted">{os.status?.replace(/_/g, ' ')}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Vendas Offline na fila do Outbox */}
+            {pendentes.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-warning-dark)] mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-brand)]" />
+                    Vendas Offline Pendentes ({pendentes.length})
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {pendentes.slice(-3).map((item, idx) => (
+                    <li
+                      key={`${item._ts ?? idx}`}
+                      className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] p-2 text-xs text-[var(--color-text-secondary)]"
+                    >
+                      Venda gravada no terminal
+                      {item._ts ? ` • ${new Date(item._ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {totalNotificacoes === 0 && (
+              <p className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-6 text-center text-xs text-[var(--color-text-muted)]">
+                Tudo em dia! Nenhuma OS atrasada ou pendência pendente.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

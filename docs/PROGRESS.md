@@ -1,6 +1,17 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Ajustes de UX, Navegação, Roles de Acesso, Templates Oficiais e Upload de Logotipo Concluídos** ✅. Suíte de testes RBAC (42/42) e Build do Frontend (Vite) 100% verdes.
+> **Atualizado em:** 2026-10-15 — **Orçamentos no PDV (CRUD/Carregar), Prazo de Entrega Estipulado na OS, Central de Notificações de OS Atrasadas/Sem Movimentação, Preview 1:1 de Documentos e Correção da Timeline Concluídos** ✅. Suíte de testes e Build Frontend (Vite) 100% verdes.
+
+## Melhorias de Orçamentos, Prazo de OS, Notificações e Layout de Timeline (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Timeline da OS** | Correção do layout com bolinha do semáforo sobreposta ao badge de data/hora (`13/10/2026, 16:55`). | Substituído posicionamento absoluto solto por coluna vertical flex dedicada (`items-start gap-3.5`), círculo protetor centrado `h-5 w-5 bg-card border border-border` e linha conectora vertical fluida `w-0.5 grow bg-border my-1`. Zero sobreposição. | `OsTimeline.tsx` ✅ |
+| **Preview de Documentos** | Preview incorreto nos tipos A4 vs 80mm em `ComprovanteImpressao.tsx`. | Renderizador dinâmico isolado via `iframe` (`srcDoc={htmlDocument}`) com suporte aos templates oficiais: Proposta Comercial A4, DANFE A4, NFC-e 80mm e Recibo Térmico 80mm com proporções fiéis e dados da empresa. | `ComprovanteImpressao.tsx`, `reciboPrint.ts` ✅ |
+| **Orçamentos (CRUD e PDV)** | CRUD de orçamentos criados, detalhes, botão carregar no PDV e persistência de status no banco. | `Orcamentos.tsx` reformulado com ações: Visualizar Detalhes (modal rico), Carregar no PDV (`/pdv?orcamentoId=...`), Editar Orçamento, Excluir e Imprimir A4. Endpoints `PUT` e `DELETE /api/v1/orcamentos/{id}` criados no backend. O PDV carrega cliente, itens e descontos e converte o status para `CONVERTIDO` na venda. | `Orcamentos.tsx`, `PDV.tsx`, `OrcamentoController.java`, `OrcamentoService.java` ✅ |
+| **Prazo da OS pelo Usuário** | Prazo de entrega estipulado pelo próprio usuário do sistema para exatidão. | Campo `datetime-local` no modal de finalização de venda do PDV (`FinalizarVendaModal.tsx`); botão e modal de "Alterar Prazo" no cabeçalho da OS (`OSDetail.tsx`) disparando `PATCH /v1/ordens-servico/{id}/previsao-entrega` com motivo auditável na timeline e reflexo em tempo real no portal do cliente. | `FinalizarVendaModal.tsx`, `OSDetail.tsx`, `OrdemServicoController.java` ✅ |
+| **Notificações de OS** | Notificar OS atrasadas ou sem movimentação há mais de 1 dia. | Endpoint `GET /api/v1/ordens-servico/alertas` que identifica OS com prazo vencido e OS paradas > 24h sem evento. O `NotificationBell` em `Layout.tsx` exibe badge vermelho pulsante e popover detalhado com atalhos diretos para cada OS. | `Layout.tsx`, `OrdemServicoRepository.java`, `OrdemServicoService.java` ✅ |
+
 
 ## Ajustes de Usabilidade, Governança de Roles e Documentos (2026-10-15, ✅ concluído)
 

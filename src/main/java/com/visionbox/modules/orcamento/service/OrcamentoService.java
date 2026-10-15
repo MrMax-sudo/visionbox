@@ -136,4 +136,83 @@ public class OrcamentoService {
         repository.save(orcamento);
         return mapper.toResponse(orcamento);
     }
+
+    @Transactional
+    public OrcamentoResponse atualizar(UUID id, OrcamentoRequest req) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        Orcamento orcamento = repository.findByIdAndLojaId(id, lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("Orçamento não encontrado"));
+
+        if (orcamento.getStatus() == OrcamentoStatus.CONVERTIDO) {
+            throw new IllegalStateException("Não é possível alterar um orçamento que já foi convertido em venda.");
+        }
+
+        orcamento.setClienteId(req.getClienteId());
+        if (req.getClienteNome() != null && !req.getClienteNome().isBlank()) {
+            orcamento.setClienteNome(req.getClienteNome().trim());
+        }
+        orcamento.setClienteCpf(req.getClienteCpf());
+        orcamento.setClienteTelefone(req.getClienteTelefone());
+        orcamento.setVendedorId(req.getVendedorId());
+        orcamento.setVendedorNome(req.getVendedorNome());
+        if (req.getValidadeDias() != null) {
+            orcamento.setValidadeDias(req.getValidadeDias());
+        }
+        orcamento.setObservacoes(req.getObservacoes());
+        orcamento.setCondicoesPagamento(req.getCondicoesPagamento());
+
+        BigDecimal subtotalGeral = BigDecimal.ZERO;
+        BigDecimal descontoGeral = req.getDesconto() != null ? req.getDesconto() : BigDecimal.ZERO;
+
+        orcamento.getItens().clear();
+        if (req.getItens() != null && !req.getItens().isEmpty()) {
+            for (OrcamentoItemRequest itemReq : req.getItens()) {
+                BigDecimal qtd = itemReq.getQuantidade() != null ? itemReq.getQuantidade() : BigDecimal.ONE;
+                BigDecimal unit = itemReq.getPrecoUnitario() != null ? itemReq.getPrecoUnitario() : BigDecimal.ZERO;
+                BigDecimal desc = itemReq.getDesconto() != null ? itemReq.getDesconto() : BigDecimal.ZERO;
+                BigDecimal sub = (itemReq.getSubtotal() != null && itemReq.getSubtotal().compareTo(BigDecimal.ZERO) > 0)
+                        ? itemReq.getSubtotal()
+                        : qtd.multiply(unit).subtract(desc);
+
+                subtotalGeral = subtotalGeral.add(sub);
+
+                OrcamentoItem item = OrcamentoItem.builder()
+                        .lojaId(lojaId)
+                        .produtoId(itemReq.getProdutoId())
+                        .sku(itemReq.getSku())
+                        .descricao(itemReq.getDescricao())
+                        .quantidade(qtd)
+                        .precoUnitario(unit)
+                        .desconto(desc)
+                        .subtotal(sub)
+                        .build();
+
+                orcamento.addItem(item);
+            }
+        }
+
+        orcamento.setValorSubtotal(subtotalGeral);
+        orcamento.setDesconto(descontoGeral);
+        BigDecimal total = subtotalGeral.subtract(descontoGeral);
+        orcamento.setValorTotal(total.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : total);
+        orcamento.setAtualizadoEm(OffsetDateTime.now());
+
+        orcamento = repository.save(orcamento);
+        log.info("Orçamento atualizado loja={} id={} total={}", lojaId, id, orcamento.getValorTotal());
+        return mapper.toResponse(orcamento);
+    }
+
+    @Transactional
+    public void excluir(UUID id) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        Orcamento orcamento = repository.findByIdAndLojaId(id, lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("Orçamento não encontrado"));
+
+        if (orcamento.getStatus() == OrcamentoStatus.CONVERTIDO) {
+            throw new IllegalStateException("Não é possível excluir um orçamento já convertido em venda.");
+        }
+
+        repository.delete(orcamento);
+        log.info("Orçamento excluído loja={} id={}", lojaId, id);
+    }
 }

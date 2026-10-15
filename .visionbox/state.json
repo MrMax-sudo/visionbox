@@ -1,7 +1,16 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T01:40:00-03:00",
+  "updated_at": "2026-10-15T09:05:00-03:00",
+  "entrega_orcamentos_prazo_alertas_timeline": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T09:05:00-03:00",
+    "timeline_layout": "Coluna flex dedicada para marcadores e linha conectora; sobreposicao de data/hora eliminada",
+    "preview_documentos": "Renderizador dinamico via iframe para A4 (Orcamento e DANFE) e 80mm (NFC-e e Recibo) com dados oficiais da empresa",
+    "orcamentos": "CRUD completo, modal de detalhes, impressao A4, carregar no PDV e conversao de status persistido no banco",
+    "prazo_os": "Input datetime-local no fechamento de venda do PDV e modal de alteracao de prazo com motivo auditavel em OSDetail",
+    "alertas_os": "Endpoint /api/v1/ordens-servico/alertas com OS atrasadas e sem movimentacao > 1 dia integrado ao NotificationBell"
+  },
   "ajustes_ux_rbac_documentos": {
     "status": "concluido",
     "updated_at": "2026-10-15T01:40:00-03:00",

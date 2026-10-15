@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { FileText } from 'lucide-react';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { ControleCaixaModal, type CaixaSessao } from '@/components/caixa/ControleCaixaModal';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,52 @@ export default function PDV() {
   const [formaPagamento, setFormaPagamento] = React.useState('Dinheiro');
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
   const [finalizarOpen, setFinalizarOpen] = React.useState(false);
+  const [orcamentoCarregado, setOrcamentoCarregado] = React.useState<OrcamentoDTO | null>(null);
+
+  React.useEffect(() => {
+    const orcId = searchParams.get('orcamentoId');
+    if (!orcId) return;
+
+    apiClient
+      .get<OrcamentoDTO>(`/v1/orcamentos/${orcId}`)
+      .then(({ data: orc }) => {
+        setOrcamentoCarregado(orc);
+        if (orc.clienteNome) {
+          setCliente({
+            id: orc.clienteId || 'temp-id',
+            nome: orc.clienteNome,
+            cpf: orc.clienteCpf || '',
+            telefone: orc.clienteTelefone || '',
+          });
+        }
+        if (orc.itens && orc.itens.length > 0) {
+          const itensCarrinho: CartItem[] = orc.itens.map((it) => ({
+            sku: it.sku || `SKU-${it.id}`,
+            nome: it.descricao,
+            qtd: Number(it.quantidade) || 1,
+            preco: Number(it.precoUnitario) || 0,
+            produtoId: it.produtoId,
+            categoria: 'Armações',
+          }));
+          setCart(itensCarrinho);
+        }
+        if (orc.desconto && Number(orc.desconto) > 0) {
+          setDesconto(Number(orc.desconto));
+          setDescontoTipo('valor');
+        }
+        setFeedback({
+          tone: 'success',
+          msg: `Orçamento ${orc.numero} carregado no PDV! Finalize a venda para converter automaticamente.`,
+        });
+      })
+      .catch((err) => {
+        console.error('Falha ao carregar orçamento no PDV', err);
+        setFeedback({
+          tone: 'error',
+          msg: 'Não foi possível carregar os dados do orçamento no PDV.',
+        });
+      });
+  }, [searchParams]);
 
   // Modais
   const [caixaModalOpen, setCaixaModalOpen] = React.useState(false);
@@ -408,6 +455,17 @@ export default function PDV() {
           modelo: tipoCupom === 'DANFE' ? '55' : '65',
         });
       }
+
+      // Converte orçamento no banco de dados se a venda veio de um orçamento
+      if (orcamentoCarregado?.id) {
+        apiClient
+          .post(`/v1/orcamentos/${orcamentoCarregado.id}/converter`, { vendaId: data.id })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+          })
+          .catch((err) => console.warn('Falha ao converter orçamento', err));
+        setOrcamentoCarregado(null);
+      }
     },
     onError: (err: unknown, payloadEnviado: CriarOrdemServicoPayload) => {
       const apiErr = err as ApiError;
@@ -418,6 +476,7 @@ export default function PDV() {
           desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
           senhaAutorizacao: descontoSenha || undefined,
           formaPagamento,
+          previsaoEntrega: payloadEnviado.previsaoEntrega,
           // preserva o rateio multi-forma + MDR (maquininha/parcelas) no outbox (§3.5)
           pagamentos: payloadEnviado.pagamentos,
         };
@@ -484,10 +543,10 @@ export default function PDV() {
       formaId: string;
       formaNome: string;
       valor: number;
-      /** Cartão (§3.5): ausente → MDR pendente no backend (WARN). */
       maquininhaId?: string;
       parcelas?: number;
     }>,
+    previsaoEntrega?: string,
   ) {
     if (!cliente) return;
     const armacao = cart.find((item) => (item.categoria ?? '').toLowerCase().includes('arma'));
@@ -498,6 +557,7 @@ export default function PDV() {
       desconto: descontoAplicado > 0 ? descontoAplicado : undefined,
       senhaAutorizacao: descontoSenha || undefined,
       formaPagamento: pagamentos.length === 1 ? pagamentos[0].formaNome : 'Múltiplo',
+      previsaoEntrega: previsaoEntrega || undefined,
       pagamentos: pagamentos.map((p) => ({
         formaPagamentoId: p.formaId,
         valor: p.valor,
@@ -642,6 +702,30 @@ export default function PDV() {
       </div>
 
       {feedback && <FeedbackBanner feedback={feedback} onClose={() => setFeedback(null)} />}
+
+      {orcamentoCarregado && (
+        <div className="flex items-center justify-between rounded-card border border-brand/40 bg-brand/10 px-4 py-2 text-xs text-brand-dark">
+          <div className="flex items-center gap-2">
+            <span className="font-bold uppercase tracking-wider text-[10px] bg-brand text-white px-2 py-0.5 rounded">
+              Orçamento Carregado
+            </span>
+            <span className="text-secondary">
+              Proposta <strong className="text-primary font-mono">{orcamentoCarregado.numero}</strong> • Cliente:{' '}
+              <strong className="text-primary">{orcamentoCarregado.clienteNome}</strong> • Total:{' '}
+              <strong className="text-primary">{currency(orcamentoCarregado.valorTotal)}</strong>
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOrcamentoCarregado(null)}
+            className="h-6 px-2 text-[11px] text-muted hover:text-danger"
+            title="Desvincular Orçamento"
+          >
+            Desvincular
+          </Button>
+        </div>
+      )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(300px,340px)] xl:grid-rows-[minmax(0,1fr)]">
         {/* Coluna 1 — cliente + produtos */}

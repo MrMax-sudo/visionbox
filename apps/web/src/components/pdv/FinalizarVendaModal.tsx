@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, AlertCircle, Info, Plus, Trash2, Wallet } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Plus, Trash2, Wallet, Calendar } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ type CartItem = { sku: string; nome: string; qtd: number; preco: number };
 interface FinalizarVendaModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirmar: (pagamentos: PagamentoConfirmado[]) => void;
+  onConfirmar: (pagamentos: PagamentoConfirmado[], previsaoEntrega?: string) => void;
   itens: CartItem[];
   subtotal: number;
   desconto: number;
@@ -62,16 +62,6 @@ function currency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-/**
- * Finalizar Venda (PDV) — rateio multi-forma + MDR (§3.5).
- *
- * Linhas de cartão (débito/crédito) ganham seleção de maquininha e, no crédito,
- * de parcelas (1–12), com preview de taxa/líquido em tempo real (`calcular-liquido`,
- * debounced + abort). O preview é só exibição: o backend recalcula e persiste a
- * verdade no finalizar — o front NUNCA persiste taxa.
- * Sem maquininha selecionada em loja com POS: envia sem `maquininhaId` (o pagamento
- * fica com MDR pendente e o backend registra WARN) — hint discreto, venda nunca trava.
- */
 export function FinalizarVendaModal({
   open,
   onClose,
@@ -87,6 +77,14 @@ export function FinalizarVendaModal({
 }: FinalizarVendaModalProps) {
   const [pagamentos, setPagamentos] = React.useState<PagamentoLinha[]>([]);
   const [erro, setErro] = React.useState<string | null>(null);
+
+  const [previsaoEntrega, setPrevisaoEntrega] = React.useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    d.setHours(17, 0, 0, 0);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  });
 
   const formasQuery = useQuery({
     queryKey: ['formas-pagamento'],
@@ -252,7 +250,8 @@ export function FinalizarVendaModal({
       };
     });
     setErro(null);
-    onConfirmar(linhas);
+    const dataIso = previsaoEntrega ? new Date(previsaoEntrega).toISOString() : undefined;
+    onConfirmar(linhas, dataIso);
   }
 
   return (
@@ -471,6 +470,25 @@ export function FinalizarVendaModal({
             <span>{erro}</span>
           </div>
         )}
+
+        {/* Prazo de Entrega prometido ao Cliente */}
+        <div className="rounded-card border border-border bg-page p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-primary flex items-center gap-1.5">
+              <Calendar className="h-4 w-4 text-brand" /> Prazo de Entrega dos Óculos (Prometido ao Cliente):
+            </label>
+            <span className="text-[10px] text-muted">Data e hora exatas</span>
+          </div>
+          <Input
+            type="datetime-local"
+            value={previsaoEntrega}
+            onChange={(e) => setPrevisaoEntrega(e.target.value)}
+            className="h-8 bg-card text-xs font-medium"
+          />
+          <p className="text-[11px] text-secondary">
+            Este prazo com exatidão constará na OS, no cupom e no Portal de Rastreio do cliente.
+          </p>
+        </div>
 
         {/* Confirmação do Documento / Cupom */}
         {tipoCupom && onTipoCupomChange && (

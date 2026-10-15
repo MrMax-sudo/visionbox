@@ -852,4 +852,56 @@ public class OrdemServicoService {
         return repository.findByIdAndLojaId(id, lojaId)
                 .orElseThrow(() -> new EntityNotFoundException("OS não encontrada"));
     }
+
+    @Transactional
+    public OrdemServicoResponse atualizarPrevisaoEntrega(UUID id, OffsetDateTime novaPrevisao, String motivo, String operador) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        OrdemServico os = repository.findByIdAndLojaId(id, lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("OS não encontrada"));
+
+        OffsetDateTime antiga = os.getPrevisaoEntrega();
+        os.setPrevisaoEntrega(novaPrevisao);
+        os.setAlertaAtrasoDisparado(false);
+
+        EventoOS evento = EventoOS.builder()
+                .lojaId(lojaId)
+                .ordemServico(os)
+                .deStatus(os.getStatus())
+                .paraStatus(os.getStatus())
+                .dataHora(OffsetDateTime.now(clock))
+                .responsavel(operador != null && !operador.isBlank() ? operador : "operador")
+                .observacao("Prazo de entrega atualizado para " + novaPrevisao.toString() + (motivo != null && !motivo.isBlank() ? " — Motivo: " + motivo : ""))
+                .build();
+        os.addEvento(evento);
+        os = repository.save(os);
+        log.info("Prazo de entrega atualizado loja={} id={} novaPrevisao={}", lojaId, id, novaPrevisao);
+        return mapper.toResponse(os);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> buscarAlertas() {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        OffsetDateTime agora = OffsetDateTime.now(clock);
+        OffsetDateTime umDiaAtras = agora.minusDays(1);
+        List<StatusOS> concluidos = List.of(StatusOS.ENTREGUE, StatusOS.CANCELADO, StatusOS.DEVOLVIDO_GARANTIA);
+
+        List<OrdemServicoResponse> atrasadas = repository
+                .findByLojaIdAndPrevisaoEntregaBeforeAndStatusNotIn(lojaId, agora, concluidos)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+
+        List<OrdemServicoResponse> semMovimentacao = repository
+                .findSemMovimentacao(lojaId, umDiaAtras, concluidos)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+
+        return Map.of(
+                "totalAtrasadas", atrasadas.size(),
+                "atrasadas", atrasadas,
+                "totalSemMovimentacao", semMovimentacao.size(),
+                "semMovimentacao", semMovimentacao
+        );
+    }
 }

@@ -64,4 +64,11 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, UUID
             @Param("numero") String numero,
             @Param("clienteId") UUID clienteId,
             Pageable pageable);
+
+    @Query("SELECT o FROM OrdemServico o WHERE o.lojaId = :lojaId AND o.ativo = true AND o.status NOT IN :excluidos " +
+           "AND NOT EXISTS (SELECT e FROM EventoOS e WHERE e.ordemServico = o AND e.dataHora >= :limite)")
+    List<OrdemServico> findSemMovimentacao(
+            @Param("lojaId") UUID lojaId,
+            @Param("limite") OffsetDateTime limite,
+            @Param("excluidos") Collection<StatusOS> excluidos);
 }

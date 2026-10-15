@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  Calendar,
   Clock,
   Glasses,
   Lock,
@@ -12,6 +13,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { ErrorState } from '@/components/ui/error-state';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,7 +49,12 @@ export default function OSDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const perfil = useAuthStore((s) => s.user?.perfil);
+  const user = useAuthStore((s) => s.user);
   const podeMover = podeMovimentarOS(perfil);
+
+  const [alterarPrazoOpen, setAlterarPrazoOpen] = React.useState(false);
+  const [novoPrazo, setNovoPrazo] = React.useState('');
+  const [motivoPrazo, setMotivoPrazo] = React.useState('');
 
   const [printOpen, setPrintOpen] = React.useState(false);
   const [labModalOpen, setLabModalOpen] = React.useState(false);
@@ -83,6 +91,37 @@ export default function OSDetail() {
   });
 
   /* ---------------- Mutations ---------------- */
+
+  const alterarPrazoMutation = useMutation({
+    mutationFn: async () => {
+      if (!novoPrazo) throw new Error('Selecione a nova data e hora');
+      const isoPrazo = new Date(novoPrazo).toISOString();
+      const res = await apiClient.patch<OrdemServicoDTO>(`/v1/ordens-servico/${id}/previsao-entrega`, {
+        previsaoEntrega: isoPrazo,
+        responsavel: user?.nome ?? 'operador',
+        motivo: motivoPrazo || 'Ajuste de prazo manual pelo usuário',
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['ordem-servico', id], data);
+      queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
+      setAlterarPrazoOpen(false);
+      setMotivoPrazo('');
+      toast({
+        title: 'Prazo de entrega atualizado',
+        description: 'O novo prazo foi registrado na timeline e já reflete no portal do cliente.',
+        variant: 'success',
+      });
+    },
+    onError: (err: ApiError) => {
+      toast({
+        title: 'Não foi possível alterar o prazo',
+        description: err.message,
+        variant: 'destructive',
+      });
+    },
+  });
 
   const gerarLabTokenMutation = useMutation({
     mutationFn: async () => {
@@ -204,9 +243,35 @@ export default function OSDetail() {
                 <StatusBadge status={status} />
                 <SlaChip tone={sla} />
               </h1>
-              <p className="mt-1 truncate text-sm text-secondary">
-                {clienteNome} • criada em {fmtDateTime(os.criadoEm)} • previsão{' '}
-                {fmtDateTime(previsao)}
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
+                <span>{clienteNome}</span>
+                <span>•</span>
+                <span>criada em {fmtDateTime(os.criadoEm)}</span>
+                <span>•</span>
+                <span>previsão <strong className="font-semibold text-primary">{fmtDateTime(previsao)}</strong></span>
+                {podeMover && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (previsao) {
+                        try {
+                          const d = new Date(previsao);
+                          const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                            .toISOString()
+                            .slice(0, 16);
+                          setNovoPrazo(localIso);
+                        } catch {
+                          setNovoPrazo('');
+                        }
+                      }
+                      setAlterarPrazoOpen(true);
+                    }}
+                    className="h-6 px-1.5 text-xs text-brand hover:text-brand-dark"
+                  >
+                    <Calendar className="mr-1 h-3.5 w-3.5" aria-hidden /> Alterar Prazo
+                  </Button>
+                )}
               </p>
               <p className="mt-0.5 text-xs text-muted">
                 Responsável atual: {historico[historico.length - 1]?.responsavel ?? 'sistema'}
@@ -380,6 +445,70 @@ export default function OSDetail() {
           window.open(url, '_blank', 'noopener');
         }}
       />
+
+      {/* ---------------- Modal Alterar Prazo da OS ---------------- */}
+      <Dialog open={alterarPrazoOpen} onClose={() => setAlterarPrazoOpen(false)}>
+        <div className="p-6">
+          <div className="flex items-center gap-3 text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-brand">
+              <Calendar className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Alterar Prazo de Entrega</h2>
+              <p className="text-xs text-muted">Defina a data e hora exata prometida ao cliente para a OS {displayNumber}.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <label className="text-xs font-medium text-secondary">
+                Nova Data e Hora de Previsão <span className="text-danger">*</span>
+              </label>
+              <Input
+                type="datetime-local"
+                value={novoPrazo}
+                onChange={(e) => setNovoPrazo(e.target.value)}
+                className="mt-1"
+                min={new Date().toISOString().slice(0, 16)}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-secondary">
+                Motivo / Justificativa da Alteração
+              </label>
+              <Input
+                type="text"
+                placeholder="Ex: Atraso na entrega dos blocos pelo laboratório Essilor"
+                value={motivoPrazo}
+                onChange={(e) => setMotivoPrazo(e.target.value)}
+                className="mt-1 text-sm"
+              />
+              <span className="text-[11px] text-muted">
+                Esta informação fica registrada no histórico auditável da OS.
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAlterarPrazoOpen(false)}
+              disabled={alterarPrazoMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => alterarPrazoMutation.mutate()}
+              disabled={alterarPrazoMutation.isPending || !novoPrazo}
+            >
+              {alterarPrazoMutation.isPending ? 'Salvando…' : 'Salvar Novo Prazo'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

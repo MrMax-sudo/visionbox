@@ -76,4 +76,24 @@ public class OrdemServicoController {
                 "fullUrl", "/rastreio/" + token
         ));
     }
+
+    @PatchMapping("/{id}/previsao-entrega")
+    public OrdemServicoResponse atualizarPrevisaoEntrega(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body
+    ) {
+        String dataStr = body.get("previsaoEntrega");
+        if (dataStr == null || dataStr.isBlank()) {
+            throw new IllegalArgumentException("O campo 'previsaoEntrega' é obrigatório.");
+        }
+        java.time.OffsetDateTime novaPrevisao = java.time.OffsetDateTime.parse(dataStr);
+        String motivo = body.get("motivo");
+        String operador = body.get("operador");
+        return service.atualizarPrevisaoEntrega(id, novaPrevisao, motivo, operador);
+    }
+
+    @GetMapping("/alertas")
+    public Map<String, Object> buscarAlertas() {
+        return service.buscarAlertas();
+    }
 }

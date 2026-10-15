@@ -92,18 +92,21 @@ export function ComprovanteImpressao({
     .filter(Boolean)
     .join(', ') || 'Rua das Óticas, 100 - Centro, São Paulo - SP';
 
-  const handlePrint = () => {
+  const htmlDocument = React.useMemo(() => {
     const dados: DadosImpressao = {
       osNumero,
       data,
       empresa: {
         nome: empresa?.nome,
+        razaoSocial: empresa?.razaoSocial || empresa?.nome,
         cnpj: empresa?.cnpj,
+        inscricaoEstadual: empresa?.inscricaoEstadual,
         endereco: empresa?.endereco,
         numero: empresa?.numero,
         bairro: empresa?.bairro,
         cidade: empresa?.cidade,
         uf: empresa?.uf,
+        cep: empresa?.cep,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
         logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
@@ -126,16 +129,90 @@ export function ComprovanteImpressao({
       grauOE,
     };
 
+    if (formato === 'ORCAMENTO') {
+      return gerarHtmlOrcamento(dados);
+    }
+    if (formato === 'DANFE') {
+      return gerarHtmlDanfeNfe(dados);
+    }
     if (formato === 'NFCE') {
-      executarImpressao(gerarHtmlNfce(dados));
-    } else if (formato === 'DANFE') {
-      executarImpressao(gerarHtmlDanfeNfe(dados));
-    } else if (formato === 'ORCAMENTO') {
-      executarImpressao(gerarHtmlOrcamento(dados));
-    } else {
-      executarImpressao(gerarHtmlReciboNaoFiscal(dados));
+      return gerarHtmlNfce(dados);
+    }
+    return gerarHtmlReciboNaoFiscal(dados);
+  }, [
+    osNumero,
+    data,
+    empresa,
+    clienteNome,
+    clienteCpf,
+    clienteTelefone,
+    clienteEndereco,
+    itens,
+    subtotal,
+    desconto,
+    total,
+    formaPagamento,
+    chaveNfce,
+    protocoloNfce,
+    formato,
+    grauOD,
+    grauOE,
+  ]);
+
+  const handlePrint = () => {
+    executarImpressao(htmlDocument);
+  };
+
+  const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    const iframe = e.currentTarget;
+    try {
+      if (iframe.contentDocument) {
+        const bodyH = iframe.contentDocument.body?.scrollHeight || 0;
+        const docH = iframe.contentDocument.documentElement?.scrollHeight || 0;
+        const finalH = Math.max(bodyH, docH);
+        if (finalH > 200) {
+          iframe.style.height = `${finalH + 20}px`;
+        }
+      }
+    } catch {
+      // fallback safe
     }
   };
+
+  const getTipoDescricao = () => {
+    switch (formato) {
+      case 'ORCAMENTO':
+        return {
+          titulo: 'Orçamento Comercial (A4)',
+          detalhe: 'Proposta comercial formal em folha A4 com dados da ótica, cliente, termos e assinaturas.',
+          largura: 'w-full max-w-[780px]',
+          minAltura: 'min-h-[920px]',
+        };
+      case 'DANFE':
+        return {
+          titulo: 'DANFE NF-e Mod. 55 (A4)',
+          detalhe: 'Documento Auxiliar da Nota Fiscal Eletrônica oficial padrão SEFAZ em folha A4.',
+          largura: 'w-full max-w-[780px]',
+          minAltura: 'min-h-[960px]',
+        };
+      case 'NFCE':
+        return {
+          titulo: 'DANFE NFC-e Mod. 65 (80mm)',
+          detalhe: 'Cupom fiscal eletrônico para impressora térmica de bobina 80mm com QR Code oficial.',
+          largura: 'w-[350px]',
+          minAltura: 'min-h-[580px]',
+        };
+      default:
+        return {
+          titulo: 'Recibo Não-Fiscal (80mm)',
+          detalhe: 'Comprovante térmico de venda de 80mm para controle da loja e do cliente.',
+          largura: 'w-[340px]',
+          minAltura: 'min-h-[520px]',
+        };
+    }
+  };
+
+  const descAtual = getTipoDescricao();
 
   return (
     <div className="space-y-3">
@@ -184,165 +261,36 @@ export function ComprovanteImpressao({
         </div>
       </div>
 
-      {/* Visualização de Bobina Térmica 80mm Centralizada e Fiel ao Template */}
-      <div className="flex justify-center bg-gray-100 dark:bg-gray-900/50 p-3 sm:p-5 rounded-card border border-border max-h-[60vh] overflow-y-auto">
-        <section
-          id="area-comprovante-impressao"
-          aria-label="Comprovante da venda"
-          className="w-full max-w-[320px] bg-white p-5 text-black shadow-md rounded-[2px] border border-gray-300 text-[11px] leading-tight select-text"
-          style={{ fontFamily: "'Lucida Console', 'Consolas', 'Courier New', monospace" }}
+      {/* Informativo do Formato Ativo */}
+      <div className="flex items-center justify-between px-3 py-1.5 rounded border border-border bg-card-soft text-xs text-secondary">
+        <div>
+          <strong className="text-primary font-semibold">{descAtual.titulo}:</strong>{' '}
+          <span>{descAtual.detalhe}</span>
+        </div>
+      </div>
+
+      {/* Pré-visualização Real 1:1 Correspondente ao Modelo Selecionado */}
+      <div className="flex justify-center bg-gray-200/90 dark:bg-gray-950/80 p-3 sm:p-5 rounded-card border border-border max-h-[62vh] overflow-y-auto">
+        <div
+          className={`${descAtual.largura} ${descAtual.minAltura} bg-white shadow-2xl rounded-[3px] border border-gray-300 overflow-hidden transition-all duration-150`}
         >
-          {/* Cabeçalho Empresa */}
-          <div className="text-center">
-            <h4 className="font-bold text-xs uppercase tracking-wide">
-              {empresa?.nome || 'VISIONBOX ÓTICA MATRIZ'}
-            </h4>
-            <div className="text-[10px] text-gray-700 leading-tight mt-1">
-              <div>CNPJ: {cnpjFormatado}</div>
-              <div>{enderecoEmpresa}</div>
-              <div>Fone: {contatoEmpresa}</div>
-            </div>
-          </div>
-
-          <div className="my-2 border-b border-dashed border-black" />
-          <h4 className="font-bold text-xs text-center uppercase tracking-wider">
-            {formato === 'ORCAMENTO'
-              ? 'ORÇAMENTO COMERCIAL'
-              : formato === 'CUPOM'
-                ? 'CUPOM NÃO FISCAL'
-                : formato === 'NFCE'
-                  ? (chaveNfce ? 'DANFE NFC-e (MOD. 65)' : 'NFC-e (MOD. 65) — PENDENTE SEFAZ')
-                  : (chaveNfce ? 'DANFE NF-e (MOD. 55)' : 'NF-e (MOD. 55) — PENDENTE SEFAZ')}
-          </h4>
-          <div className="my-2 border-b border-dashed border-black" />
-
-          {/* Dados da Venda / Orçamento */}
-          <div className="text-[11px] space-y-0.5">
-            <div className="flex justify-between">
-              <span>{formato === 'ORCAMENTO' ? 'Orçamento N°:' : 'Venda / OS N°:'}</span>
-              <strong className="font-bold">{osNumero}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Data:</span>
-              <span>{dataFormatada}</span>
-            </div>
-            {formato === 'ORCAMENTO' && (
-              <div className="flex justify-between">
-                <span>Validade:</span>
-                <span className="font-semibold text-gray-700">15 dias</span>
-              </div>
-            )}
-          </div>
-
-          <div className="my-2 border-b border-dashed border-black" />
-
-          {/* Dados do Cliente */}
-          <div className="text-[11px] space-y-0.5">
-            <div><strong>CLIENTE:</strong> {clienteNome.toUpperCase()}</div>
-            <div><strong>CPF:</strong> {clienteCpf || 'CONSUMIDOR FINAL'}</div>
-            {clienteTelefone && <div><strong>Fone:</strong> {clienteTelefone}</div>}
-            {clienteEndereco && <div><strong>End.:</strong> {clienteEndereco}</div>}
-          </div>
-
-          {(grauOD || grauOE) && (
-            <>
-              <div className="my-2 border-b border-dashed border-black" />
-              <div className="text-[10px]">
-                <strong>PRESCRIÇÃO ÓTICA:</strong>
-                {grauOD && <div>OD: {grauOD}</div>}
-                {grauOE && <div>OE: {grauOE}</div>}
-              </div>
-            </>
-          )}
-
-          <div className="my-2 border-b border-dashed border-black" />
-
-          {/* Tabela de Itens */}
-          <table className="w-full text-left text-[11px]">
-            <thead>
-              <tr className="border-b border-black text-[10px] uppercase">
-                <th className="py-1">Item</th>
-                <th className="py-1 text-right">Qtd</th>
-                <th className="py-1 text-right">Unit.</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itens.map((it, idx) => (
-                <tr key={idx} className="border-b border-gray-100">
-                  <td className="py-1 pr-1">{it.nome}</td>
-                  <td className="py-1 text-right">{it.qtd}</td>
-                  <td className="py-1 text-right">R$ {it.preco.toFixed(2)}</td>
-                  <td className="py-1 text-right font-bold">R$ {(it.preco * it.qtd).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="my-2 border-b border-dashed border-black" />
-
-          {/* Totais */}
-          <table className="w-full text-[11px] font-bold">
-            <tbody>
-              <tr>
-                <td>Subtotal:</td>
-                <td className="text-right">R$ {subtotal.toFixed(2)}</td>
-              </tr>
-              {desconto > 0 && (
-                <tr>
-                  <td>Desconto:</td>
-                  <td className="text-right">-R$ {desconto.toFixed(2)}</td>
-                </tr>
-              )}
-              <tr className="text-xs">
-                <td className="pt-1 font-black">TOTAL:</td>
-                <td className="pt-1 text-right font-black">R$ {total.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="my-2 border-b border-dashed border-black" />
-
-          {/* Pagamento */}
-          <div className="text-[11px]">
-            <div className="font-bold">PAGAMENTO:</div>
-            <div className="flex justify-between mt-0.5">
-              <span>{formaPagamento}</span>
-              <span className="font-bold">R$ {total.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="my-3 border-b border-dashed border-black" />
-          {formato === 'ORCAMENTO' ? (
-            <div className="text-[10px] text-center text-gray-700 mt-2 leading-tight">
-              <div className="font-semibold">Proposta comercial válida por 15 dias.</div>
-              <div className="text-[9px] mt-0.5 text-gray-500">Valores e itens sujeitos a confirmação de disponibilidade de estoque.</div>
-              <div className="border-t border-gray-400 mt-5 pt-1 font-semibold text-[10px]">
-                Assinatura do Vendedor / Ótica
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="text-center font-bold text-[11px] leading-tight">
-                OBRIGADO PELA PREFERENCIA!<br />
-                Volte Sempre &#9829;
-              </div>
-              <div className="my-2 border-b border-dashed border-black" />
-              <div className="text-[9px] text-center text-gray-600 mt-2 leading-tight">
-                Garantia: 90 dias contra defeitos de fabricação na armação e adaptação de lentes conforme CDC.
-                <div className="border-t border-gray-400 mt-4 pt-1">
-                  Assinatura do Cliente / Comprovante de Retirada
-                </div>
-              </div>
-            </>
-          )}
-        </section>
+          <iframe
+            key={formato}
+            title={`Pré-visualização ${descAtual.titulo}`}
+            srcDoc={htmlDocument}
+            onLoad={handleIframeLoad}
+            className="w-full border-0 bg-white"
+            style={{
+              minHeight: formato === 'ORCAMENTO' || formato === 'DANFE' ? '920px' : '540px',
+            }}
+          />
+        </div>
       </div>
 
       {/* Ação de impressão */}
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 pt-1">
         <Button onClick={handlePrint} className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm">
-          <Printer className="h-4 w-4" aria-hidden /> Imprimir {formato === 'ORCAMENTO' ? 'Orçamento (A4)' : formato === 'CUPOM' ? 'Recibo 80mm' : formato === 'NFCE' ? 'NFC-e (Mod. 65)' : 'DANFE (Mod. 55)'}
+          <Printer className="h-4 w-4" aria-hidden /> Imprimir {descAtual.titulo}
         </Button>
       </div>
     </div>

@@ -69,4 +69,15 @@ public class OrcamentoController {
         }
         return service.converterEmVenda(id, vendaId);
     }
+
+    @PutMapping("/{id}")
+    public OrcamentoResponse atualizar(@PathVariable UUID id, @Valid @RequestBody OrcamentoRequest req) {
+        return service.atualizar(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable UUID id) {
+        service.excluir(id);
+    }
 }

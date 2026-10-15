@@ -4,7 +4,9 @@ import { apiClient } from '@/lib/apiClient';
 export type EmpresaConfig = {
   id: string;
   nome: string;
+  razaoSocial?: string;
   cnpj?: string;
+  inscricaoEstadual?: string;
   telefone?: string;
   whatsapp?: string | null;
   emailContato?: string;
