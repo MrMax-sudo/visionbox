@@ -631,11 +631,11 @@ public class ModuloConfiguracaoService {
         Loja loja = lojaRepository.findById(lojaId)
                 .orElseThrow(() -> new IllegalArgumentException("Loja não encontrada: " + lojaId));
 
-        configuracaoRepository.deleteAllByLojaId(lojaId);
+        moduloRepository.deleteAll(moduloRepository.findByLojaId(lojaId));
         usuarioRepository.findAllByLojaId(lojaId, org.springframework.data.domain.Pageable.unpaged())
                 .forEach(usuarioRepository::delete);
         if (formaPagamentoRepository != null) {
-            formaPagamentoRepository.deleteAll(formaPagamentoRepository.findAllByLojaId(lojaId));
+            formaPagamentoRepository.deleteAll(formaPagamentoRepository.findByLojaId(lojaId));
         }
 
         lojaRepository.delete(loja);

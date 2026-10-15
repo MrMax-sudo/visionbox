@@ -8,6 +8,7 @@ import java.util.UUID;
 
     public interface FormaPagamentoRepository extends JpaRepository<FormaPagamento, UUID> {
     Optional<FormaPagamento> findByIdAndLojaId(UUID id, UUID lojaId);
+    List<FormaPagamento> findByLojaId(UUID lojaId);
     List<FormaPagamento> findByLojaIdAndAtivoTrue(UUID lojaId);
     Optional<FormaPagamento> findByLojaIdAndPadraoTrue(UUID lojaId);
 
