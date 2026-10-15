@@ -66,7 +66,6 @@ import com.visionbox.modules.usuario.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ModuloConfiguracaoService {
 
@@ -85,6 +84,35 @@ public class ModuloConfiguracaoService {
     private final PasswordEncoder passwordEncoder;
     private final FormaPagamentoRepository formaPagamentoRepository;
     private final CategoriaRepository categoriaRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ModuloConfiguracaoService(
+            ModuloConfiguracaoLojaRepository moduloRepository,
+            LojaRepository lojaRepository,
+            LogAuditoriaRepository logAuditoriaRepository,
+            ObjectMapper objectMapper,
+            UsuarioRepository usuarioRepository,
+            PasswordEncoder passwordEncoder,
+            FormaPagamentoRepository formaPagamentoRepository,
+            CategoriaRepository categoriaRepository) {
+        this.moduloRepository = moduloRepository;
+        this.lojaRepository = lojaRepository;
+        this.logAuditoriaRepository = logAuditoriaRepository;
+        this.objectMapper = objectMapper;
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.formaPagamentoRepository = formaPagamentoRepository;
+        this.categoriaRepository = categoriaRepository;
+    }
+
+    /** Construtor para testes unitários isolados de regras de módulos. */
+    public ModuloConfiguracaoService(
+            ModuloConfiguracaoLojaRepository moduloRepository,
+            LojaRepository lojaRepository,
+            LogAuditoriaRepository logAuditoriaRepository,
+            ObjectMapper objectMapper) {
+        this(moduloRepository, lojaRepository, logAuditoriaRepository, objectMapper, null, null, null, null);
+    }
 
     // =====================================================================
     // Autorização / identidade do operador (JWT)
