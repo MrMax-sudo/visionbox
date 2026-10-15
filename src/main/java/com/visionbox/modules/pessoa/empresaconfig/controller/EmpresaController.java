@@ -3,6 +3,8 @@ package com.visionbox.modules.pessoa.empresaconfig.controller;
 import com.visionbox.modules.pessoa.empresaconfig.dto.EmpresaRequest;
 import com.visionbox.modules.pessoa.empresaconfig.dto.EmpresaResponse;
 import com.visionbox.modules.pessoa.empresaconfig.service.EmpresaConfigService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
