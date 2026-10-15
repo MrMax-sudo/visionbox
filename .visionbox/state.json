@@ -1,7 +1,13 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T10:05:00-03:00",
+  "updated_at": "2026-10-15T10:22:00-03:00",
+  "banco_virgem_novo_cliente": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T10:22:00-03:00",
+    "backup_gerado": "/home/mrmax/backup_antes_zerar_20261015.sql",
+    "resumo": "Banco de dados limpo para novo cliente. Tabelas transacionais zeradas (clientes, produtos, estoques, OS, orçamentos, vendas, caixas, documentos fiscais). Preservados: tenant loja, usuários admin (admin@visionbox.com.br / admin123) e desenvolvedor, 7 categorias canônicas de ótica, e 4 formas de pagamento (PIX, DINHEIRO, DEBITO, CREDITO) ativas."
+  },
   "correcao_baixa_estorno_estoque": {
     "status": "concluido",
     "updated_at": "2026-10-15T10:05:00-03:00",

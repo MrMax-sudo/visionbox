@@ -1,6 +1,12 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Correção de Baixa Imediata de Estoque na Venda PDV e Estorno Físico no Cancelamento Concluídos** ✅. Suíte de testes e validações íntegras.
+> **Atualizado em:** 2026-10-15 — **Banco Virgem para Novo Cliente e Correção de Estoque Concluídos** ✅. Suíte de testes e validações íntegras.
+
+## Banco Virgem para Novo Cliente (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Purge e Reinicialização do Banco** | Zerar o app para entrega a novo cliente, mantendo o sistema em estado virgem. | Backup de segurança gerado na VPS (`/home/mrmax/backup_antes_zerar_20261015.sql`, 227K). Executado `TRUNCATE TABLE ... RESTART IDENTITY CASCADE` em todas as 31 tabelas transacionais e dados de teste (clientes, produtos, estoques, lotes, OS, eventos, pagamentos, orçamentos, vendas, contas a pagar/receber, caixas, documentos fiscais, auditoria e outbox). Preservados: tenant matriz `loja`, usuários admin (`admin@visionbox.com.br` / `admin123`) e desenvolvedor, as 7 categorias canônicas de ótica e as 4 formas de pagamento essenciais ativas no PDV (PIX, DINHEIRO, DÉBITO, CRÉDITO). Containers reiniciados com healthcheck `UP` e login admin validado via HTTPS. | `zerar_banco.sql`, `audit.sql` ✅ |
 
 ## Correção de Baixa de Estoque na Venda e Estorno no Cancelamento (2026-10-15, ✅ concluído)
 
