@@ -114,14 +114,21 @@
     }
   },
   "flowbox_ajustes": {
-    "status": "em_andamento",
-    "updated_at": "2026-10-15T07:45:00-03:00",
+    "status": "concluido",
+    "updated_at": "2026-10-15T10:25:00-03:00",
     "pedido": "AJUSTES FLOWBOX.md: busca topbar, filtro por clientes, vinculo nota-cliente, botao consulta SEFAZ, templates fiels as referencias, contadores",
     "decisoes": {
       "contadores": "Sim - ROLE_USER com multiplos vinculos CNPJ (escopo ja suporta) + tela /usuarios no painel + botoes emissao/cancelamento visiveis",
       "sintegra": "Fora deste ciclo (backlog; perguntas P10-P14 no relatorio de analise)",
       "templates": "HTML imprimivel (motor Thymeleaf + window.print, fiel as referencias em templates recibos)",
       "vinculo_nota_cliente": "Join por CNPJ (sem migration V8); coluna Cliente nas listas resolvendo nome via /empresas"
+    },
+    "evidencia": {
+      "commit": "flowbox e27d8ec (push)",
+      "testes": "394 verdes (mvn test, 0 falhas); ImpressaoRestControllerIntegrationTest 3/3",
+      "deploy": "VPS: container novo 2026-10-15T10:15 -03:00; smoke /sefaz/status, /admin/usuarios, /metricas e /metricas?cnpj= todos 200",
+      "producao": "cupom NFC-e 090/2 -> 200 text/html 24KB; DANFE 55 cancelada -> 200 82KB com marca d'agua; metricas?cnpj=40187613000102 filtrado (19 emitidos)",
+      "higiene": "usuario de teste escopo-e2e@flowbox.com.br desvinculado (0 CNPJs, fail-closed); nenhuma nota emitida na validacao"
     }
   },
   "wave_in_progress": [],

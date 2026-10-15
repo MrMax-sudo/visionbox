@@ -50,6 +50,21 @@
 
 **Resultado (2026-10-15):** implementado em 7 frentes paralelas + suíte única. Migration `V7__vinculo_usuario_empresa` (`tb_usuario_empresa usuario_id+cnpj`, índice em `cnpj` + índice `idx_documento_cnpj`), `UsuarioEmpresaEntity/Repository`, `EscopoService` (`exigir(cnpj)`/`cnpjsPermitidos()`/`exigirAdministrador()`; flag `outbox.fiscal.escopo.habilitado` default true), enforcement em 11 controllers, admin API, `EscopoCnpjIntegrationTest` (9 cenários de isolamento). **391 testes verdes** (`mvn test`, 0 falhas). Commit Flowbox `a786b17` (push). Deploy VPS: V7 aplicada ("now at version v7"), `/admin/usuarios` 200. Validação em produção: usuário novo sem vínculo → lista vazia e 403 em `?cnpj=` fora do escopo; admin vincula `40187613000102` → efeito imediato (200); chave VisionBox `fb_Hc85...` é do `admin@flowbox.com.br` (ROLE_ADMIN → irrestrito, nenhuma provisionamento necessário, emissão nunca bloqueada). Usuário de teste `escopo-e2e@flowbox.com.br` criado na validação (sem emissão de nota — cliente orientou que validação não gera documento fiscal).
 
+## Flowbox — AJUSTES FLOWBOX.md itens 1–6 (2026-10-15, ✅ concluída)
+
+> **Pedido do cliente:** remover busca do topbar; filtro por clientes na Visão geral; vínculo direto nota↔cliente; botão de consulta à SEFAZ por nota; templates fiéis às referências `templates recibos`; uso por contadores. Sem emissão de nota para validar (orientação do cliente).
+
+| Item | Resultado | Evidência |
+|---|---|---|
+| 1. Busca do topbar | Removida (era código morto: `#globalSearchInput` sem handler) + `filterSidebarMenu`, `linhaDocumento`, CSS órfão | grep zero referências; `node --check` OK |
+| 2. Filtro por cliente (Visão geral) | Select de empresa emissora repassa `?cnpj=` a `/documentos` e `/documentos/metricas` (back novo); atividades filtradas; 403 tratado com aviso | `metricas?cnpj=40187613000102` → 200 filtrado em prod |
+| 3. Vínculo nota/certificado ↔ cliente | Coluna "Cliente" em Documentos/Certificados/Atividades por join CNPJ→`/empresas` (fallback CNPJ formatado) | lista 8 colunas em `aplicarFiltroDocumentos` |
+| 4. Consulta SEFAZ por nota | Botão na linha e no detalhe → `GET /nfce/consultar?chave&certificadoId` com cert A1 do CNPJ do doc; sem cert → desabilitado com aviso | `ConsultaRestController.java:34-45` |
+| 5. Templates fiéis | `GET /api/v1/impressao/cupom/{chave}` e `/danfe/{chave}`: HTML auto-suficiente Thymeleaf, QR/barcode SVG server-side (ZXing, sem CDN), valores REAIS do XML (`vTotTrib` IBPT, `ICMSTot`, CST/CSOSN), banner/marca d'água CANCELADA, contingência | prod: cupom 090/2 → 200 (24 KB); DANFE 55 cancelada → 200 (82 KB); `ImpressaoRestControllerIntegrationTest` 3/3 |
+| 6. Contadores | Contador = `ROLE_USER` com múltiplos vínculos (escopo CNPJ); tela **Usuários** no painel: listagem, vincular/desvincular (chips), criar usuário com exibição única da `apiKey` | `telaUsuarios` + `/api/v1/admin/usuarios` |
+
+**SINTEGRA:** fora deste ciclo (backlog — perguntas P10-P14 registradas na análise). **Decisões do cliente:** contadores sim (sem role nova), templates HTML imprimível, join por CNPJ (sem migration V8).
+
 ## Fiscal — Produção: NF-e 55 E2E (emitida + cancelada) e consulta de chave (2026-10-15, ✅ concluída)
 
 > **Marco:** NF-e modelo 55 emitida **e** cancelada em PRODUCAO pela mesma cadeia VisionBox → Flowbox → SEFAZ-SP. Cada correção saiu da resposta crua da SEFAZ ou da referência OUTBOX — nada deduzido.
