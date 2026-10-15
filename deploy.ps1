@@ -39,7 +39,7 @@ Write-Host "`nConectando a VPS e aplicando atualizacoes..." -ForegroundColor Cya
 
 $remoteCmd = "cd /home/mrmax/PROJETOS/VisionBox && echo '=== VPS: Git pull ===' && git pull origin main && echo '=== VPS: Rebuilding containers ===' && docker compose up -d --build app web && echo '=== VPS: Limpando imagens dangling ===' && docker image prune -f && echo '=== VPS: Status ===' && docker compose ps"
 
-ssh -o BatchMode=yes -o ConnectTimeout=10 vps $remoteCmd
+ssh -o BatchMode=yes -o ConnectTimeout=10 mrmax@192.168.15.90 $remoteCmd
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`nErro durante a execucao do deploy na VPS." -ForegroundColor Red
     exit $LASTEXITCODE
