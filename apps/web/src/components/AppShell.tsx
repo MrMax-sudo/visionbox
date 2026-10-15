@@ -13,6 +13,7 @@ import {
   ClipboardList,
   CreditCard,
   Eye,
+  FileText,
   FolderKanban,
   Headphones,
   LayoutGrid,
@@ -93,6 +94,7 @@ const routeTitles: Record<string, string> = {
   '/os': 'Ordens de Serviço',
   '/financeiro': 'Financeiro',
   '/usuarios': 'Usuários',
+  '/fiscal': 'Configuração Fiscal',
   '/desenvolvedor': 'Painel do Desenvolvedor',
 };
 
@@ -437,6 +439,7 @@ function SidebarContent({
 }) {
   const user = useAuthStore((s) => s.user);
   const isDev = user?.perfil === 'DESENVOLVEDOR';
+  const isAdmin = user?.perfil === 'ADMIN' || isDev;
   const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
   const temModulo = useModulosStore((s) => s.temModulo);
   const itensVisiveis = React.useMemo(
@@ -447,6 +450,7 @@ function SidebarContent({
   const adminSubmenuItems: NavItem[] = [
     { label: 'Clientes', to: '/clientes', icon: Users },
     { label: 'Catálogo', to: '/catalogo', icon: Package },
+    ...(isAdmin ? [{ label: 'Configuração Fiscal', to: '/fiscal', icon: FileText }] : []),
     ...(isDev ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }] : []),
   ];
 

@@ -38,10 +38,26 @@ public class NfceEmitirRequest {
     /** Valor total para log/teste (não fiscal real) */
     private String valorTotal;
 
+    /**
+     * Destinatário. Para NF-e (55) a SEFAZ exige endereço completo (logradouro, número, bairro,
+     * município, UF e CEP); o Flowbox monta {@code enderDest} com esses campos. Para NFC-e (65)
+     * eles são opcionais (consumidor identificado só pelo CPF).
+     */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class DestinatarioRequest {
         private String cpf;
         private String nome;
+        /** IE do destinatário; quando informada e válida, vira indIEDest=1. */
+        private String inscricaoEstadual;
+        private String logradouro;
+        private String numero;
+        private String bairro;
+        /** Código IBGE de 7 dígitos. */
+        private String codigoMunicipio;
+        private String municipio;
+        private String uf;
+        /** CEP de 8 dígitos, sem pontuação. */
+        private String cep;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

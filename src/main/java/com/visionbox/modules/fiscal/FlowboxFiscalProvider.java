@@ -180,13 +180,23 @@ public class FlowboxFiscalProvider implements FiscalProvider {
             }
             payload.put("pagamentos", pagamentosList);
 
-            // Destinatário opcional
+            // Destinatário opcional. Para NF-e (55) o endereço é obrigatório (SEFAZ exige enderDest
+            // completo); para NFC-e (65) o consumidor identificado pelo CPF já basta.
             if (req != null && req.getDestinatario() != null && req.getDestinatario().getCpf() != null) {
                 String cpf = req.getDestinatario().getCpf().replaceAll("\\D", "");
                 if (cpf.length() == 11) {
+                    var dest = req.getDestinatario();
                     Map<String, Object> destMap = new LinkedHashMap<>();
                     destMap.put("cpf", cpf);
-                    destMap.put("nome", org.springframework.util.StringUtils.hasText(req.getDestinatario().getNome()) ? req.getDestinatario().getNome() : "Consumidor");
+                    destMap.put("nome", org.springframework.util.StringUtils.hasText(dest.getNome()) ? dest.getNome() : "Consumidor");
+                    if (org.springframework.util.StringUtils.hasText(dest.getInscricaoEstadual())) destMap.put("inscricaoEstadual", dest.getInscricaoEstadual().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getLogradouro())) destMap.put("logradouro", dest.getLogradouro().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getNumero())) destMap.put("numero", dest.getNumero().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getBairro())) destMap.put("bairro", dest.getBairro().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getCodigoMunicipio())) destMap.put("codigoMunicipio", dest.getCodigoMunicipio().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getMunicipio())) destMap.put("municipio", dest.getMunicipio().trim());
+                    if (org.springframework.util.StringUtils.hasText(dest.getUf())) destMap.put("uf", dest.getUf().trim().toUpperCase());
+                    if (org.springframework.util.StringUtils.hasText(dest.getCep())) destMap.put("cep", dest.getCep().replaceAll("\\D", ""));
                     payload.put("destinatario", destMap);
                 }
             }

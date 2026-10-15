@@ -1,4 +1,6 @@
-import { FileText, Loader2 } from 'lucide-react';
+import * as React from 'react';
+import { Ban, FileText, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,6 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/components/ui/use-toast';
+import { apiClient, ApiError } from '@/lib/apiClient';
 import { ComprovanteImpressao } from '@/components/pdv/ComprovanteImpressao';
 import type { VendaConcluida } from '@/components/pdv/pdvHelpers';
 
@@ -19,9 +25,14 @@ type VendaConcluidaDialogProps = {
   onAcompanhar: (osId: string) => void;
 };
 
+const JUSTIFICATIVA_PADRAO = 'Cancelamento solicitado no PDV';
+const JUSTIFICATIVA_MIN = 15;
+const JUSTIFICATIVA_MAX = 255;
+
 /**
  * Diálogo pós-venda: emissão da NFC-e (SEFAZ) + comprovante imprimível.
  * Prévia/orçamento (osId === 'PREVIA') não pode emitir fiscal nem navegar para OS.
+ * Inclui cancelamento de NFC-e (POST /v1/fiscal/nfce/cancelar) com painel inline.
  */
 export function VendaConcluidaDialog({
   venda,
@@ -30,9 +41,58 @@ export function VendaConcluidaDialog({
   onEmitir,
   onAcompanhar,
 }: VendaConcluidaDialogProps) {
+  const { toast } = useToast();
+  const [painelCancelamento, setPainelCancelamento] = React.useState(false);
+  const [justificativa, setJustificativa] = React.useState(JUSTIFICATIVA_PADRAO);
+  const [cancelando, setCancelando] = React.useState(false);
+  const [cancelada, setCancelada] = React.useState(false);
+
+  // Reseta o estado de cancelamento quando uma nova venda substitui a anterior
+  // (o componente permanece montado entre vendas — só `venda` muda).
+  React.useEffect(() => {
+    setPainelCancelamento(false);
+    setJustificativa(JUSTIFICATIVA_PADRAO);
+    setCancelada(false);
+  }, [venda?.chaveNfce, venda?.osId]);
+
   if (!venda) return null;
 
   const isPrevia = venda.osId === 'PREVIA';
+  // Cancelamento via /v1/fiscal/nfce/cancelar só se aplica a NFC-e (modelo 65).
+  const podeCancelarNfce =
+    venda.tipoDocumento !== 'CUPOM' && venda.tipoDocumento !== 'DANFE' && !!venda.chaveNfce && !cancelada;
+  const justificativaTrim = justificativa.trim();
+  const justificativaValida =
+    justificativaTrim.length >= JUSTIFICATIVA_MIN && justificativaTrim.length <= JUSTIFICATIVA_MAX;
+
+  async function handleConfirmarCancelamento() {
+    if (!venda?.chaveNfce || !justificativaValida || cancelando) return;
+    setCancelando(true);
+    try {
+      await apiClient.post('/v1/fiscal/nfce/cancelar', {
+        chaveAcesso: venda.chaveNfce,
+        justificativa: justificativaTrim,
+      });
+      setCancelada(true);
+      setPainelCancelamento(false);
+      toast({
+        title: 'NFC-e cancelada',
+        description: 'Cancelamento registrado na SEFAZ. O documento consta como cancelado.',
+        variant: 'success',
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.problem?.detail || err.problem?.message || err.message
+          : err instanceof Error
+            ? err.message
+            : 'Falha ao cancelar a NFC-e.';
+      // Painel permanece aberto para correção da justificativa / nova tentativa.
+      toast({ title: 'Falha ao cancelar NFC-e', description: msg, variant: 'destructive' });
+    } finally {
+      setCancelando(false);
+    }
+  }
 
   return (
     <Dialog
@@ -81,20 +141,103 @@ export function VendaConcluidaDialog({
                         ? 'Transmitindo para a SEFAZ via Flowbox...'
                         : `Aguardando transmissão para a SEFAZ via Flowbox`}
                   </p>
+                  {venda.protocoloNfce && (
+                    <p className="truncate text-xs text-secondary">
+                      Protocolo de autorização: {venda.protocoloNfce}
+                    </p>
+                  )}
                 </div>
               </div>
-              {!venda.chaveNfce && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={emitindo || isPrevia}
-                  onClick={onEmitir}
-                  aria-busy={emitindo}
-                >
-                  {emitindo && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />}
-                  {emitindo ? 'Emitindo...' : venda.tipoDocumento === 'DANFE' ? 'Emitir DANFE' : 'Emitir NFC-e'}
-                </Button>
+              {cancelada ? (
+                <Badge variant="danger" className="gap-1">
+                  <Ban className="h-3 w-3" aria-hidden /> Cancelada na SEFAZ
+                </Badge>
+              ) : (
+                !venda.chaveNfce && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={emitindo || isPrevia}
+                    onClick={onEmitir}
+                    aria-busy={emitindo}
+                  >
+                    {emitindo && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />}
+                    {emitindo ? 'Emitindo...' : venda.tipoDocumento === 'DANFE' ? 'Emitir DANFE' : 'Emitir NFC-e'}
+                  </Button>
+                )
               )}
+            </div>
+          )}
+
+          {/* Ação de cancelamento de NFC-e (somente documento autorizado com chave) */}
+          {podeCancelarNfce && !painelCancelamento && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-danger"
+                onClick={() => setPainelCancelamento(true)}
+              >
+                <Ban className="h-4 w-4" aria-hidden /> Cancelar NFC-e
+              </Button>
+            </div>
+          )}
+
+          {/* Painel inline de cancelamento — sem modal adicional */}
+          {podeCancelarNfce && painelCancelamento && (
+            <div
+              className="space-y-3 rounded-card border border-danger-light bg-page p-3"
+              role="group"
+              aria-label="Cancelamento de NFC-e"
+            >
+              <div className="rounded border border-warning-light bg-warning-light px-3 py-2 text-xs text-warning-dark">
+                A SEFAZ aceita o cancelamento de NFC-e em até 30 minutos após a autorização. Depois disso, use NF-e de
+                devolução ou pedido extemporâneo.
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nfce-justificativa-cancelamento" className="text-xs">
+                  Justificativa do cancelamento (mínimo {JUSTIFICATIVA_MIN} caracteres)
+                </Label>
+                <Textarea
+                  id="nfce-justificativa-cancelamento"
+                  value={justificativa}
+                  onChange={(e) => setJustificativa(e.target.value)}
+                  maxLength={JUSTIFICATIVA_MAX}
+                  disabled={cancelando}
+                  aria-invalid={justificativa.length > 0 && !justificativaValida}
+                  aria-describedby="nfce-justificativa-contador"
+                />
+                <p
+                  id="nfce-justificativa-contador"
+                  className={`text-xs ${justificativaValida ? 'text-secondary' : 'text-danger'}`}
+                >
+                  {justificativaTrim.length}/{JUSTIFICATIVA_MAX} caracteres
+                  {!justificativaValida && justificativaTrim.length < JUSTIFICATIVA_MIN && (
+                    <> — informe ao menos {JUSTIFICATIVA_MIN} caracteres.</>
+                  )}
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={cancelando}
+                  onClick={() => setPainelCancelamento(false)}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={!justificativaValida || cancelando}
+                  onClick={handleConfirmarCancelamento}
+                  aria-busy={cancelando}
+                >
+                  {cancelando && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />}
+                  {cancelando ? 'Cancelando...' : 'Confirmar cancelamento'}
+                </Button>
+              </div>
             </div>
           )}
 

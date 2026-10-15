@@ -23,6 +23,7 @@ const UserManagement = React.lazy(() => import('@/pages/UserManagement'));
 const LabPortal = React.lazy(() => import('@/pages/LabPortal'));
 const RastreioPortal = React.lazy(() => import('@/pages/RastreioPortal'));
 const PainelDesenvolvedor = React.lazy(() => import('@/pages/PainelDesenvolvedor'));
+const FiscalConfigPage = React.lazy(() => import('@/pages/FiscalConfigPage'));
 
 function PageLoading() {
   return (
@@ -93,6 +94,15 @@ function DevOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Configuração Fiscal expõe credenciais (CSC, chave API) — mesmo gate da aba no diálogo.
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.perfil !== 'ADMIN' && user?.perfil !== 'DESENVOLVEDOR') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -123,6 +133,7 @@ export default function App() {
           <Route path="os/:id" element={<LazyPage><GuardaModulo modulo="ORDEM_SERVICO"><OSDetail /></GuardaModulo></LazyPage>} />
           <Route path="financeiro" element={<LazyPage><GuardaModulo modulo="FINANCEIRO_COMPLETO"><Financeiro /></GuardaModulo></LazyPage>} />
           <Route path="usuarios" element={<LazyPage><UserManagement /></LazyPage>} />
+          <Route path="fiscal" element={<AdminOnly><LazyPage><FiscalConfigPage /></LazyPage></AdminOnly>} />
           <Route path="desenvolvedor" element={<DevOnly><LazyPage><PainelDesenvolvedor /></LazyPage></DevOnly>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

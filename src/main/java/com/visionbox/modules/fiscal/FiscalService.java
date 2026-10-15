@@ -77,9 +77,27 @@ public class FiscalService {
         // prePersist will set dhEmissao if null
         doc = repository.save(doc);
 
-        String xmlAssinado = req.getXmlAssinado() != null ? req.getXmlAssinado() : "<NFe><infNFe versao=\"4.00\"><ide><serie>" + serie + "</serie><nNF>" + numero + "</nNF></ide></infNFe></NFe>";
+        String xmlAssinado = xmlDaRequisicao(req, serie, numero);
 
         FiscalProvider.ResultadoFiscal resultado = fiscalProvider.emitir(doc, xmlAssinado, req);
+
+        // cStat 539 = "Duplicidade de NF-e com diferença na chave": o (CNPJ, modelo, série, número)
+        // já existe na SEFAZ, usado por OUTRO sistema — a UF não divulga o histórico de numeração,
+        // como aconteceu na série 090 (n. 3 e 4 de setembro/2026). Número veio automático e nada
+        // foi autorizado nesta tentativa → pula para o próximo e reemite. A linha só grava o
+        // resultado final, então o número pulado nunca vira documento.
+        int pulos539 = 0;
+        while (!resultado.autorizado() && "539".equals(resultado.codigoStatus())
+                && req.getNumero() == null && pulos539 < MAX_PULOS_539) {
+            pulos539++;
+            numero = numero + 1;
+            doc.setNumero(numero);
+            xmlAssinado = xmlDaRequisicao(req, serie, numero);
+            resultado = fiscalProvider.emitir(doc, xmlAssinado, req);
+            log.warn("cStat 539 na emissao loja={} modelo={} serie={}: numero {} ja usado por outro "
+                            + "sistema na SEFAZ; reemitindo com {} (pulo {}/{})",
+                    lojaId, modelo, serie, numero - 1, numero, pulos539, MAX_PULOS_539);
+        }
 
         // Persistir retorno do provider de forma generica; o mock tambem pode mutar doc.
         doc.setXmlEnviado(xmlAssinado);
@@ -121,6 +139,21 @@ public class FiscalService {
 
     /** Teto do motivo persistido: o Flowbox devolve o corpo HTTP inteiro, que pode passar de 100 kB. */
     private static final int MOTIVO_MAXIMO = 2000;
+
+    /** Máximo de números pulados por cStat 539 numa única emissão (histórico alheio na série). */
+    private static final int MAX_PULOS_539 = 5;
+
+    /**
+     * XML registrado em {@code xmlEnviado} quando o chamador não envia um: o XML que chega à SEFAZ
+     * é montado pelo Flowbox a partir de série/número do payload, então este rascunho é refeto a
+     * cada pulo de número do cStat 539.
+     */
+    private String xmlDaRequisicao(NfceEmitirRequest req, String serie, Integer numero) {
+        return req.getXmlAssinado() != null
+                ? req.getXmlAssinado()
+                : "<NFe><infNFe versao=\"4.00\"><ide><serie>" + serie + "</serie><nNF>" + numero
+                        + "</nNF></ide></infNFe></NFe>";
+    }
 
     /**
      * Cancela uma NFC-e autorizada desta loja (evento 110111 via Flowbox).
