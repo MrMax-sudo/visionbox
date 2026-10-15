@@ -17,15 +17,15 @@
       "V48 serie/numero configuraveis + V49 documento_fiscal.protocolo VARCHAR(20) (a SEFAZ-SP devolve nProt de 17 digitos, o XSD TProt=15 nao reflete o dado real)",
       "numeração max(numero)+1 da serie no mesmo ambiente; fiscal_serie_nfce=090, fiscal_numero_inicial_nfce=2",
       "grupo <infRespTec> emitido em producao (CNPJ, contato, email, fone) e <card><tpIntegra>2 em tPag 03/04/17",
-      "E2E ate cStat 100: nota 090/2 gravada AUTORIZADO com protocolo 13526007063048832; nota 090/5 emitida e cancelada (cStat 135)"
+      "E2E ate cStat 100: nota 090/2 gravada AUTORIZADO com protocolo 13526007063048832; nota 090/5 emitida e cancelada (cStat 135)",
+      "POST /api/v1/fiscal/nfce/cancelar CONCLUIDO (d39f433): payload completo do Flowbox (emitente/ambiente/certificado/protocolo da emissao, com busca no Flowbox quando ausente); 4xx do Flowbox expoe o cStat REAL (539/501) em vez de 503; E2E nota 090/6 cancelada a +16,5 min (cStat 135, CANCELADO no VisionBox e no Flowbox)"
     ],
     "pendencias": [
       "numeração colide com o histórico da SEFAZ: serie 090 n. 3 e 4 ja usados por OUTRO sistema em setembro/2026 (cStat 539 duplicidade com chave diferente) — definir serie/limite com o cliente",
       "gravar o XML autorizado (nfeProc) em documento_fiscal.xml_retorno: hoje guarda o envelope enviNFe (fallback do Flowbox xmlAutorizado=xmlEnvio)",
-      "mapear rejeicao do Flowbox com o cStat real (hoje vira codigoStatus 503 'Flowbox indisponivel'; o 539 aparece so dentro do texto)",
       "consulta de chave da Flowbox devolve HTTP 500 na SEFAZ-SP (SOAPAction/envelope a conferir contra OUTBOX)",
-      "POST /api/v1/fiscal/nfce/cancelar nao existe: FiscalProvider.cancelar() nao tem chamador e o payload Flowbox exige emitente/protocolo/ambiente",
-      "cancelamento: nota 090/5 cancelou a +1s (cStat 135), notas 090/1 e 090/2 rejeitadas com cStat 501 a partir de ~36 min — causa nao explicada; nota 090/1 nao tem linha no VisionBox (409 do protocolo 17 digitos reverteu a transacao); pausado a pedido do cliente",
+      "janela de cancelamento NFC-e = 30 min apos autorizacao (Ajuste SINIEF 07/2018, obrigatorio em todas as UFs): notas 090/1 e 090/2 ficaram fora e NAO sao mais cancelaveis por evento (AUTORIZADAS; so NF-e 55 de devolucao ou cancelamento extemporaneo na SEFAZ-SP); NF-e 55 segue 24h",
+      "UI sem acao de cancelar: o endpoint existe mas Painel/OS/PDV nao tem botao — hoje e API so",
       "quando consolidar o fiscal, voltar serie 090 -> 001",
       "TZ do HOST continua UTC (mudanca exige sudo com senha)"
     ]
@@ -110,7 +110,7 @@
   },
   "risks_top3": ["SEC-RLS-REAL-VALIDATION", "FLOWBOX-INTEGRATION", "SEC-RBAC-FINE-GRAINED"],
   "next_actions": [
-    "Fiscal: implementar POST /api/v1/fiscal/nfce/cancelar (provider ja fala com o Flowbox, falta endpoint + payload emitente/protocolo/ambiente) — cancelamento esta pausado pelo cliente",
+    "Fiscal: botao de cancelar na UI (a acao de cancelamento existe no backend e na SEFAZ, mas Painel/OS/PDV nao chama) — lembrar o operador da janela de 30 min da NFC-e",
     "Fiscal: definir serie/limite de numeracao com o cliente (serie 090 n. 3 e 4 ocupados na SEFAZ desde setembro/2026)",
     "Fiscal: gravar nfeProc e mapear cStat real do Flowbox na resposta do VisionBox",
     "qa: mvn test -Pintegration com Docker (IsolamentoTenantTest/IdempotenciaPDVTest — P1 checklist restante)",
@@ -120,6 +120,7 @@
     "Front/pre-existente: @media print no DANFE"
   ],
   "last_evidence": {
+    "fiscal_cancelamento_2026_10_14": "Cancelamento E2E concluido: POST /api/v1/fiscal/nfce/cancelar (novo, d39f433) -> Flowbox -> SEFAZ; nota 090/6 autorizada 20:21:14 e cancelada 20:37:45 (+16,5 min), cStat 135, protocolo do evento 13526007075279469, CANCELADO no VisionBox e no Flowbox; janela NFC-e = 30 min (Ajuste SINIEF 07/2018) confirmada por medicao propria (+1s e +16,5min = 135; +36..+60min = 501) e pela historia do OUTBOX (6 cancelamentos, todos +1..+9 min); 4xx do Flowbox agora devolve o cStat real (539/501) em vez de 503; mvn test verdes (+5 testes)",
     "fiscal_cstat100_2026_10_14": "Emissao NFC-e PRODUCAO autorizada na SEFAZ-SP e persistida: nota serie 090 n. 2 (chave 35261040187613000102650900000000021624523010, protocolo 13526007063048832, HTTP 201, AUTORIZADO/100) via cadeia VisionBox -> Flowbox -> SEFAZ; nota 090/5 emitida 15:07:40 e CANCELADA 15:07:41 (cStat 135, protocolo de evento 13526007064496914, Flowbox CANCELADO); V49 (protocolo VARCHAR(20)) + Flowbox REGEX_PROTOCOLO 20 + lerProtocolos lendo retEvento/infEvento (antes liamos o cStat 128 do lote e nunca o 135 do evento); nProt real de 17 digitos confirmado em autorizacao E em evento; n. 3/4 rejeitados 539 (serie 090 ocupada desde setembro/2026); mvn Flowbox verdes; commits VisionBox 0bb4a8f/1fe5d38 e Flowbox 5500adc/a2331db; containers app+flowbox com TZ America/Sao_Paulo",
     "onda_simultanea_2026_10_13": "Fases 2-5 Robustez ERP simultâneas + P1: V33 caixa (fechamento cego SOBRA/QUEBRA/EXATO, sangria/suprimento motivo obrigatório, extrato, relatório por modalidade) + V34 financeiro (conta_receber_pagamento, fornecedor CNPJ AES-GCM+HMAC, valor_aberto GENERATED, conta_pagar fornecedor/competencia) + V35 compras (parser XML NF-e XXE-safe zero dependências, de-para EAN, ContaPagar por duplicata, maquininha MDR HALF_EVEN, comissão GERAL/CATEGORIA idempotente) + V36 modulo_configuracao_loja (19 módulos, @RequerModulo interceptor 403 MODULO_NAO_CONTRATADO, planos START/PRO/ENTERPRISE, GuardaModulo + AppShell filtrado) + P1 draft validado 1:1 entidades JPA; SecurityConfig +compras +modulos; App.tsx rotas com GuardaModulo; mvn 344/344 verdes; typecheck 0 erros; build 2.29s",
     "onda2_pendencias_2026_10_13": "MDR plugado no pagamento do PDV (V37: ordem_servico_pagamento +taxa_valor/valor_liquido/maquininha_id; resolução maquininhaId→auto-resolve→null+WARN; tri-state isento/calculado/pendente) + comissão automática na finalização (try/catch nunca quebra venda, desconto rateado por categoria, OrdemServicoMdrComissaoTest 8/8); estorno de baixa soft-delete (POST .../pagamentos/{id}/estornar ADMIN/GERENTE/FINANCEIRO, valor_aberto GENERATED recalcula, CaixaMovimento ESTORNO) + OFX conciliado via baixar (FITID, lote nunca aborta) + botão estorno na PagamentosTimeline; preCadastrado @Transient sem DDL (badge Origem no modal de importação), fechamento de comissões com lancamentos[] por venda (totais derivados da mesma lista), GET /financeiro/comissoes/vendedores (VENDEDOR/OTICO ativos) e useVendedores sem degradação; RBAC fino caixa POST sangria/suprimento/fechar = ADMIN/GERENTE/FINANCEIRO no SecurityConfig (matcher antes do wildcard) + front esconde ações de VENDEDOR; FIX CRÍTICO: CaixaService.movimentar ENTRADA agora soma saldoEsperado (baixa em dinheiro na gaveta — antes fechamento cego apurava QUEBRA falsa), RECEBIMENTO_FIADO só entradas, ESTORNO simétrico (D-019 corrigido no javadoc/decisions); +4 testes CaixaServiceTest; decisions renumeradas D-017/D-018/D-019; mvn 374/374 verdes, typecheck 0, build verde",

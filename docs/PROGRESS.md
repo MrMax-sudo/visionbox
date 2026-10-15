@@ -12,6 +12,9 @@
 | Emissão autorizada | Série 090 nº 2 → **cStat 100** | chave `35261040187613000102650900000000021624523010`, protocolo `13526007063048832`, HTTP 201, `status=AUTORIZADO`, `codigoStatus=100`, linha em `documento_fiscal` (serie 090, numero 2, ambiente 1) |
 | Protocolo de 17 dígitos | `nProt` real da SEFAZ-SP é de **17 dígitos** (autorização **e** evento), não 15 do XSD `TProt` | `13526007062662399`, `13526007063048832`, `13526007064496914`; V49 `documento_fiscal.protocolo VARCHAR(20)` + `REGEX_PROTOCOLO`/`@Pattern` → `\d{1,20}` |
 | Cancelamento | Evento 110111 autorizado → **cStat 135** "Evento registrado e vinculado a NF-e" | nota 090/5 emitida 15:07:40 e cancelada **15:07:41**; protocolo do evento `13526007064496914`; Flowbox `status=CANCELADO` |
+| Cancelamento E2E pela cadeia | `POST /api/v1/fiscal/nfce/cancelar` (novo) → Flowbox → SEFAZ → `CANCELADO` nos **dois** sistemas | nota 090/6 autorizada 20:21:14, cancelada **20:37:45** (+16,5 min), cStat 135, evento `13526007075279469`, HTTP 200; commit `d39f433` |
+| Janela de cancelamento | NFC-e (65): **30 min** após autorização (Ajuste SINIEF 07/2018 / NT Confaz, obrigatório em todas as UFs desde 2019); NF-e (55) segue 24 h | medido: +1 s e +16,5 min → 135; +36/+38/+48/+60 min → 501. Referência OUTBOX confirma: os 6 cancelamentos da história foram a +1..+9 min |
+| cStat real na resposta | Rejeição do Flowbox (HTTP 4xx) expõe o cStat verdadeiro (539, 501) em vez de mascarar como `503 Flowbox indisponível` | `FlowboxFiscalProvider.lerRespostaFlowbox`, vale para emissão e cancelamento |
 | Parser de evento | `lerProtocolos` lia `protEvento` (tag inexistente) e reportava o **cStat 128 do lote**; agora lê `retEvento/infEvento` | Flowbox `5500adc` |
 | Conteúdo do XML | `<infRespTec>` completo (CNPJ `40.187.613/0001-02`, contato, email, fone), `<tpAmb>1`, `<card><tpIntegra>2` | XML devolvido pelo Flowbox |
 | Fuso | `TZ=America/Sao_Paulo` nos containers `app` e `flowbox` | logs `-03:00`; XMLs já eram `ZonedDateTime.now(America/Sao_Paulo)` (independentes do TZ do host) |
@@ -20,14 +23,15 @@
 
 **Descobertas que mudam a numeração:** série 090 nº **3 e 4 já usados por outro sistema na SEFAZ desde setembro/2026** → cStat 539 "Duplicidade de NF-e com diferença na Chave de Acesso". A numeração local `max(numero)+1` não conhece o histórico da SEFAZ.
 
-**Pendências abertas (cancelamento pausado a pedido do cliente):**
-1. Notas 090/1 e 090/2 rejeitadas com **cStat 501** ("Prazo de cancelamento superior ao previsto na Legislação") a partir de ~36 min; a 090/5 cancelou a +1 s. Causa ainda não explicada (XML de evento idêntico normalizado; `dhEmi` correto nas três).
-2. `POST /api/v1/fiscal/nfce/cancelar` não existe — `FiscalProvider.cancelar()` sem chamador e payload incompleto (falta emitente/protocolo/ambiente).
-3. Gravar `nfeProc` (XML autorizado) em `xml_retorno` — hoje guarda o envelope `enviNFe`.
-4. Rejeição do Flowbox vira `codigoStatus 503` "Flowbox indisponível"; o cStat real (539) só aparece dentro do texto.
-5. Consulta de chave da Flowbox → HTTP 500 da SEFAZ-SP.
-6. Nota 090/1 órfã (sem linha no VisionBox — o 409 do protocolo de 17 dígitos reverteu a transação antes do V49).
-7. Decisões do cliente: série/limite novo; série 090 → 001 ao consolidar; TZ do host (sudo).
+**Pendências abertas:**
+1. ~~cStat 501 sem causa~~ **Resolvido**: janela de 30 min para NFC-e (Ajuste SINIEF 07/2018) — notas 090/1 e 090/2 ficaram fora da janela e **não são mais canceláveis por evento** (ficam AUTORIZADAS; só NF-e 55 de devolução referenciando a chave ou cancelamento extemporâneo na SEFAZ-SP).
+2. ~~`POST /cancelar` inexistente~~ **Resolvido** (`d39f433`): endpoint + payload completo do Flowbox (emitente, ambiente, certificado, protocolo da emissão; sem protocolo gravado, busca no Flowbox).
+3. **UI sem ação de cancelar**: o endpoint existe, mas Painel/OS/PDV não têm botão de cancelamento — hoje é API só.
+4. Gravar `nfeProc` (XML autorizado) em `xml_retorno` — hoje guarda o envelope `enviNFe`.
+5. ~~cStat 503 mascarando o real~~ **Resolvido** (`d39f433`): 4xx do Flowbox devolve o cStat verdadeiro (539/501).
+6. Consulta de chave da Flowbox → HTTP 500 da SEFAZ-SP.
+7. Nota 090/1 órfã (sem linha no VisionBox — o 409 do protocolo de 17 dígitos reverteu a transação antes do V49).
+8. Decisões do cliente: série/limite novo (090 nº 3 e 4 ocupados na SEFAZ desde setembro/2026); série 090 → 001 ao consolidar; TZ do host (sudo).
 
 **Commits deste ciclo:** VisionBox `0bb4a8f` (V49) e `1fe5d38` (TZ app) · Flowbox `5500adc` (parser + regex) e `a2331db` (TZ) — todos pushados e deployados na VPS.
 
