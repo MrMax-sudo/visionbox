@@ -71,6 +71,16 @@
 
 **SINTEGRA:** fora deste ciclo (backlog — perguntas P10-P14 registradas na análise). **Decisões do cliente:** contadores sim (sem role nova), templates HTML imprimível, join por CNPJ (sem migration V8).
 
+**Extra entregue no mesmo commit:** reparo preexistente do modal "Alterar senha" (inputs renderizavam sem label/id e nunca validavam — bloqueava o contador de trocar a própria senha). Sessões legadas sem role no localStorage ganham role via `GET /auth/me` no bootstrap (item "Usuários" aparece só para `ROLE_ADMIN`; 403 tratado com aviso).
+
+**Pendências abertas (todas aguardam decisão do cliente):**
+1. SINTEGRA — backlog; precisa responder P10–P14 (UF, leiaute, formato, mensal vs sob demanda).
+2. Papéis granulares (OPERADOR/FISCAL/AUDITOR/INTEGRADOR) — proposta em `docs/PERMISSOES.md` (Flowbox, sem commit; diverge do modelo implementado).
+3. Recibo não fiscal 80mm e orçamento — domínio do VisionBox (venda/orçamento), não do Flowbox; repasse visual no VisionBox só se pedido.
+4. Rotação de chave de outro usuário pelo admin — `POST /auth/rotacionar-chave` é self-service; exige endpoint novo no back.
+5. README do Flowbox — rotas `/api/v1/impressao/**` fora da tabela de endpoints.
+6. Usuário de teste `escopo-e2e@flowbox.com.br` (0 vínculos, inofensivo) — remoção só via SQL, sem endpoint de exclusão.
+
 ## Fiscal — Produção: NF-e 55 E2E (emitida + cancelada) e consulta de chave (2026-10-15, ✅ concluída)
 
 > **Marco:** NF-e modelo 55 emitida **e** cancelada em PRODUCAO pela mesma cadeia VisionBox → Flowbox → SEFAZ-SP. Cada correção saiu da resposta crua da SEFAZ ou da referência OUTBOX — nada deduzido.

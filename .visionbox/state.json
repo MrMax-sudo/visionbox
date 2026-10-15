@@ -135,7 +135,19 @@
       "deploy": "VPS: container novo 2026-10-15T10:15 -03:00; smoke /sefaz/status, /admin/usuarios, /metricas e /metricas?cnpj= todos 200",
       "producao": "cupom NFC-e 090/2 -> 200 text/html 24KB; DANFE 55 cancelada -> 200 82KB com marca d'agua; metricas?cnpj=40187613000102 filtrado (19 emitidos)",
       "higiene": "usuario de teste escopo-e2e@flowbox.com.br desvinculado (0 CNPJs, fail-closed); nenhuma nota emitida na validacao"
-    }
+    },
+    "extras": {
+      "reparo_alterar_senha": "modal Alterar senha corrigido (inputs sem label/id nunca validavam)",
+      "role_no_bootstrap": "sessoes legadas ganham role via GET /auth/me; item Usuarios so para ROLE_ADMIN"
+    },
+    "pendencias": [
+      "SINTEGRA - backlog, aguarda P10-P14 (UF, leiaute, formato, periodicidade)",
+      "papeis granulares - proposta docs/PERMISSOES.md sem commit",
+      "recibo nao fiscal/orcamento 80mm ficam no VisionBox; repasse visual sob pedido",
+      "rotacao de chave de outro usuario pelo admin exige endpoint novo no back",
+      "README Flowbox: rotas /api/v1/impressao fora da tabela de endpoints",
+      "remocao do usuario de teste exige SQL (sem endpoint de exclusao)"
+    ]
   },
   "wave_in_progress": [],
   "p1_aplicacao": {
