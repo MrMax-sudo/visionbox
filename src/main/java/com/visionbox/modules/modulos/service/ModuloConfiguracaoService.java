@@ -401,7 +401,12 @@ public class ModuloConfiguracaoService {
 
         // Plano SaaS inicial
         String planoStr = req.plano() != null && !req.plano().isBlank() ? req.plano().trim().toUpperCase() : "PRO";
-        PlanoSaaS plano = PlanoSaaS.parseOuDefault(planoStr, PlanoSaaS.PRO);
+        PlanoSaaS plano = PlanoSaaS.PRO;
+        try {
+            plano = PlanoSaaS.deNome(planoStr);
+        } catch (Exception ignored) {
+            plano = PlanoSaaS.PRO;
+        }
         final String planoNomeEfetivo = plano.name();
         ModuloTenantScope.executar(novaLojaId, () -> aplicarPlano(novaLojaId, new AplicarPlanoRequest(planoNomeEfetivo), ipOrigem));
 
@@ -463,9 +468,10 @@ public class ModuloConfiguracaoService {
                 List<String> nomesCategorias = List.of(
                         "Armações", "Lentes", "Óculos de Sol", "Lentes de Contato", "Acessórios", "Serviços", "Lentes Oftálmicas"
                 );
-                List<Categoria> cats = nomesCategorias.stream()
-                        .map(n -> Categoria.builder().lojaId(novaLojaId).nome(n).build())
-                        .toList();
+                List<Categoria> cats = new java.util.ArrayList<>();
+                for (String n : nomesCategorias) {
+                    cats.add(Categoria.builder().lojaId(novaLojaId).nome(n).build());
+                }
                 categoriaRepository.saveAll(cats);
             } catch (Exception e) {
                 log.warn("Falha ao criar categorias canônicas para nova loja {}: {}", novaLojaId, e.getMessage());
