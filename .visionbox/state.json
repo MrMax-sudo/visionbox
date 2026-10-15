@@ -5,7 +5,7 @@
   "ajustes_ux_rbac_documentos": {
     "status": "concluido",
     "updated_at": "2026-10-15T01:40:00-03:00",
-    "sidebar_submenus": "Dashboard, PDV, Operacional (Receitas, OS), Financeiro (Caixas, Vendas, Compras, Maquininhas, Comissoes), Estoque (Catalogo). Submenus colapsaveis com animacao e filtro de modulos inativos do Painel DEV",
+    "sidebar_submenus": "Dashboard, PDV, Operacional (Receitas, OS), Financeiro (Caixas, Vendas, Compras, Maquininhas, Comissoes), Estoque (Catalogo), Administrativo (Usuarios, Fiscal, Painel Dev, Configuracoes). Submenus colapsaveis padronizados com suporte a tema claro e escuro",
     "online_indicator": "Removido status redundante (visivel apenas quando offline ou sincronizando)",
     "logo_sidebar": "Tamanho ampliado para 175px (expandido) e 44px (recolhido)",
     "scrollbar": "Barra de rolagem camuflada com utility .scrollbar-none",
@@ -16,7 +16,9 @@
     "roles_acessos": "ADMIN tem tudo exceto DEV; DESENVOLVEDOR acessa DEV, Usuarios, Fiscal; Fiscal restrito a ADMIN e DESENVOLVEDOR. 42 testes de seguranca verdes",
     "tunnel_hostname": "https://opticanacional.techboxbr.app.br/ configurado no nginx.conf (server_name com fallback para visionbox.techboxbr.app.br)",
     "layout_ativo_app": "App.tsx atualizado para utilizar o novo Layout com submenus, TooltipProvider e Toaster",
-    "pdv_orcamento": "Botao Orcamento no PDV gera proposta A4 comercial com numero proprio (ORC-...) e modal de impressao direto"
+    "pdv_orcamento": "Botao Orcamento no PDV gera proposta A4 comercial com numero proprio (ORC-...) e modal de impressao direto",
+    "pix_icon_fix": "Icone oficial do Pix do Banco Central integrado no ResumoVendaPanel",
+    "pdv_f4_removed": "Badge F4 removido do item PDV da sidebar"
   },
   "fiscal_emissao_fix": {
     "status": "EM_PRODUCAO_AUTORIZADO_CSTAT_100",

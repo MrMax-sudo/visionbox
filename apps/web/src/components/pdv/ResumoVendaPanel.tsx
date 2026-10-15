@@ -16,11 +16,8 @@ import { currency, type DescontoTipo } from '@/components/pdv/pdvHelpers';
 
 function PixIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M12 3.4 8.7 6.7a2.6 2.6 0 0 0 0 3.7L12 13.7l3.3-3.3a2.6 2.6 0 0 0 0-3.7L12 3.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m5.6 9.8-2.2 2.2 2.2 2.2a2.6 2.6 0 0 0 3.7 0l2.7-2.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m18.4 9.8 2.2 2.2-2.2 2.2a2.6 2.6 0 0 1-3.7 0L12 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m12 13.7-3.3 3.3a2.6 2.6 0 0 0 0 3.7L12 23.6l3.3-2.9a2.6 2.6 0 0 0 0-3.7L12 13.7Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M112.57 391.19c20.35 0 39.48-7.93 53.88-22.32l84.58-84.6 84.45 84.46c14.4 14.4 33.53 22.33 53.87 22.33 13.88 0 27.27-3.78 39.02-10.99l-61.9-61.9 6.27-6.28 77.29-77.29c15.11-15.11 15.11-39.7 0-54.81l-77.29-77.28-7.14-7.15 62.77-62.77c-11.75-7.21-25.14-10.99-39.02-10.99-20.35 0-39.48 7.93-53.88 22.33l-84.45 84.46-84.58-84.6c-14.4-14.4-33.53-22.33-53.88-22.33-13.88 0-27.27 3.78-39.02 10.99l62.77 62.77-7.14 7.15-77.29 77.28c-15.11 15.11-15.11 39.7 0 54.81l77.29 77.29 6.27 6.28-61.9 61.9c11.75 7.21 25.14 10.99 39.02 10.99zm-43.91-158.41l73.49-73.49 73.62 73.62-73.62 73.62-73.49-73.75zm223.75 73.75l-73.62-73.62 73.62-73.62 73.49 73.49-73.49 73.75z" />
     </svg>
   );
 }

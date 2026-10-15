@@ -23,6 +23,7 @@ import {
   Coins,
   Receipt,
   FileSpreadsheet,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toast';
@@ -242,7 +243,8 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
 
 interface SubmenuItem {
   label: string;
-  to: string;
+  to?: string;
+  onClick?: () => void;
   icon: React.ElementType;
   modulo?: string;
   shortcut?: string;
@@ -262,7 +264,7 @@ function SidebarSubmenu({
   locationPathname: string;
 }) {
   const isAnyActive = items.some((item) =>
-    item.to === '/' ? locationPathname === '/' : locationPathname === item.to || locationPathname.startsWith(item.to + '/')
+    item.to ? (item.to === '/' ? locationPathname === '/' : locationPathname === item.to || locationPathname.startsWith(item.to + '/')) : false
   );
   const [open, setOpen] = React.useState(isAnyActive);
 
@@ -275,24 +277,36 @@ function SidebarSubmenu({
   if (collapsed) {
     return (
       <div className="space-y-1">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              cn(
-                'vision-sidebar-link flex h-[38px] items-center justify-center rounded-[8px] text-[13px] font-medium transition-colors',
-                isActive
-                  ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
-                  : 'hover:bg-white/10',
-              )
-            }
-            title={`${label}: ${item.label}`}
-          >
-            <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
-          </NavLink>
-        ))}
+        {items.map((item, idx) =>
+          item.to ? (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'vision-sidebar-link flex h-[38px] items-center justify-center rounded-[8px] text-[13px] font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text'
+                    : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
+                )
+              }
+              title={`${label}: ${item.label}`}
+            >
+              <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+            </NavLink>
+          ) : (
+            <button
+              key={item.label || idx}
+              type="button"
+              onClick={item.onClick}
+              className="vision-sidebar-link flex h-[38px] w-full items-center justify-center rounded-[8px] text-[13px] font-medium transition-colors text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text cursor-pointer"
+              title={`${label}: ${item.label}`}
+            >
+              <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+            </button>
+          )
+        )}
       </div>
     );
   }
@@ -304,44 +318,53 @@ function SidebarSubmenu({
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           'vision-sidebar-link flex h-[38px] w-full items-center gap-2.5 rounded-[8px] px-3 text-[13.5px] font-medium transition-colors cursor-pointer',
-          isAnyActive ? 'bg-white/12 text-white font-semibold' : 'text-white/80 hover:bg-white/10 hover:text-white',
+          isAnyActive
+            ? 'bg-primary/10 text-primary font-semibold dark:bg-white/12 dark:text-white'
+            : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
         )}
         aria-expanded={open}
       >
         <Icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
         <span className="flex-1 text-left">{label}</span>
         <ChevronDown
-          className={cn('h-3.5 w-3.5 transition-transform duration-200 text-white/70', open && 'rotate-180')}
+          className={cn('h-3.5 w-3.5 transition-transform duration-200 text-muted dark:text-white/70', open && 'rotate-180')}
           strokeWidth={2}
           aria-hidden
         />
       </button>
 
       {open && (
-        <div className="ml-3.5 space-y-0.5 border-l border-white/20 pl-2.5 py-0.5 animate-in fade-in-50 duration-150">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                cn(
-                  'vision-sidebar-link flex h-[34px] items-center gap-2.5 rounded-[6px] px-2.5 text-[13px] font-normal transition-colors',
-                  isActive
-                    ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.45)] text-white font-semibold'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white',
-                )
-              }
-            >
-              <item.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.shortcut && (
-                <span className="vision-sidebar-shortcut rounded-[4px] bg-[var(--color-bg-panel)] px-1.5 py-0.5 text-[10px] font-semibold">
-                  {item.shortcut}
-                </span>
-              )}
-            </NavLink>
-          ))}
+        <div className="ml-3.5 space-y-0.5 border-l border-border/60 dark:border-white/20 pl-2.5 py-0.5 animate-in fade-in-50 duration-150">
+          {items.map((item, idx) =>
+            item.to ? (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  cn(
+                    'vision-sidebar-link flex h-[34px] items-center gap-2.5 rounded-[6px] px-2.5 text-[13px] font-normal transition-colors',
+                    isActive
+                      ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.45)] dark:text-white'
+                      : 'text-foreground/75 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/80 dark:hover:bg-white/10 dark:hover:text-white',
+                  )
+                }
+              >
+                <item.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
+                <span className="flex-1 truncate">{item.label}</span>
+              </NavLink>
+            ) : (
+              <button
+                key={item.label || idx}
+                type="button"
+                onClick={item.onClick}
+                className="vision-sidebar-link flex h-[34px] w-full items-center gap-2.5 rounded-[6px] px-2.5 text-[13px] font-normal transition-colors text-foreground/75 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/80 dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
+              >
+                <item.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
+                <span className="flex-1 truncate text-left">{item.label}</span>
+              </button>
+            )
+          )}
         </div>
       )}
     </div>
@@ -388,20 +411,22 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
     ...(podeAdminOuDev ? [{ label: 'Usuários', to: '/usuarios', icon: Users }] : []),
     ...(podeAdminOuDev && temModulo('FISCAL_FLOWBOX') ? [{ label: 'Fiscal', to: '/fiscal', icon: FileText, modulo: 'FISCAL_FLOWBOX' }] : []),
     ...(isDev ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }] : []),
+    { label: 'Configurações', onClick: onOpenConfig, icon: Settings },
   ];
 
   const exibePdv = temModulo('PDV_BALCAO');
 
   return (
     <aside className={cn(
-      'hidden shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex h-full min-h-screen',
+      'hidden shrink-0 flex-col border-r border-border bg-card text-foreground transition-[width] duration-200 md:flex h-full min-h-screen',
+      'dark:border-transparent dark:bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] dark:text-[var(--color-sidebar-text)]',
       collapsed ? 'w-[72px]' : 'w-[230px]',
     )}>
       <div className={cn('relative px-3 py-3.5 text-center', collapsed && 'px-1.5 py-2.5')}>
         <button
           type="button"
           onClick={onToggle}
-          className="group mx-auto flex items-center justify-center rounded-xl p-1.5 transition-all duration-200 hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
+          className="group mx-auto flex items-center justify-center rounded-xl p-1.5 transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:focus:ring-white/20 cursor-pointer"
           aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           title={collapsed ? 'Clique no logo para expandir o menu' : 'Clique no logo para recolher o menu'}
         >
@@ -430,8 +455,8 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
               'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
               collapsed ? 'justify-center px-0' : 'px-3',
               isActive
-                ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
-                : 'hover:bg-white/10',
+                ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text'
+                : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
             )
           }
           title={collapsed ? 'Dashboard' : undefined}
@@ -449,19 +474,14 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
                 'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
                 collapsed ? 'justify-center px-0' : 'px-3',
                 isActive
-                  ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
-                  : 'hover:bg-white/10',
+                  ? 'bg-primary/15 text-primary font-semibold dark:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)] dark:text-sidebar-text'
+                  : 'text-foreground/80 hover:bg-primary/10 hover:text-primary dark:text-sidebar-text/85 dark:hover:bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.24)] dark:hover:text-sidebar-text',
               )
             }
             title={collapsed ? 'PDV' : undefined}
           >
             <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
             {!collapsed && <span className="flex-1">PDV</span>}
-            {!collapsed && (
-              <span className="vision-sidebar-shortcut rounded-[6px] bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] font-semibold">
-                F4
-              </span>
-            )}
           </NavLink>
         )}
 
@@ -494,50 +514,23 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
 
         {/* 6. Administrativo */}
         {podeAdminOuDev && (
-          <>
-            <hr className={cn('my-3 border-white/20', collapsed ? 'mx-1' : 'mx-2')} />
-            {!collapsed && <h4 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-white/80">Administrativo</h4>}
-            {adminItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  cn(
-                    'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
-                    collapsed ? 'justify-center px-0' : 'px-3',
-                    isActive
-                      ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
-                      : 'hover:bg-white/10',
-                  )
-                }
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
-                {!collapsed && <span className="flex-1">{item.label}</span>}
-              </NavLink>
-            ))}
-            <button
-              type="button"
-              onClick={onOpenConfig}
-              className={cn(
-                'vision-sidebar-link flex h-[38px] w-full items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors hover:bg-white/10 cursor-pointer',
-                collapsed ? 'justify-center px-0' : 'px-3',
-              )}
-              title="Configurações"
-              aria-label="Configurações"
-            >
-              <Settings className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
-              {!collapsed && <span>Configurações</span>}
-            </button>
-          </>
+          <SidebarSubmenu
+            label="Administrativo"
+            icon={ShieldCheck}
+            items={adminItems}
+            collapsed={collapsed}
+            locationPathname={location.pathname}
+          />
         )}
       </nav>
 
       <div className={cn('p-3', collapsed && 'px-2')}>
-        <div className={cn('rounded-[10px] bg-white/14 p-3 text-white', collapsed && 'p-2')}>
+        <div className={cn(
+          'rounded-[10px] p-3 transition-colors border border-border bg-page text-foreground dark:border-transparent dark:bg-white/14 dark:text-white',
+          collapsed && 'p-2'
+        )}>
           <div className={cn('flex items-center gap-2.5', collapsed && 'justify-center')}>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-bg-panel)] text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:border-2 dark:border-[var(--color-bg-panel)] dark:bg-white/20 dark:text-white">
               <Headphones className="h-5 w-5" strokeWidth={1.8} />
             </span>
             {!collapsed && (
@@ -547,7 +540,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-white/80 underline-offset-2 hover:text-white hover:underline text-[11px]"
+                  className="font-semibold text-primary dark:text-white/80 underline underline-offset-2 hover:opacity-80 text-[11px]"
                 >
                   Suporte via WhatsApp
                 </a>
@@ -555,7 +548,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
             )}
           </div>
         </div>
-        {!collapsed && <p className="mt-3 px-1 text-xs text-white/60">VisionBox v0.1.0</p>}
+        {!collapsed && <p className="mt-3 px-1 text-xs text-muted dark:text-white/60">VisionBox v0.1.0</p>}
       </div>
     </aside>
   );
