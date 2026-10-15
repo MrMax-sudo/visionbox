@@ -1,7 +1,18 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T09:05:00-03:00",
+  "updated_at": "2026-10-15T10:05:00-03:00",
+  "correcao_baixa_estorno_estoque": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T10:05:00-03:00",
+    "descricao": "Correção de baixa física de estoque na criação de venda PDV e estorno físico no cancelamento de venda",
+    "detalhes": [
+      "EstoqueService: sincronização física de estoque_quantidade em Produto nos métodos baixar(), estornarVenda(), criarOuAjustar() e adicionar()",
+      "OrdemServicoService: ao criar OS concluída com pagamento (PDV), chama estoqueService.baixar() para todos os itens do carrinho e armação/lente",
+      "OrdemServicoService: ao transitar para CANCELADO a partir de venda confirmada, chama safeEstornarVenda() para repor armação e lente",
+      "VendaHistoricoService: no cancelamento de venda (/vendas), chama estoqueService.estornarVenda() repondo o estoque físico de armação e lente"
+    ]
+  },
   "entrega_orcamentos_prazo_alertas_timeline": {
     "status": "concluido",
     "updated_at": "2026-10-15T09:05:00-03:00",

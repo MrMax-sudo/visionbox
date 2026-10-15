@@ -210,7 +210,7 @@ public class OrdemServicoService {
         os = repository.save(os);
         log.info("OS criada loja={} numero={} status={} cliente={} armacao={} lente={} itensSKU={}", lojaId, numero, statusInicial, req.getClienteId(), efetivaArmacaoId, efetivaLenteId, itens!=null?itens.size():0);
 
-        // --- Integracao estoque: reservar 1 unidade de armacao/lente ou cada SKU do carrinho ---
+        // --- Integracao estoque: baixar estoque físico em vendas concluídas PDV ou reservar em orçamentos ---
         if (estoqueService != null && !produtosIdsParaReserva.isEmpty()) {
             for (UUID pid : produtosIdsParaReserva) {
                 // quantidade por item: tenta extrair do itens, default 1
@@ -224,19 +224,44 @@ public class OrdemServicoService {
                     }
                 }
                 try {
-                    estoqueService.reservar(lojaId, pid, qtd);
-                    log.info("Estoque reservado loja={} produto={} qtd={}", lojaId, pid, qtd);
+                    if (ehVendaConcluida) {
+                        estoqueService.baixar(lojaId, pid, qtd);
+                        log.info("Estoque baixado venda PDV loja={} produto={} qtd={}", lojaId, pid, qtd);
+                    } else {
+                        estoqueService.reservar(lojaId, pid, qtd);
+                        log.info("Estoque reservado loja={} produto={} qtd={}", lojaId, pid, qtd);
+                    }
                 } catch (Exception e) {
-                    log.warn("Falha ao reservar estoque loja={} produto={} erro={}", lojaId, pid, e.getMessage());
+                    log.warn("Falha ao movimentar estoque loja={} produto={} erro={}", lojaId, pid, e.getMessage());
                 }
             }
         } else if (estoqueService != null) {
             // fallback direto ids (caso produtoRepository nulo e itens eram SKU não resolvidos)
             if (efetivaArmacaoId != null) {
-                try { estoqueService.reservar(lojaId, efetivaArmacaoId, 1); log.info("Estoque reservado armacao loja={} produto={}", lojaId, efetivaArmacaoId); } catch (Exception e) { log.warn("Falha ao reservar armacao estoque loja={} produto={} erro={}", lojaId, efetivaArmacaoId, e.getMessage()); }
+                try {
+                    if (ehVendaConcluida) {
+                        estoqueService.baixar(lojaId, efetivaArmacaoId, 1);
+                        log.info("Estoque baixado venda PDV armacao loja={} produto={}", lojaId, efetivaArmacaoId);
+                    } else {
+                        estoqueService.reservar(lojaId, efetivaArmacaoId, 1);
+                        log.info("Estoque reservado armacao loja={} produto={}", lojaId, efetivaArmacaoId);
+                    }
+                } catch (Exception e) {
+                    log.warn("Falha ao movimentar armacao estoque loja={} produto={} erro={}", lojaId, efetivaArmacaoId, e.getMessage());
+                }
             }
             if (efetivaLenteId != null) {
-                try { estoqueService.reservar(lojaId, efetivaLenteId, 1); log.info("Estoque reservado lente loja={} produto={}", lojaId, efetivaLenteId); } catch (Exception e) { log.warn("Falha ao reservar lente estoque loja={} produto={} erro={}", lojaId, efetivaLenteId, e.getMessage()); }
+                try {
+                    if (ehVendaConcluida) {
+                        estoqueService.baixar(lojaId, efetivaLenteId, 1);
+                        log.info("Estoque baixado venda PDV lente loja={} produto={}", lojaId, efetivaLenteId);
+                    } else {
+                        estoqueService.reservar(lojaId, efetivaLenteId, 1);
+                        log.info("Estoque reservado lente loja={} produto={}", lojaId, efetivaLenteId);
+                    }
+                } catch (Exception e) {
+                    log.warn("Falha ao movimentar lente estoque loja={} produto={} erro={}", lojaId, efetivaLenteId, e.getMessage());
+                }
             }
         }
 
@@ -762,13 +787,23 @@ public class OrdemServicoService {
         if (estoqueService != null) {
             try {
                 if (novoStatus == StatusOS.ENTREGUE) {
-                    // Baixar estoque fisico e liberar reserva — tarefa exige baixarAoEntregue
-                    safeBaixarAoEntregue(lojaId, os.getArmacaoId());
-                    safeBaixarAoEntregue(lojaId, os.getLenteId());
+                    // Se veio de ORÇAMENTO (ainda não tinha sido baixado fisicamente no PDV), baixa agora
+                    boolean jaHaviaBaixado = (anterior != null && anterior != StatusOS.ORCAMENTO);
+                    if (!jaHaviaBaixado) {
+                        safeBaixarAoEntregue(lojaId, os.getArmacaoId());
+                        safeBaixarAoEntregue(lojaId, os.getLenteId());
+                    }
                 } else if (novoStatus == StatusOS.CANCELADO) {
-                    // Estornar reserva sem baixar fisico
-                    safeEstornar(lojaId, os.getArmacaoId());
-                    safeEstornar(lojaId, os.getLenteId());
+                    // Se era venda confirmada (estoque físico baixado na venda), estorna fisicamente!
+                    // Se era apenas orçamento (apenas reserva), estorna a reserva.
+                    boolean eraVendaConfirmada = (anterior != null && anterior != StatusOS.ORCAMENTO);
+                    if (eraVendaConfirmada) {
+                        safeEstornarVenda(lojaId, os.getArmacaoId());
+                        safeEstornarVenda(lojaId, os.getLenteId());
+                    } else {
+                        safeEstornar(lojaId, os.getArmacaoId());
+                        safeEstornar(lojaId, os.getLenteId());
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Falha movimentacao estoque avancar OS={} {}->{} erro={}", saved.getNumero(), anterior, novoStatus, e.getMessage());
@@ -822,6 +857,16 @@ public class OrdemServicoService {
             } catch (Exception e2) {
                 log.warn("Falha baixarAoEntregue produto={} erro={}", produtoId, e2.getMessage());
             }
+        }
+    }
+
+    private void safeEstornarVenda(UUID lojaId, UUID produtoId) {
+        if (produtoId == null || estoqueService == null) return;
+        try {
+            estoqueService.estornarVenda(lojaId, produtoId, 1);
+            log.info("Estoque estorno de venda física CANCELADO loja={} produto={}", lojaId, produtoId);
+        } catch (Exception ex) {
+            log.warn("Falha ao estornar venda produto={} loja={} erro={}", produtoId, lojaId, ex.getMessage());
         }
     }
 

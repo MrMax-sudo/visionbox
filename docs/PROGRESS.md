@@ -1,8 +1,15 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Orçamentos no PDV (CRUD/Carregar), Prazo de Entrega Estipulado na OS, Central de Notificações de OS Atrasadas/Sem Movimentação, Preview 1:1 de Documentos e Correção da Timeline Concluídos** ✅. Suíte de testes e Build Frontend (Vite) 100% verdes.
+> **Atualizado em:** 2026-10-15 — **Correção de Baixa Imediata de Estoque na Venda PDV e Estorno Físico no Cancelamento Concluídos** ✅. Suíte de testes e validações íntegras.
 
-## Melhorias de Orçamentos, Prazo de OS, Notificações e Layout de Timeline (2026-10-15, ✅ concluído)
+## Correção de Baixa de Estoque na Venda e Estorno no Cancelamento (2026-10-15, ✅ concluído)
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Baixa Física na Venda** | Venda realizada no PDV não baixava o estoque do produto. | Sincronizado `EstoqueService.java` com `ProdutoRepository`. No endpoint de criação de OS (`OrdemServicoService.java`), quando a venda é concluída com pagamento (`ehVendaConcluida == true`), executa `estoqueService.baixar(lojaId, pid, qtd)` para todos os itens do carrinho e armação/lente, decrementando a quantidade física em `estoque` e a coluna `estoque_quantidade` da tabela `produto`. | `EstoqueService.java`, `OrdemServicoService.java` ✅ |
+| **Estorno Físico no Cancelamento** | Cancelamento da venda / OS deve estornar o produto de volta para o estoque físico. | No avanço para `CANCELADO` (`OrdemServicoService.avancarInternal`), se a OS já era venda confirmada, chama `safeEstornarVenda()`. No cancelamento via módulo de vendas (`VendaHistoricoService.cancelar()`), invoca `estoqueService.estornarVenda(lojaId, armacaoId/lenteId, 1)`, devolvendo as quantidades físicas tanto na tabela `estoque` quanto na coluna `estoque_quantidade` de `Produto`. | `OrdemServicoService.java`, `VendaHistoricoService.java` ✅ |
+
+
 
 | Item | Solicitação | Solução Implementada | Evidência / Status |
 |---|---|---|---|

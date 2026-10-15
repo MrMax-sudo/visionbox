@@ -254,22 +254,22 @@ public class VendaHistoricoService {
         os.addEvento(evento);
         os = ordemServicoRepository.save(os);
 
-        // Estorno de estoque para armação e lentes
+        // Estorno de estoque físico para armação e lentes vendidas
         if (estoqueService != null) {
             if (os.getArmacaoId() != null) {
                 try {
-                    estoqueService.estornar(lojaId, os.getArmacaoId(), 1);
-                    log.info("Estoque armação estornado loja={} os={} prod={}", lojaId, os.getNumero(), os.getArmacaoId());
+                    estoqueService.estornarVenda(lojaId, os.getArmacaoId(), 1);
+                    log.info("Estoque físico de venda armação estornado loja={} os={} prod={}", lojaId, os.getNumero(), os.getArmacaoId());
                 } catch (Exception e) {
-                    log.warn("Falha ao estornar armação da OS {}: {}", os.getNumero(), e.getMessage());
+                    log.warn("Falha ao estornar venda armação da OS {}: {}", os.getNumero(), e.getMessage());
                 }
             }
             if (os.getLenteId() != null) {
                 try {
-                    estoqueService.estornar(lojaId, os.getLenteId(), 1);
-                    log.info("Estoque lente estornado loja={} os={} prod={}", lojaId, os.getNumero(), os.getLenteId());
+                    estoqueService.estornarVenda(lojaId, os.getLenteId(), 1);
+                    log.info("Estoque físico de venda lente estornado loja={} os={} prod={}", lojaId, os.getNumero(), os.getLenteId());
                 } catch (Exception e) {
-                    log.warn("Falha ao estornar lente da OS {}: {}", os.getNumero(), e.getMessage());
+                    log.warn("Falha ao estornar venda lente da OS {}: {}", os.getNumero(), e.getMessage());
                 }
             }
         }
