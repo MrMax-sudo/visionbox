@@ -1,6 +1,36 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **Menu do Avatar Corrigido e Provisionamento Multi-tenant Concluídos** ✅. Suíte de testes e validações íntegras.
+> **Atualizado em:** 2026-10-15 — **Plano e Matriz dos 19 Módulos SaaS Registrados** ✅. Menu do Avatar e Provisionamento Multi-tenant Concluídos.
+
+## Plano e Matriz dos 19 Módulos SaaS (`/desenvolvedor`) (2026-10-15, 📋 registrado)
+
+> **Contexto:** Alinhamento técnico e de produto sobre a matriz de 19 módulos SaaS exibida no Painel do Desenvolvedor (`/desenvolvedor`). A infraestrutura de modulação (R11) conta com controle granular por tenant, persistência na tabela `modulo_configuracao_loja`, interceptor backend `@RequerModulo` (HTTP 403) e proteção visual no frontend via `<GuardaModulo />` e filtros de rota/sidebar.
+
+### Status Atual dos 19 Módulos:
+
+| # | Código | Módulo | Pacote Padrão | Status Atual | Telas & Rotas Operacionais |
+|---|---|---|---|---|---|
+| 1 | `PDV_BALCAO` | PDV & Frente de Caixa | Start / Pro / Enterprise | ✅ 100% Operacional | `/pdv`, `/api/v1/vendas` — Venda balcão, carrinho, múltiplos pagamentos, recibo 80mm/Danfe |
+| 2 | `ORDEM_SERVICO` | Ordem de Serviço Ótica | Pro / Enterprise | ✅ 100% Operacional | `/os`, `/os/:id`, `/api/v1/ordens-servico` — Máquina 12 status, SLA, timeline, prescrições |
+| 3 | `RECEITAS_CLINICAS` | Receitas Oftálmicas | Pro / Enterprise | ✅ 100% Operacional | `/receitas`, `/api/v1/receitas` — CRUD receitas, esférico, cilíndrico, eixo, DNP, recall |
+| 4 | `CENTRAL_VENDAS` | Central de Vendas & Cupons | Start / Pro / Enterprise | ✅ 100% Operacional | `/vendas`, `/api/v1/vendas/historico` — Histórico, reimpressão térmica/Danfe, estorno físico de estoque |
+| 5 | `CAIXA_TURNOS` | Gestão de Caixa & Turnos | Start / Pro / Enterprise | ✅ 100% Operacional | `/caixas`, `/api/v1/caixa` — Turnos por operador, sangria, suprimento, fechamento cego |
+| 6 | `FINANCEIRO_COMPLETO` | Financeiro & DRE | Pro / Enterprise | ✅ 100% Operacional | `/financeiro`, `/maquininhas`, `/comissoes` — Contas a pagar/receber, conciliação e comissões |
+| 7 | `FISCAL_FLOWBOX` | Emissão Fiscal (NFC-e/NF-e) | Pro / Enterprise | ✅ 100% Operacional | `/fiscal`, `/api/v1/fiscal` — Integração Flowbox, certificado, CSC, contingência offline |
+| 8 | `COMPRAS_XML` | Compras & Importação XML | Enterprise | ✅ 100% Operacional | `/compras`, `/api/v1/compras` — Importação de XML de distribuidores e carga de estoque |
+| 9 | `ESTOQUE_LOTES` | Lotes & Validades ANVISA | Pro / Enterprise | 📋 Próxima Fase | Tabela e enum prontos; planejado controle FEFO/FIFO e validade de lentes de contato |
+| 10 | `ETIQUETAS` | Impressão de Etiquetas | Enterprise | ✅ 100% Operacional | `/etiquetas`, `/api/v1/etiquetas` — Impressão de etiquetas com código de barras para armações |
+| 11 | `SUGESTAO_COMPRAS` | Previsão & Sugestão Compras | Enterprise | 📋 Próxima Fase | Algoritmo de giro médio mensal e ponto de pedido automático |
+| 12 | `SCANNER_MOVEL` | Coletor Móvel / Scanner | Enterprise | 📋 Próxima Fase | Interface web mobile com leitor de código de barras via câmera para inventário |
+| 13 | `TABELAS_PRECO` | Tabelas de Preço & Convênios | Enterprise | 📋 Próxima Fase | Preços e descontos diferenciados por sindicato/parceria cadastrada |
+| 14 | `FIDELIDADE_PONTOS` | Programa de Fidelidade | Enterprise | 📋 Próxima Fase | Regra de pontuação por R$ gasto, cashback e resgate no PDV |
+| 15 | `ORCAMENTO_ONLINE` | Orçamento WhatsApp + PIN | Enterprise | ✅ 100% Operacional | `/orcamentos`, `/api/v1/orcamentos` — Proposta comercial A4 luxo, carregar no PDV com 1 clique |
+| 16 | `KITS_COMBOS` | Kits & Combos Promocionais | Enterprise | 📋 Próxima Fase | Cadastro de combos (ex: armação + lentes) com preço promocional e baixa múltipla |
+| 17 | `LAB_PORTAL` | Portal do Laboratório | Pro / Enterprise | ✅ 100% Operacional | `/lab/:token`, `/api/v1/laboratorios` — Link seguro HMAC 24h sem login para montadores externos |
+| 18 | `RASTREIO_CLIENTE` | Rastreio PWA do Cliente | Pro / Enterprise | ✅ 100% Operacional | `/rastreio/:token`, `/api/v1/ordens-servico` — Acompanhamento mobile da fabricação dos óculos |
+| 19 | `ALERTAS_TELEGRAM` | Notificações no Telegram | Enterprise | 📋 Próxima Fase | Webhook/bot para disparar alertas de sangrias e fechamentos de caixa em tempo real |
+
+---
 
 ## Menu do Avatar na Barra Superior (2026-10-15, ✅ concluído)
 
