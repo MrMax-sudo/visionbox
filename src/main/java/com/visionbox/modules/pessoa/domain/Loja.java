@@ -58,8 +58,11 @@ public class Loja {
     @Column
     private String site;
 
-    @Column(name = "logo_url")
+    @Column(name = "logo_url", columnDefinition = "TEXT")
     private String logoUrl;
+
+    @Column(name = "logo_base64", columnDefinition = "TEXT")
+    private String logoBase64;
 
     @Column(name = "flowbox_url")
     private String flowboxUrl;

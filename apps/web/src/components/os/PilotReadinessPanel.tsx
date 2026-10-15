@@ -104,7 +104,7 @@ export function PilotReadinessPanel({
         {!online && (
           <div className="flex items-center gap-2 rounded border border-danger-light bg-danger-light px-3 py-2 text-sm text-danger-dark">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-            <span>Modo offline ativo: ordens concluídas serão enfileiradas no outbox local.</span>
+            <span>Modo offline ativo: ordens concluídas serão guardadas com segurança no VisionBox para sincronização.</span>
           </div>
         )}
 

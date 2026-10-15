@@ -27,16 +27,17 @@ import {
 export interface ReceitaFormDialogProps {
   open: boolean;
   onClose: () => void;
+  receitaParaEditar?: ReceitaDTO | null;
 }
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MIME_OK = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 /**
- * ReceitaFormDialog — criação de receita óptica + upload de anexo.
+ * ReceitaFormDialog — criação e edição de receita óptica + upload de anexo.
  * O form guarda SOMENTE o UUID do cliente (combobox); grau segue ADR-002.
  */
-export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
+export function ReceitaFormDialog({ open, onClose, receitaParaEditar }: ReceitaFormDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -57,14 +58,42 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
     defaultValues: RECEITA_DEFAULT_VALUES,
   });
 
-  // Abertura: form limpo (antes o estado era zerado só no sucesso/cancelar)
+  // Abertura: form limpo ou pré-populado para edição
   React.useLayoutEffect(() => {
     if (!open) return;
-    reset(RECEITA_DEFAULT_VALUES);
-    setSelectedCliente(null);
+    if (receitaParaEditar) {
+      reset({
+        clienteId: receitaParaEditar.clienteId,
+        tipoLente: (receitaParaEditar.tipo as 'MONOFOCAL' | 'BIFOCAL' | 'MULTIFOCAL') || 'MONOFOCAL',
+        dp: receitaParaEditar.dp ?? 62,
+        od: {
+          esferico: receitaParaEditar.rawOd?.esferico ?? 0,
+          cilindrico: receitaParaEditar.rawOd?.cilindrico ?? 0,
+          eixo: receitaParaEditar.rawOd?.eixo ?? null,
+          adicao: receitaParaEditar.rawOd?.adicao ?? 0,
+        },
+        oe: {
+          esferico: receitaParaEditar.rawOe?.esferico ?? 0,
+          cilindrico: receitaParaEditar.rawOe?.cilindrico ?? 0,
+          eixo: receitaParaEditar.rawOe?.eixo ?? null,
+          adicao: receitaParaEditar.rawOe?.adicao ?? 0,
+        },
+        observacao: receitaParaEditar.observacao || '',
+      });
+      setSelectedCliente({
+        id: receitaParaEditar.clienteId,
+        nome: receitaParaEditar.clienteNome || 'Cliente',
+        cpf: '',
+        telefone: '',
+        lojaId: '',
+      });
+    } else {
+      reset(RECEITA_DEFAULT_VALUES);
+      setSelectedCliente(null);
+    }
     setFile(null);
     setUploadError(null);
-  }, [open, reset]);
+  }, [open, receitaParaEditar, reset]);
 
   // preview do anexo
   React.useEffect(() => {
@@ -77,9 +106,8 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (form: ReceitaForm) => {
-      // payload alinhado ao backend — grau criptografado (ADR-002)
       const payload = {
         clienteId: form.clienteId,
         tipoLente: form.tipoLente,
@@ -98,8 +126,14 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
         },
         observacao: form.observacao || null,
       };
-      const res = await apiClient.post<ReceitaDTO>('/v1/receitas', payload);
-      return res.data;
+
+      if (receitaParaEditar) {
+        const res = await apiClient.put<ReceitaDTO>(`/v1/receitas/${receitaParaEditar.id}`, payload);
+        return res.data;
+      } else {
+        const res = await apiClient.post<ReceitaDTO>('/v1/receitas', payload);
+        return res.data;
+      }
     },
   });
 
@@ -123,32 +157,35 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
   }
 
   const handleClose = () => {
-    if (isSubmitting || createMutation.isPending || uploadMutation.isPending) return;
+    if (isSubmitting || saveMutation.isPending || uploadMutation.isPending) return;
     onClose();
   };
 
   const onSubmit = async (form: ReceitaForm) => {
     setUploadError(null);
-    let created: ReceitaDTO | null = null;
+    let saved: ReceitaDTO | null = null;
     try {
-      created = await createMutation.mutateAsync(form);
-      if (file && created?.id) {
-        await uploadMutation.mutateAsync({ id: created.id, fileToUpload: file });
+      saved = await saveMutation.mutateAsync(form);
+      if (file && saved?.id) {
+        await uploadMutation.mutateAsync({ id: saved.id, fileToUpload: file });
       }
       queryClient.invalidateQueries({ queryKey: ['receitas'] });
       limparTudo();
-      toast({ title: 'Receita salva', description: 'Receita salva com sucesso.', variant: 'success' });
+      toast({
+        title: receitaParaEditar ? 'Receita atualizada' : 'Receita salva',
+        description: receitaParaEditar ? 'Os dados clínicos foram atualizados com sucesso.' : 'Receita criada com sucesso.',
+        variant: 'success',
+      });
       onClose();
     } catch (e) {
       const msg = apiErrorMessage(e, 'Falha ao salvar receita');
-      if (created) {
-        // receita já persistida — fecha o diálogo para não duplicar no reenvio
+      if (saved) {
         queryClient.invalidateQueries({ queryKey: ['receitas'] });
         limparTudo();
         onClose();
         toast({
           title: 'Anexo não enviado',
-          description: `Receita criada, mas o envio do anexo falhou: ${msg}`,
+          description: `Receita salva, mas o envio do anexo falhou: ${msg}`,
           variant: 'destructive',
         });
       } else {
@@ -175,14 +212,18 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
     setFile(f);
   };
 
-  const busy = isSubmitting || createMutation.isPending || uploadMutation.isPending;
+  const busy = isSubmitting || saveMutation.isPending || uploadMutation.isPending;
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Nova receita"
-      description="Informe os dados da prescrição e anexe a foto ou PDF quando disponível."
+      title={receitaParaEditar ? 'Editar receita' : 'Nova receita'}
+      description={
+        receitaParaEditar
+          ? 'Atualize os dados da prescrição óptica e anexo.'
+          : 'Informe os dados da prescrição e anexe a foto ou PDF quando disponível.'
+      }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="grid gap-4 md:grid-cols-2">
@@ -301,7 +342,7 @@ export function ReceitaFormDialog({ open, onClose }: ReceitaFormDialogProps) {
           </Button>
           <Button type="submit" variant="primary" disabled={busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-            Salvar receita
+            {receitaParaEditar ? 'Atualizar receita' : 'Salvar receita'}
           </Button>
         </div>
       </form>

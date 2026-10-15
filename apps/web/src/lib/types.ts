@@ -89,10 +89,18 @@ export type ReceitaDTO = {
   clienteId: string;
   clienteNome?: string;
   data: string; // ISO
+  dataValidade?: string;
   od: string; // ex: "-2.50 -1.25 x 180"
   oe: string;
+  rawOd?: GrauApiDTO;
+  rawOe?: GrauApiDTO;
   fotoUrl?: string | null;
   status?: string;
+  tipo?: string;
+  dp?: number;
+  observacao?: string;
+  nomeMedico?: string;
+  crmMedico?: string;
 };
 
 type GrauApiDTO = {
@@ -111,6 +119,9 @@ type ReceitaApiDTO = Omit<ReceitaDTO, 'od' | 'oe' | 'data'> & {
   criadoEm?: string;
   tipo?: string;
   anexoS3Key?: string | null;
+  observacao?: string;
+  nomeMedico?: string;
+  crmMedico?: string;
 };
 
 function formatGrau(grau: ReceitaApiDTO['od']): string {
@@ -130,8 +141,14 @@ export function normalizeReceita(raw: ReceitaApiDTO): ReceitaDTO {
     data,
     od: formatGrau(raw.od),
     oe: formatGrau(raw.oe),
+    rawOd: typeof raw.od === 'object' && raw.od !== null ? (raw.od as GrauApiDTO) : undefined,
+    rawOe: typeof raw.oe === 'object' && raw.oe !== null ? (raw.oe as GrauApiDTO) : undefined,
     fotoUrl: raw.fotoUrl ?? raw.anexoS3Key ?? null,
     status: raw.status ?? (raw.dataValidade ? 'VALIDA' : raw.tipo),
+    tipo: raw.tipo,
+    observacao: raw.observacao,
+    nomeMedico: raw.nomeMedico,
+    crmMedico: raw.crmMedico,
   };
 }
 

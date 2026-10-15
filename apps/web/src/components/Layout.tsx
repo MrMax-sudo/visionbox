@@ -16,33 +16,21 @@ import {
   Headphones,
   Settings,
   ChevronDown,
-  LogOut,
+  Briefcase,
+  Boxes,
+  FileText,
+  CreditCard,
+  Coins,
+  Receipt,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useEmpresaStore, whatsappSuporteUrl } from '@/stores/empresaStore';
+import { useModulosStore } from '@/stores/modulosStore';
 import { apiClient } from '@/lib/apiClient';
-import { FormasPagamentoConfig } from '@/components/config/FormasPagamentoConfig';
-import { EmpresaConfig } from '@/components/config/EmpresaConfig';
-
-type NavItem = {
-  label: string;
-  to: string;
-  icon: React.ElementType;
-  shortcut?: string;
-};
-
-const navItems: NavItem[] = [
-  { label: 'Dashboard', to: '/', icon: LayoutGrid },
-  { label: 'Clientes', to: '/clientes', icon: Users },
-  { label: 'Receitas', to: '/receitas', icon: Eye },
-  { label: 'Catálogo', to: '/catalogo', icon: Package },
-  { label: 'PDV', to: '/pdv', icon: ShoppingCart },
-  { label: 'OS', to: '/os', icon: ClipboardList },
-  { label: 'Financeiro', to: '/financeiro', icon: Wallet },
-];
+import { ConfiguracoesDialog } from '@/components/config/ConfiguracoesDialog';
 
 function useTheme() {
   const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
@@ -103,11 +91,8 @@ function SyncIndicator() {
       </span>
     );
   }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pdv-success-bg)] px-3 py-1.5 text-sm font-medium text-[var(--color-success-dark)]">
-      <span className="h-2 w-2 rounded-full bg-[var(--color-pdv-success)]" /> Online
-    </span>
-  );
+  // Quando online sem pendências, não exibe badge redundante
+  return null;
 }
 
 function NotificationBell() {
@@ -204,18 +189,9 @@ function NotificationBell() {
 }
 
 function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleTheme: () => void }) {
-  const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const title = location.pathname === '/pdv' ? 'PDV - Frente de caixa' : '';
-
-  const handleLogout = () => {
-    apiClient.post('/v1/auth/logout', undefined, { headers: { 'X-Skip-Idempotency-Key': 'true' } })
-      .finally(() => {
-        logout();
-        navigate('/login', { replace: true });
-      });
-  };
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--color-pdv-border-soft)] bg-[var(--color-pdv-surface)]/95 px-5 backdrop-blur">
@@ -250,43 +226,180 @@ function Header({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleThe
             size="icon" 
             className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] p-0"
             onClick={() => {}}
+            title={user?.nome || 'Usuário'}
           >
             <span className="text-sm font-semibold text-[var(--color-text-on-primary)]">
               {user?.nome?.charAt(0)?.toUpperCase() || 'U'}
             </span>
           </Button>
-          
-          <div className="absolute right-0 top-full z-30 mt-2 w-56 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-2 shadow-[var(--shadow-panel)] opacity-0 pointer-events-none transition-opacity group-hover:opacity-100">
-             {/* The trigger is simplified here, but I will implement a proper UserDropdown component next */}
-          </div>
         </div>
       </div>
     </header>
   );
 }
 
+interface SubmenuItem {
+  label: string;
+  to: string;
+  icon: React.ElementType;
+  modulo?: string;
+  shortcut?: string;
+}
+
+function SidebarSubmenu({
+  label,
+  icon: Icon,
+  items,
+  collapsed,
+  locationPathname,
+}: {
+  label: string;
+  icon: React.ElementType;
+  items: SubmenuItem[];
+  collapsed: boolean;
+  locationPathname: string;
+}) {
+  const isAnyActive = items.some((item) =>
+    item.to === '/' ? locationPathname === '/' : locationPathname === item.to || locationPathname.startsWith(item.to + '/')
+  );
+  const [open, setOpen] = React.useState(isAnyActive);
+
+  React.useEffect(() => {
+    if (isAnyActive) setOpen(true);
+  }, [isAnyActive]);
+
+  if (items.length === 0) return null;
+
+  if (collapsed) {
+    return (
+      <div className="space-y-1">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) =>
+              cn(
+                'vision-sidebar-link flex h-[38px] items-center justify-center rounded-[8px] text-[13px] font-medium transition-colors',
+                isActive
+                  ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
+                  : 'hover:bg-white/10',
+              )
+            }
+            title={`${label}: ${item.label}`}
+          >
+            <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+          </NavLink>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={cn(
+          'vision-sidebar-link flex h-[38px] w-full items-center gap-2.5 rounded-[8px] px-3 text-[13.5px] font-medium transition-colors cursor-pointer',
+          isAnyActive ? 'bg-white/12 text-white font-semibold' : 'text-white/80 hover:bg-white/10 hover:text-white',
+        )}
+        aria-expanded={open}
+      >
+        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          className={cn('h-3.5 w-3.5 transition-transform duration-200 text-white/70', open && 'rotate-180')}
+          strokeWidth={2}
+          aria-hidden
+        />
+      </button>
+
+      {open && (
+        <div className="ml-3.5 space-y-0.5 border-l border-white/20 pl-2.5 py-0.5 animate-in fade-in-50 duration-150">
+          {items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'vision-sidebar-link flex h-[34px] items-center gap-2.5 rounded-[6px] px-2.5 text-[13px] font-normal transition-colors',
+                  isActive
+                    ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.45)] text-white font-semibold'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white',
+                )
+              }
+            >
+              <item.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.shortcut && (
+                <span className="vision-sidebar-shortcut rounded-[4px] bg-[var(--color-bg-panel)] px-1.5 py-0.5 text-[10px] font-semibold">
+                  {item.shortcut}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; onToggle: () => void; onOpenConfig: () => void }) {
+  const location = useLocation();
   const { user } = useAuthStore();
-  const isAdmin = user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR';
+  const temModulo = useModulosStore((s) => s.temModulo);
   const whatsappUrl = whatsappSuporteUrl(useEmpresaStore((s) => s.empresa?.whatsapp));
 
-  const adminItems: NavItem[] = [
-    ...(isAdmin ? [{ label: 'Usuários', to: '/usuarios', icon: Users }] : []),
-    ...(user?.perfil === 'DESENVOLVEDOR' || user?.perfil === 'ADMIN'
-      ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }]
+  const isAdmin = user?.perfil === 'ADMIN';
+  const isDev = user?.perfil === 'DESENVOLVEDOR';
+  const podeAdminOuDev = isAdmin || isDev;
+
+  // Itens Operacionais
+  const operacionalItems: SubmenuItem[] = [
+    { label: 'Clientes', to: '/clientes', icon: Users },
+    ...(temModulo('RECEITAS_CLINICAS') ? [{ label: 'Receitas', to: '/receitas', icon: Eye, modulo: 'RECEITAS_CLINICAS' }] : []),
+    ...(temModulo('ORDEM_SERVICO') ? [{ label: 'OS', to: '/os', icon: ClipboardList, modulo: 'ORDEM_SERVICO' }] : []),
+  ];
+
+  // Itens Financeiros
+  const financeiroItems: SubmenuItem[] = [
+    ...(temModulo('CAIXA_TURNOS') ? [{ label: 'Caixas', to: '/caixas', icon: Coins, modulo: 'CAIXA_TURNOS' }] : []),
+    ...(temModulo('CENTRAL_VENDAS') ? [{ label: 'Vendas', to: '/vendas', icon: Receipt, modulo: 'CENTRAL_VENDAS' }] : []),
+    ...(temModulo('COMPRAS_XML') ? [{ label: 'Compras', to: '/compras', icon: FileSpreadsheet, modulo: 'COMPRAS_XML' }] : []),
+    ...(temModulo('FINANCEIRO_COMPLETO')
+      ? [
+          { label: 'Maquininhas', to: '/maquininhas', icon: CreditCard, modulo: 'FINANCEIRO_COMPLETO' },
+          { label: 'Comissões', to: '/comissoes', icon: Coins, modulo: 'FINANCEIRO_COMPLETO' },
+        ]
       : []),
   ];
+
+  // Itens Estoque
+  const estoqueItems: SubmenuItem[] = [
+    { label: 'Catálogo', to: '/catalogo', icon: Package },
+  ];
+
+  // Itens Administrativos (ADMIN e DESENVOLVEDOR)
+  const adminItems: SubmenuItem[] = [
+    ...(podeAdminOuDev ? [{ label: 'Usuários', to: '/usuarios', icon: Users }] : []),
+    ...(podeAdminOuDev && temModulo('FISCAL_FLOWBOX') ? [{ label: 'Fiscal', to: '/fiscal', icon: FileText, modulo: 'FISCAL_FLOWBOX' }] : []),
+    ...(isDev ? [{ label: 'Painel Dev', to: '/desenvolvedor', icon: Settings }] : []),
+  ];
+
+  const exibePdv = temModulo('PDV_BALCAO');
 
   return (
     <aside className={cn(
       'hidden shrink-0 flex-col bg-[radial-gradient(circle_at_50%_18%,rgb(var(--color-pdv-sidebar-active-rgb)/0.14)_0%,transparent_31%),linear-gradient(180deg,var(--color-pdv-sidebar-top)_0%,var(--color-pdv-sidebar-mid)_55%,var(--color-pdv-sidebar-bottom)_100%)] text-[var(--color-sidebar-text)] transition-[width] duration-200 md:flex h-full min-h-screen',
-      collapsed ? 'w-[72px]' : 'w-[220px]',
+      collapsed ? 'w-[72px]' : 'w-[230px]',
     )}>
-      <div className={cn('relative px-3 py-3 text-center', collapsed && 'px-1.5 py-2.5')}>
+      <div className={cn('relative px-3 py-3.5 text-center', collapsed && 'px-1.5 py-2.5')}>
         <button
           type="button"
           onClick={onToggle}
-          className="group mx-auto flex items-center justify-center rounded-xl p-1 transition-all duration-200 hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
+          className="group mx-auto flex items-center justify-center rounded-xl p-1.5 transition-all duration-200 hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/20 cursor-pointer"
           aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           title={collapsed ? 'Clique no logo para expandir o menu' : 'Clique no logo para recolher o menu'}
         >
@@ -295,42 +408,93 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
             alt="VisionBox"
             className={cn(
               'vision-sidebar-logo transition-transform duration-200 group-hover:scale-105',
-              collapsed ? 'w-[38px]' : 'w-[145px]',
+              collapsed ? 'w-[44px]' : 'w-[175px]',
             )}
           />
         </button>
       </div>
-      <nav className={cn('flex-1 space-y-1', collapsed ? 'px-2' : 'px-3')} aria-label="Navegação principal">
-        {navItems.map((item) => (
+
+      <nav
+        className={cn('flex-1 space-y-1 overflow-y-auto px-3 py-1 scrollbar-none [&::-webkit-scrollbar]:hidden')}
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        aria-label="Navegação principal"
+      >
+        {/* 1. Dashboard */}
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) =>
+            cn(
+              'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
+              collapsed ? 'justify-center px-0' : 'px-3',
+              isActive
+                ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
+                : 'hover:bg-white/10',
+            )
+          }
+          title={collapsed ? 'Dashboard' : undefined}
+        >
+          <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+          {!collapsed && <span className="flex-1">Dashboard</span>}
+        </NavLink>
+
+        {/* 2. PDV */}
+        {exibePdv && (
           <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
+            to="/pdv"
             className={({ isActive }) =>
               cn(
-                'vision-sidebar-link flex h-[40px] items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors',
+                'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
                 collapsed ? 'justify-center px-0' : 'px-3',
                 isActive
                   ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
                   : 'hover:bg-white/10',
               )
             }
-            title={collapsed ? item.label : undefined}
+            title={collapsed ? 'PDV' : undefined}
           >
-            <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
-            {!collapsed && <span className="flex-1">{item.label}</span>}
-            {item.shortcut && !collapsed && (
-              <span className="vision-sidebar-shortcut rounded-[6px] bg-[var(--color-bg-panel)] px-2 py-1 text-xs font-semibold">
-                {item.shortcut}
+            <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+            {!collapsed && <span className="flex-1">PDV</span>}
+            {!collapsed && (
+              <span className="vision-sidebar-shortcut rounded-[6px] bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] font-semibold">
+                F4
               </span>
             )}
           </NavLink>
-        ))}
+        )}
 
-        {isAdmin && (
+        {/* 3. Operacional (Receitas, OS, Clientes) */}
+        <SidebarSubmenu
+          label="Operacional"
+          icon={Briefcase}
+          items={operacionalItems}
+          collapsed={collapsed}
+          locationPathname={location.pathname}
+        />
+
+        {/* 4. Financeiro (Caixas, Vendas, Compras, Maquininhas, Comissões) */}
+        <SidebarSubmenu
+          label="Financeiro"
+          icon={Wallet}
+          items={financeiroItems}
+          collapsed={collapsed}
+          locationPathname={location.pathname}
+        />
+
+        {/* 5. Estoque (Catálogo) */}
+        <SidebarSubmenu
+          label="Estoque"
+          icon={Boxes}
+          items={estoqueItems}
+          collapsed={collapsed}
+          locationPathname={location.pathname}
+        />
+
+        {/* 6. Administrativo */}
+        {podeAdminOuDev && (
           <>
-            <hr className={cn('my-4 border-white/20', collapsed ? 'mx-1' : 'mx-2')} />
-            {!collapsed && <h4 className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-white/80">Administrativo</h4>}
+            <hr className={cn('my-3 border-white/20', collapsed ? 'mx-1' : 'mx-2')} />
+            {!collapsed && <h4 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-white/80">Administrativo</h4>}
             {adminItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -338,7 +502,7 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   cn(
-                    'vision-sidebar-link flex h-[40px] items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors',
+                    'vision-sidebar-link flex h-[38px] items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors',
                     collapsed ? 'justify-center px-0' : 'px-3',
                     isActive
                       ? 'vision-sidebar-link-active bg-[rgb(var(--color-pdv-sidebar-active-rgb)/0.42)]'
@@ -355,50 +519,58 @@ function Sidebar({ collapsed, onToggle, onOpenConfig }: { collapsed: boolean; on
               type="button"
               onClick={onOpenConfig}
               className={cn(
-                'vision-sidebar-link flex h-[40px] w-full items-center gap-3 rounded-[8px] text-[14px] font-medium transition-colors hover:bg-white/10',
+                'vision-sidebar-link flex h-[38px] w-full items-center gap-3 rounded-[8px] text-[13.5px] font-medium transition-colors hover:bg-white/10 cursor-pointer',
                 collapsed ? 'justify-center px-0' : 'px-3',
               )}
               title="Configurações"
               aria-label="Configurações"
             >
-              <Settings className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden />
+              <Settings className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
               {!collapsed && <span>Configurações</span>}
             </button>
           </>
         )}
-
       </nav>
 
-      <div className={cn('p-4', collapsed && 'px-3')}>
-        <div className={cn('rounded-[10px] bg-white/14 p-4 text-white', collapsed && 'p-3')}>
-          <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-            <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--color-bg-panel)] text-white">
-              <Headphones className="h-6 w-6" strokeWidth={1.8} />
+      <div className={cn('p-3', collapsed && 'px-2')}>
+        <div className={cn('rounded-[10px] bg-white/14 p-3 text-white', collapsed && 'p-2')}>
+          <div className={cn('flex items-center gap-2.5', collapsed && 'justify-center')}>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--color-bg-panel)] text-white">
+              <Headphones className="h-5 w-5" strokeWidth={1.8} />
             </span>
-            {!collapsed && <p className="flex-1 text-sm font-semibold leading-snug">
-              Precisa de ajuda?<br />
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-white/80 underline-offset-2 hover:text-white hover:underline"
-            >
-              Suporte via WhatsApp
-            </a>
-          </p>}
-            {!collapsed && <ChevronDown className="h-4 w-4 -rotate-90 text-white/85" strokeWidth={1.8} />}
+            {!collapsed && (
+              <p className="flex-1 text-xs font-semibold leading-snug">
+                Precisa de ajuda?<br />
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-white/80 underline-offset-2 hover:text-white hover:underline text-[11px]"
+                >
+                  Suporte via WhatsApp
+                </a>
+              </p>
+            )}
           </div>
         </div>
-        {!collapsed && <p className="mt-10 px-1 text-sm text-white/68">VisionBox v0.1.0</p>}
+        {!collapsed && <p className="mt-3 px-1 text-xs text-white/60">VisionBox v0.1.0</p>}
       </div>
     </aside>
   );
 }
 
 function MobileNav() {
+  const mobileItems = [
+    { label: 'Dashboard', to: '/', icon: LayoutGrid },
+    { label: 'PDV', to: '/pdv', icon: ShoppingCart },
+    { label: 'Clientes', to: '/clientes', icon: Users },
+    { label: 'OS', to: '/os', icon: ClipboardList },
+    { label: 'Catálogo', to: '/catalogo', icon: Package },
+  ];
+
   return (
     <nav className="flex gap-1 overflow-x-auto border-t border-[var(--color-border)] bg-[var(--color-bg-card)] p-2 md:hidden" aria-label="Navegação mobile">
-      {navItems.map((item) => (
+      {mobileItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -419,104 +591,6 @@ function MobileNav() {
   );
 }
 
-function ConfiguracoesDialog({
-  open,
-  onClose,
-  theme,
-  onToggleTheme,
-}: {
-  open: boolean;
-  onClose: () => void;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
-}) {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    apiClient
-      .post('/v1/auth/logout', undefined, { headers: { 'X-Skip-Idempotency-Key': 'true' } })
-      .finally(() => {
-        logout();
-        navigate('/login', { replace: true });
-      });
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Configurações"
-      description="Preferências desta estação e dados da conta."
-    >
-      <div className="space-y-5">
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Aparência</h3>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (theme !== 'light') onToggleTheme();
-              }}
-              aria-pressed={theme === 'light'}
-              className={`h-9 flex-1 rounded-[var(--radius)] border px-3 text-sm font-medium transition ${
-                theme === 'light'
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)]'
-              }`}
-            >
-              Tema claro
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (theme !== 'dark') onToggleTheme();
-              }}
-              aria-pressed={theme === 'dark'}
-              className={`h-9 flex-1 rounded-[var(--radius)] border px-3 text-sm font-medium transition ${
-                theme === 'dark'
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)]'
-              }`}
-            >
-              Tema escuro
-            </button>
-          </div>
-        </section>
-
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Conta</h3>
-          <dl className="mt-2 divide-y divide-[var(--color-border)] rounded-[var(--radius)] border border-[var(--color-border)]">
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <dt className="text-xs text-[var(--color-text-secondary)]">Nome</dt>
-              <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user?.nome || '—'}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <dt className="text-xs text-[var(--color-text-secondary)]">Perfil</dt>
-              <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user?.perfil || '—'}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <dt className="text-xs text-[var(--color-text-secondary)]">Loja</dt>
-              <dd className="truncate font-mono text-sm text-[var(--color-text-primary)]">{user?.lojaId || '—'}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <FormasPagamentoConfig />
-
-        {user?.perfil === 'ADMIN' || user?.perfil === 'DESENVOLVEDOR' ? <EmpresaConfig /> : null}
-
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-4">
-          <span className="text-xs text-[var(--color-text-muted)]">VisionBox v0.1.0</span>
-          <Button variant="destructive" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" /> Sair da conta
-          </Button>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
-
 export default function Layout() {
   const location = useLocation();
   const isPdv = location.pathname === '/pdv';
@@ -524,6 +598,7 @@ export default function Layout() {
   const [configOpen, setConfigOpen] = React.useState(false);
   const { theme, toggle } = useTheme();
   const carregarEmpresa = useEmpresaStore((s) => s.carregar);
+  const carregarModulos = useModulosStore((s) => s.carregar);
 
   React.useEffect(() => {
     localStorage.setItem('visionbox-sidebar-collapsed', String(sidebarCollapsed));
@@ -531,7 +606,8 @@ export default function Layout() {
 
   React.useEffect(() => {
     carregarEmpresa().catch(() => undefined);
-  }, [carregarEmpresa]);
+    carregarModulos().catch(() => undefined);
+  }, [carregarEmpresa, carregarModulos]);
 
   return (
     <div className={cn('bg-[var(--color-pdv-page)] text-[var(--color-text-primary)]', isPdv ? 'h-screen overflow-hidden' : 'min-h-screen')}>

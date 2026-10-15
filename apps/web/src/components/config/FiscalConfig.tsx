@@ -731,7 +731,7 @@ export function FiscalConfig() {
           <p className="font-semibold text-primary">Contingência Offline no PDV</p>
           <p className="text-muted">
             Se a internet ou o serviço fiscal estiver indisponível, o PDV do VisionBox permite concluir vendas normalmente.
-            As notas são enfileiradas no outbox para transmissão assim que o serviço for restabelecido.
+            As notas são enfileiradas com segurança no VisionBox para transmissão automática assim que o serviço for restabelecido.
           </p>
         </div>
       </div>

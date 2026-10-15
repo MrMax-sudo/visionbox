@@ -101,23 +101,27 @@ class SecurityConfigRbacRouteTest {
                 Arguments.of("TECNICO", "GET", "/api/v1/dev/info"),
                 Arguments.of("VENDEDOR", "GET", "/api/v1/dev/info"),
                 Arguments.of("GERENTE", "GET", "/api/v1/dev/info"),
-                Arguments.of("FINANCEIRO", "GET", "/api/v1/dev/info")
+                Arguments.of("FINANCEIRO", "GET", "/api/v1/dev/info"),
+                Arguments.of("ADMIN", "GET", "/api/v1/dev/info"),
+                Arguments.of("GERENTE", "POST", "/api/v1/fiscal/nfce/emitir"),
+                Arguments.of("FINANCEIRO", "POST", "/api/v1/fiscal/nfce/emitir")
         );
     }
 
     private static Stream<Arguments> allowedRoutesByPerfil() {
         return Stream.of(
                 Arguments.of("ADMIN", "GET", "/api/v1/usuarios"),
+                Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/usuarios"),
                 Arguments.of("FINANCEIRO", "GET", "/api/v1/financeiro/contas-receber"),
-                Arguments.of("GERENTE", "POST", "/api/v1/fiscal/nfce/emitir"),
+                Arguments.of("ADMIN", "POST", "/api/v1/fiscal/nfce/emitir"),
+                Arguments.of("DESENVOLVEDOR", "POST", "/api/v1/fiscal/nfce/emitir"),
                 Arguments.of("OTICO", "GET", "/api/v1/receitas"),
                 Arguments.of("LABORATORIO", "POST", "/api/v1/laboratorios/portal-tokens"),
                 Arguments.of("VENDEDOR", "GET", "/api/v1/empresa"),
                 Arguments.of("GERENTE", "PUT", "/api/v1/empresa"),
                 Arguments.of("ADMIN", "PUT", "/api/v1/empresa"),
                 Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/dev/info"),
-                Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/empresa"),
-                Arguments.of("ADMIN", "GET", "/api/v1/dev/info")
+                Arguments.of("DESENVOLVEDOR", "GET", "/api/v1/empresa")
         );
     }
 

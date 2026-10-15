@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nota Fiscal</title>
     <style>
         * {
@@ -18,126 +19,250 @@
 
         body {
             font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
-            background-color: #f0f0f0;
+            background-color: #e8eaec;
             color: #000;
-            padding: 20px;
+            padding: 24px 12px 40px 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
+        /* ──── Barra de ações (só tela) ──── */
         .no-print {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .no-print button {
             padding: 10px 24px;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
             font-size: 14px;
             cursor: pointer;
             border: none;
-            border-radius: 6px;
+            border-radius: 50px;
             font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .btn-print {
-            background-color: #155724;
-            color: white;
+        .no-print button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-close-win {
-            background-color: #555;
-            color: white;
-        }
+        .btn-print { background-color: #155724; color: #fff; }
+        .btn-close-win { background-color: #555; color: #fff; }
 
-        /* ──── NFC-e container ──── */
+        /* ──── NFC-e container (papel térmico) ──── */
         .nfce {
+            position: relative;
             width: 320px;
             background: #fff;
-            border: 1px solid #ccc;
-            padding: 14px 12px;
+            padding: 20px 16px 22px 16px;
             font-size: 0.78em;
-            line-height: 1.3;
+            line-height: 1.35;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+            margin: 8px 0;
         }
 
+        /* bordas serrilhadas (só tela) */
+        .nfce::before,
+        .nfce::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background-size: 12px 12px;
+        }
+
+        .nfce::before {
+            top: -8px;
+            background-image:
+                linear-gradient(135deg, transparent 75%, #fff 75%),
+                linear-gradient(225deg, transparent 75%, #fff 75%);
+            background-position: 0 0;
+            background-size: 12px 8px;
+        }
+
+        .nfce::after {
+            bottom: -8px;
+            background-image:
+                linear-gradient(45deg, transparent 75%, #fff 75%),
+                linear-gradient(315deg, transparent 75%, #fff 75%);
+            background-size: 12px 8px;
+        }
+
+        /* ──── Cabeçalho ──── */
         .nfce-header {
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
         .nfce-header .razao-social {
-            font-size: 1.05em;
+            font-size: 1.15em;
             font-weight: bold;
             text-transform: uppercase;
+            letter-spacing: 0.4px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+            margin-bottom: 3px;
         }
 
         .nfce-header .dados-empresa {
-            font-size: 0.85em;
-            color: #333;
+            font-size: 0.86em;
+            color: #222;
+            line-height: 1.45;
         }
 
+        /* ──── Faixa do documento ──── */
         .nfce-faixa {
             background: #000;
             color: #fff;
             text-align: center;
             font-weight: bold;
-            padding: 4px 0;
-            font-size: 0.9em;
-            margin: 6px 0;
-            letter-spacing: 0.5px;
+            padding: 6px 8px;
+            font-size: 0.82em;
+            line-height: 1.35;
+            margin: 8px 0;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
         }
 
+        /* contingência / não autorizado: contorno (legível em térmica) */
         .nfce-faixa.nao-autorizado {
-            background: #555;
+            background: #fff;
+            color: #000;
+            border: 2px solid #000;
+            padding: 4px 8px;
         }
 
+        /* ──── Banner de cancelamento ──── */
+        .banner-cancelado {
+            background: #000;
+            color: #fff;
+            text-align: center;
+            padding: 8px 6px;
+            margin: 6px 0 10px 0;
+            border: 3px double #fff;
+            outline: 2px solid #000;
+        }
+
+        .banner-titulo {
+            font-weight: bold;
+            font-size: 1.15em;
+            letter-spacing: 1px;
+        }
+
+        .banner-info {
+            font-size: 0.8em;
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+
+        /* ──── Divisores ──── */
         .divider {
             border: none;
-            border-top: 1px dashed #666;
-            margin: 6px 0;
+            border-top: 1px dashed #000;
+            margin: 8px 0;
         }
 
         .divider-solid {
             border: none;
-            border-top: 1px solid #000;
-            margin: 6px 0;
+            border-top: 2px solid #000;
+            margin: 8px 0;
         }
 
         .label {
+            display: inline-block;
             font-weight: bold;
             text-transform: uppercase;
             font-size: 0.8em;
+            letter-spacing: 1.2px;
+            margin-bottom: 2px;
         }
 
-        /* ──── Tabela de itens ──── */
-        table.itens {
+        /* ──── Tabela de itens: nome em uma linha, valores na seguinte ──── */
+        table.itens,
+        table.itens thead,
+        table.itens tbody {
+            display: block;
             width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85em;
+        }
+
+        table.itens {
+            font-size: 0.86em;
+        }
+
+        table.itens thead tr,
+        table.itens tbody tr {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            column-gap: 0;
         }
 
         table.itens thead th {
+            width: auto !important;
             text-align: left;
-            border-bottom: 1px solid #000;
-            padding: 2px 0;
-            font-size: 0.8em;
+            padding: 3px 0;
+            font-size: 0.78em;
             text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-top: 1px solid #000;
         }
 
+        table.itens thead th:first-child {
+            grid-column: 1 / -1;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        table.itens thead th:not(:first-child) {
+            border-top: none;
+            border-bottom: 1px solid #000;
+            padding-top: 0;
+        }
+
+        table.itens thead th:nth-child(3) { text-align: center; }
+        table.itens thead th:nth-child(4) { text-align: right; }
+        table.itens thead th:nth-child(2) { text-align: left; }
+
+        table.itens tbody tr {
+            padding: 5px 0 4px 0;
+            border-bottom: 1px dotted #000;
+        }
+
+        table.itens tbody tr:last-child { border-bottom: none; }
+
         table.itens tbody td {
-            padding: 2px 0;
+            padding: 0;
             vertical-align: top;
         }
 
+        table.itens tbody td:first-child {
+            grid-column: 1 / -1;
+        }
+
+        table.itens tbody td:nth-child(2) { text-align: left; }
+        table.itens tbody td:nth-child(3) { text-align: center; }
+        table.itens tbody td:nth-child(3)::before { content: "× "; }
+        table.itens tbody td:nth-child(4) { text-align: right; font-weight: bold; }
+
         table.itens .nome-prod {
             font-weight: bold;
+            overflow-wrap: anywhere;
+            line-height: 1.3;
         }
 
         table.itens .fiscal-info {
             font-size: 0.78em;
             color: #333;
+            margin-bottom: 1px;
         }
 
         .text-right {
@@ -148,16 +273,26 @@
         table.totais {
             width: 100%;
             font-size: 0.9em;
+            border-collapse: collapse;
         }
 
         table.totais td {
-            padding: 1px 0;
+            padding: 2px 0;
+        }
+
+        table.totais td:last-child {
+            text-align: right;
+            white-space: nowrap;
+            padding-left: 8px;
         }
 
         table.totais .linha-total td {
-            font-size: 1.15em;
+            font-size: 1.2em;
             font-weight: bold;
-            padding-top: 6px;
+            padding: 6px 0;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            letter-spacing: 0.3px;
         }
 
         /* ──── Tributos ──── */
@@ -166,68 +301,105 @@
             color: #222;
             text-align: center;
             margin: 4px 0;
+            line-height: 1.45;
         }
 
         /* ──── Pagamentos ──── */
         table.pagamentos {
             width: 100%;
-            font-size: 0.88em;
+            font-size: 0.9em;
+            border-collapse: collapse;
         }
 
         table.pagamentos td {
-            padding: 1px 0;
+            padding: 2px 0;
         }
 
-        /* ──── Rodapé fiscal ──── */
-        .rodape-fiscal {
-            text-align: center;
-            font-size: 0.75em;
-            color: #333;
-            margin-top: 4px;
+        table.pagamentos td:last-child {
+            text-align: right;
+            white-space: nowrap;
         }
 
+        /* ──── Chave / QR ──── */
         .chave-acesso {
-            font-size: 0.72em;
-            word-break: break-all;
-            letter-spacing: 0.5px;
             text-align: center;
-            margin: 4px 0;
-            padding: 4px;
-            border: 1px dashed #999;
-            background: #f9f9f9;
+            margin: 6px 0;
+            padding: 6px 4px;
+            border: 1px solid #000;
+            font-size: 0.74em;
         }
+
+        .chave-acesso strong {
+            display: block;
+            letter-spacing: 1.2px;
+            margin-bottom: 3px;
+            font-size: 0.95em;
+        }
+
+        .chave-acesso .chave-num {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px 8px;
+            letter-spacing: 0.4px !important;
+            word-break: normal !important;
+            font-weight: bold;
+            line-height: 1.5;
+        }
+
+        /* fallback sem JS: quebra livre */
+        .chave-acesso .chave-num.raw { display: block; word-break: break-all !important; }
 
         .qr-placeholder {
             text-align: center;
-            margin: 8px auto;
+            margin: 10px auto 6px auto;
         }
 
         .qr-placeholder .qr-box {
             display: inline-block;
-            width: 90px;
-            height: 90px;
-            border: 1px solid #000;
+            width: 118px;
+            height: 118px;
+            padding: 4px;
             background: #fff;
-            position: relative;
+            border: 1px solid #000;
             overflow: hidden;
         }
 
         .qr-placeholder .qr-box img {
             display: block;
+            width: 108px;
+            height: 108px;
         }
 
         .qr-placeholder .qr-label {
-            font-size: 0.72em;
-            color: #333;
-            margin-top: 2px;
+            font-size: 0.74em;
+            color: #222;
+            margin-top: 4px;
+            line-height: 1.35;
+        }
+
+        /* ──── Rodapé ──── */
+        .rodape-fiscal {
+            text-align: center;
+            font-size: 0.8em;
+            color: #222;
+            margin-top: 6px;
+            line-height: 1.45;
+        }
+
+        .rodape-fiscal strong {
+            letter-spacing: 0.5px;
         }
 
         .aviso-nao-sefaz {
             text-align: center;
-            font-size: 0.72em;
-            color: #444;
+            font-size: 0.74em;
+            color: #222;
             font-style: italic;
-            margin-top: 6px;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed #000;
+            line-height: 1.4;
         }
 
         /* ──── Print ──── */
@@ -238,20 +410,27 @@
             }
 
             body {
-                background: white;
+                background: #fff;
                 padding: 0;
+                display: block;
             }
 
             .nfce {
-                border: none;
                 width: 100%;
-                padding: 4px 2px;
+                padding: 3mm 3mm 5mm 3mm;
+                margin: 0;
+                box-shadow: none;
             }
 
-            .chave-acesso {
-                background: none !important;
-                border-color: #999;
-            }
+            .nfce::before,
+            .nfce::after { display: none; }
+
+            .nfce-header .dados-empresa,
+            table.itens .fiscal-info,
+            .tributos,
+            .rodape-fiscal,
+            .qr-placeholder .qr-label,
+            .aviso-nao-sefaz { color: #000; }
 
             .no-print {
                 display: none !important;
@@ -268,6 +447,21 @@
     </div>
     <script>
         function fecharJanela() { window.close(); }
+
+        // Agrupa a chave de acesso em blocos de 4 dígitos (padrão do DANFE NFC-e)
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.chave-num').forEach(function (el) {
+                var digitos = (el.textContent || '').replace(/\D/g, '');
+                if (digitos.length !== 44) return;
+                el.textContent = '';
+                digitos.match(/.{4}/g).forEach(function (g) {
+                    var s = document.createElement('span');
+                    s.textContent = g;
+                    el.appendChild(s);
+                });
+                el.classList.remove('raw');
+            });
+        });
     </script>
 
     <!-- Venda não encontrada -->
@@ -303,11 +497,11 @@
 
         <!-- BANNER CANCELAMENTO NFC-e -->
         <div th:if="${venda.statusFiscal != null and venda.statusFiscal.name() == 'CANCELADO'}"
-             style="background:#b91c1c; color:#fff; text-align:center; padding:6px 4px; margin:4px 0 8px 0; border:1px solid #7f1d1d; border-radius:3px;">
-            <div style="font-weight:bold; font-size:1.1em; letter-spacing:0.5px;">⛔ NFC-e CANCELADA ⛔</div>
-            <div style="font-size:0.75em; margin-top:2px;" th:if="${venda.dataCancelamento != null}"
+             class="banner-cancelado">
+            <div class="banner-titulo">⛔ NFC-e CANCELADA ⛔</div>
+            <div class="banner-info" th:if="${venda.dataCancelamento != null}"
                  th:text="'Cancelamento em: ' + ${#temporals.format(venda.dataCancelamento, 'dd/MM/yyyy HH:mm:ss')}"></div>
-            <div style="font-size:0.75em;" th:if="${venda.motivoCancelamento != null}"
+            <div class="banner-info" th:if="${venda.motivoCancelamento != null}"
                  th:text="'Motivo: ' + ${venda.motivoCancelamento}"></div>
         </div>
 
@@ -515,7 +709,7 @@
         <div class="chave-acesso"
             th:if="${venda.chaveAcesso != null and #strings.contains(venda.empresa.cupomCamposVisiveis != null ? venda.empresa.cupomCamposVisiveis : 'logo,cnpj,endereco,cliente,vendedor,ncm_cfop,preco_unitario,desconto_mimos,desconto_pagamento,tributos,qrcode,chave_acesso', 'chave_acesso')}">
             <strong>CHAVE DE ACESSO</strong><br>
-            <span th:text="${venda.chaveAcesso}" style="letter-spacing:0.15em;word-break:break-all;">
+            <span class="chave-num raw" th:text="${venda.chaveAcesso}">
                 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
             </span>
         </div>

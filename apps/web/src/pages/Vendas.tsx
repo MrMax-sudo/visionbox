@@ -34,7 +34,7 @@ import {
   executarImpressao,
   gerarHtmlNfce,
   gerarHtmlReciboNaoFiscal,
-  DadosImpressao,
+  type DadosImpressao,
 } from '@/lib/reciboPrint';
 
 interface PageResponse<T> {
@@ -225,6 +225,7 @@ export default function Vendas() {
         uf: empresa?.uf,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
+        logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
       },
       cliente: {
         nome: venda.clienteNome,
@@ -261,6 +262,7 @@ export default function Vendas() {
         uf: empresa?.uf,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
+        logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
       },
       cliente: {
         nome: venda.clienteNome,

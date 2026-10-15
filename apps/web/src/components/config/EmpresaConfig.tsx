@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AlertCircle, Building2, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, Building2, Check, Loader2, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingRows } from '@/components/ui/loading-state';
 import { TextField } from '@/components/ui/field';
@@ -22,6 +22,7 @@ type EmpresaForm = {
   cep: string;
   site: string;
   logoUrl: string;
+  logoBase64?: string;
 };
 
 const vazio: EmpresaForm = {
@@ -39,6 +40,7 @@ const vazio: EmpresaForm = {
   cep: '',
   site: '',
   logoUrl: '',
+  logoBase64: '',
 };
 
 function mensagemErro(err: unknown): string {
@@ -77,9 +79,68 @@ export function EmpresaConfig() {
       cep: empresa.cep ?? '',
       site: empresa.site ?? '',
       logoUrl: empresa.logoUrl ?? '',
+      logoBase64: empresa.logoBase64 ?? '',
     });
     setCarregado(true);
   }, [empresa, carregado]);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [enviandoLogo, setEnviandoLogo] = React.useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) {
+      toast({ variant: 'destructive', title: 'Formato inválido', description: 'Selecione uma imagem PNG, JPG ou WEBP.' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'Arquivo muito grande', description: 'O logotipo deve ter no máximo 5MB.' });
+      return;
+    }
+
+    setEnviandoLogo(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await apiClient.post<{ logoUrl?: string; logoBase64?: string }>('/v1/empresa/logo', { base64 });
+        setForm((prev) => ({
+          ...prev,
+          logoUrl: res.data.logoUrl || '/api/v1/empresa/logo.png',
+          logoBase64: base64,
+        }));
+        await carregar(true);
+        toast({
+          variant: 'success',
+          title: 'Logotipo atualizado!',
+          description: 'A imagem foi salva no banco de dados e será exibida no DANFE, recibos e orçamentos.',
+        });
+      } catch (err) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro no envio do logo',
+          description: mensagemErro(err),
+        });
+      } finally {
+        setEnviandoLogo(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoverLogo = async () => {
+    setForm((prev) => ({ ...prev, logoUrl: '', logoBase64: '' }));
+    try {
+      await apiClient.put('/v1/empresa', { ...form, logoUrl: '', logoBase64: '' });
+      await carregar(true);
+      toast({ variant: 'success', title: 'Logotipo removido' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: mensagemErro(err) });
+    }
+  };
 
   React.useEffect(() => {
     if (!empresa) {
@@ -266,13 +327,77 @@ export function EmpresaConfig() {
               />
             </div>
 
-            <TextField
-              label="URL do logo"
-              value={form.logoUrl}
-              onChange={set('logoUrl')}
-              maxLength={500}
-              placeholder="https://cdn.exemplo.com/logo.png"
-            />
+            {/* Seção Logotipo com Upload e Preview */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 mt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-primary">Logotipo da Empresa</h4>
+                  <p className="text-xs text-secondary">
+                    Utilizado na impressão de DANFE (NF-e/NFC-e), Recibos térmicos e Orçamentos da OS. Salvo e persistido no banco de dados.
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleLogoUpload}
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={enviandoLogo}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {enviandoLogo ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {form.logoUrl || form.logoBase64 ? 'Alterar Logo' : 'Enviar Logo'}
+                </Button>
+              </div>
+
+              {(form.logoBase64 || form.logoUrl) ? (
+                <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-page p-3">
+                  <div className="flex h-16 w-36 items-center justify-center rounded border border-border bg-white p-1 overflow-hidden shadow-sm">
+                    <img
+                      src={form.logoBase64 || form.logoUrl}
+                      alt="Logo da empresa"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-xs font-medium text-success flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5" /> Logotipo persistido no banco de dados
+                    </p>
+                    <p className="text-[11px] text-muted truncate mt-0.5">
+                      {form.logoUrl || '/api/v1/empresa/logo.png'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-danger hover:text-danger hover:bg-danger/10"
+                    onClick={handleRemoverLogo}
+                    title="Remover logotipo"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" /> Remover
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-page transition"
+                >
+                  <ImageIcon className="h-8 w-8 text-muted" />
+                  <p className="text-xs font-medium text-primary">Nenhum logotipo enviado</p>
+                  <p className="text-[11px] text-muted">Clique para selecionar imagem PNG, JPG ou WEBP (máx. 5MB)</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

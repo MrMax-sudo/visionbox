@@ -6,6 +6,7 @@ import {
   executarImpressao,
   gerarHtmlReciboNaoFiscal,
   gerarHtmlNfce,
+  gerarHtmlDanfeNfe,
   type DadosImpressao,
   type ItemImpressao,
 } from '@/lib/reciboPrint';
@@ -104,6 +105,7 @@ export function ComprovanteImpressao({
         uf: empresa?.uf,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
+        logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
       },
       cliente: {
         nome: clienteNome,
@@ -125,6 +127,8 @@ export function ComprovanteImpressao({
 
     if (formato === 'NFCE') {
       executarImpressao(gerarHtmlNfce(dados));
+    } else if (formato === 'DANFE') {
+      executarImpressao(gerarHtmlDanfeNfe(dados));
     } else {
       executarImpressao(gerarHtmlReciboNaoFiscal(dados));
     }

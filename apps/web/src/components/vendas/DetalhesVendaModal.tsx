@@ -89,6 +89,7 @@ export function DetalhesVendaModal({
         uf: empresa?.uf,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
+        logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
       },
       cliente: {
         nome: venda.clienteNome,
@@ -126,6 +127,7 @@ export function DetalhesVendaModal({
         uf: empresa?.uf,
         telefone: empresa?.telefone,
         whatsapp: empresa?.whatsapp || undefined,
+        logoUrl: empresa?.logoUrl || '/api/v1/empresa/logo.png',
       },
       cliente: {
         nome: venda.clienteNome,

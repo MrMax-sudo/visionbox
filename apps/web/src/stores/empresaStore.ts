@@ -17,6 +17,7 @@ export type EmpresaConfig = {
   cep?: string;
   site?: string;
   logoUrl?: string;
+  logoBase64?: string;
 };
 
 type EmpresaState = {

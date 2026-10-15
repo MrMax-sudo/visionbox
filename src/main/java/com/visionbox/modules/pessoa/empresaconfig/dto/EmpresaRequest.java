@@ -53,6 +53,7 @@ public class EmpresaRequest {
     @Size(max = 255)
     private String site;
 
-    @Size(max = 500)
     private String logoUrl;
+
+    private String logoBase64;
 }

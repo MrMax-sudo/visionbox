@@ -1,7 +1,34 @@
 # VisionBox — Progresso e Evidências
 
-> **Atualizado em:** 2026-10-15 — **NF-e 55 autorizada (cStat 100) e cancelada (cStat 135) em PRODUÇÃO**, consulta de chave OK (cStat 100), tela `/fiscal` + botão cancelar no PDV no ar. NFC-e autorizada 2026-10-14. Refator frontend completo (2026-10-11): `typecheck` ✅ `build` ✅ hex=0.
-> **Estado legível por humano; máquina lê `.visionbox/state.json`**
+> **Atualizado em:** 2026-10-15 — **Ajustes de UX, Navegação, Roles de Acesso, Templates Oficiais e Upload de Logotipo Concluídos** ✅. Suíte de testes RBAC (42/42) e Build do Frontend (Vite) 100% verdes.
+
+## Ajustes de Usabilidade, Governança de Roles e Documentos (2026-10-15, ✅ concluído)
+
+> **Resumo da Entrega:** Implementação dos ajustes solicitados pelo usuário cobrindo arquitetura de navegação, RBAC, persistência de identidade visual e fidelidade aos templates oficiais de documentos.
+
+| Item | Solicitação | Solução Implementada | Evidência / Status |
+|---|---|---|---|
+| **Sidebar & Submenus** | Ordem: Dashboard, PDV, Operacional (Receitas, OS), Financeiro (Caixas, Vendas, Compras, Maquininhas, Comissões), Estoque (Catálogo). Ocultar se módulo inativo no Painel Dev. | Submenus colapsáveis com animação, preservação de estado ativo e filtro estrito `useModulosStore.temModulo(codigo)` no `Layout.tsx`. | `Layout.tsx` atualizado; build Vite ✅ |
+| **Indicador "Online"** | Desnecessário se está operando normal na web. | Removido indicador redundante da sidebar e barra superior (mantido apenas alerta reativo quando offline ou sincronizando). | `Layout.tsx` limpo |
+| **Identidade Visual & Scroll** | Logo maior na sidebar; camuflar barra de rolagem. | Largura do logo ampliada para 175px (expandido) e 44px (recolhido); classe `.scrollbar-none` adicionada ao CSS e sidebar. | `index.css` e `Layout.tsx` ✅ |
+| **Templates de Documentos** | Seguir estritamente `templates recibos` e invocar a logo persistida no banco (`/api/v1/empresa/logo.png`). | `reciboPrint.ts` reimplementado com os 4 templates (Recibo 80mm com marca óptica SVG, NFC-e 80mm, DANFE A4 oficial e Orçamento A4 luxo). Todos invocam `/api/v1/empresa/logo.png`. | `reciboPrint.ts`, `ComprovanteImpressao.tsx`, `DetalhesVendaModal.tsx` |
+| **Configurações & Empresa** | Remover UUID cru de loja em preferências; adicionar upload de logotipo persistido no banco; remover aba A1 duplicada de Configurações. | Substituted UUID por Nome Fantasia da loja; componente de upload/revisão com preview e persistência (`V50__loja_logo_base64.sql`, `POST /api/v1/empresa/logo`, `GET /api/v1/empresa/logo.png`). Aba Fiscal A1 removida do diálogo de configurações. | V50 aplicada, `EmpresaController.java`, `EmpresaConfig.tsx` |
+| **Texto /fiscal** | Remover menção a "outbox" institucionalmente. | Atualizado para texto de segurança institucional do VisionBox. | `FiscalConfig.tsx`, `PilotReadinessPanel.tsx` |
+| **Receitas (CRUD)** | Faltava CRUD completo de receitas. | Criado CRUD completo com listagem, busca, filtros de anexo, criação, edição com pré-preenchimento e exclusão com diálogo de confirmação. | `Receitas.tsx`, `ReceitaCard.tsx`, `ReceitaFormDialog.tsx` |
+| **Roles & Segurança** | Admin: tudo exceto DEV; Desenvolvedor: DEV, Usuários, Fiscal; Fiscal somente Admin e Desenvolvedor. | Atualizada matriz de rotas do `SecurityConfig.java`, testes `SecurityConfigRbacRouteTest.java` e guardas de rota do React. | 42 testes backend ✅ (`BUILD SUCCESS`), frontend build ✅ |
+
+## Flowbox — Escopo de API key por CNPJ (multi-cliente) (2026-10-15, 🔄 em andamento)
+
+> **Pedido do cliente:** "adicione o escopo sim, iremos ter vários clientes". Hoje qualquer API key válida opera em qualquer CNPJ (`README.md:525`); o container é único e o isolamento só é por coluna `cnpj`.
+
+| Decisão (validada com o cliente) | Escolha |
+|---|---|
+| Quem vincula CNPJ ao usuário | **Admin provisiona por API** — endpoints novos `GET/POST/DELETE /api/v1/admin/usuarios/**` (ROLE_ADMIN); registro público continua, conta nova fica sem escopo até vincular |
+| Usuário sem nenhum CNPJ vinculado | **Nega tudo** (403 fail-closed) — pré-deploy: vincular `40187613000102` ao dono da chave `fb_Hc85...` da VisionBox (ou promover a admin) e testar E2E para não derrubar a emissão |
+| Abrangência da validação | **Núcleo fiscal**: documentos (lista/detalhe/XML/DANFE/métricas), empresas, certificados, emitir NFC-e/NF-e, cancelar, inutilizar, consultar, fila, contingência, SAT/SAF. Config global, webhooks e logs ficam como estão |
+| Chave global (`OUTBOX_FISCAL_API_KEY`) e `ROLE_ADMIN` | Sem restrição (operador/admin provisiona e enxerga tudo) |
+
+**Escopo técnico previsto:** migration `V7__escopo_usuario_cnpj` (`tb_usuario_empresas usuario_id+cnpj`), `UsuarioEmpresaEntity/Repository`, `EscopoService` (lê `flowbox.usuario` do `ApiKeyAuthFilter`, `exigir(cnpj)` → 403), enforcement nos controllers do núcleo, testes de isolamento cross-tenant, `mvn test`, deploy VPS + provisionamento do CNPJ da VisionBox + E2E.
 
 ## Fiscal — Produção: NF-e 55 E2E (emitida + cancelada) e consulta de chave (2026-10-15, ✅ concluída)
 

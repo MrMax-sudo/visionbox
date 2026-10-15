@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Filter, Plus, RefreshCw, Search } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { AlertTriangle, Filter, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,7 @@ type ReceitasPage = PageResponse<ReceitaDTO>;
 type StatusFilter = 'Todas' | 'Com anexo' | 'Sem anexo';
 
 export default function Receitas() {
+  const { toast } = useToast();
   const [q, setQ] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('Todas');
   const debouncedQ = useDebounce(q, 350);
@@ -32,6 +35,9 @@ export default function Receitas() {
   const size = 12;
 
   const [formOpen, setFormOpen] = React.useState(false);
+  const [receitaParaEditar, setReceitaParaEditar] = React.useState<ReceitaDTO | null>(null);
+  const [receitaParaExcluir, setReceitaParaExcluir] = React.useState<ReceitaDTO | null>(null);
+  const [isExcluindo, setIsExcluindo] = React.useState(false);
   const [anexoReceita, setAnexoReceita] = React.useState<ReceitaDTO | null>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -46,6 +52,29 @@ export default function Receitas() {
     retry: 1,
     placeholderData: (prev) => prev,
   });
+
+  const handleExcluir = async () => {
+    if (!receitaParaExcluir) return;
+    setIsExcluindo(true);
+    try {
+      await apiClient.delete(`/v1/receitas/${receitaParaExcluir.id}`);
+      toast({
+        title: 'Receita excluída',
+        description: 'A prescrição óptica foi removida com sucesso.',
+        variant: 'success',
+      });
+      setReceitaParaExcluir(null);
+      refetch();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao excluir receita',
+        description: err?.response?.data?.message || err?.message || 'Falha na comunicação com o servidor.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExcluindo(false);
+    }
+  };
 
   const receitas: ReceitaDTO[] = React.useMemo(
     () => unwrapPage(data as ReceitasPage | ReceitaDTO[]).map((r) => normalizeReceita(r)),
@@ -82,7 +111,7 @@ export default function Receitas() {
           <h1 className="text-xl font-semibold text-primary">Receitas</h1>
           <p className="text-sm text-secondary">Prescrição óptica, anexos e histórico clínico do cliente.</p>
         </div>
-        <Button variant="primary" onClick={() => setFormOpen(true)}>
+        <Button variant="primary" onClick={() => { setReceitaParaEditar(null); setFormOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" aria-hidden /> Nova receita
         </Button>
       </div>
@@ -165,6 +194,11 @@ export default function Receitas() {
                 receita={r}
                 loading={!!anexoReceita}
                 onVerFoto={(receita) => setAnexoReceita(receita)}
+                onEditar={(receita) => {
+                  setReceitaParaEditar(receita);
+                  setFormOpen(true);
+                }}
+                onExcluir={(receita) => setReceitaParaExcluir(receita)}
               />
             ))}
           </div>
@@ -194,8 +228,65 @@ export default function Receitas() {
         </>
       )}
 
-      <ReceitaFormDialog open={formOpen} onClose={() => setFormOpen(false)} />
+      <ReceitaFormDialog
+        open={formOpen}
+        receitaParaEditar={receitaParaEditar}
+        onClose={() => {
+          setFormOpen(false);
+          setReceitaParaEditar(null);
+        }}
+      />
       <ReceitaAnexoDialog receita={anexoReceita} onClose={() => setAnexoReceita(null)} />
+
+      {/* Diálogo de Confirmação de Exclusão */}
+      <Dialog
+        open={!!receitaParaExcluir}
+        onClose={() => !isExcluindo && setReceitaParaExcluir(null)}
+        title="Excluir receita médica"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-red-600 dark:text-red-400">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold">Atenção: Ação irreversível</p>
+              <p className="mt-1 text-xs opacity-90">
+                Tem certeza que deseja excluir esta receita óptica? O histórico de prescrição médica e anexo vinculado serão permanentemente removidos.
+              </p>
+            </div>
+          </div>
+
+          {receitaParaExcluir && (
+            <div className="rounded-md border border-subtle bg-subtle/50 p-3 text-xs space-y-1">
+              <div><span className="font-semibold text-secondary">Cliente:</span> {receitaParaExcluir.clienteNome || receitaParaExcluir.clienteId}</div>
+              {receitaParaExcluir.nomeMedico && (
+                <div><span className="font-semibold text-secondary">Médico:</span> {receitaParaExcluir.nomeMedico}</div>
+              )}
+              {receitaParaExcluir.tipo && (
+                <div><span className="font-semibold text-secondary">Tipo:</span> {receitaParaExcluir.tipo}</div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isExcluindo}
+              onClick={() => setReceitaParaExcluir(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isExcluindo}
+              onClick={handleExcluir}
+            >
+              {isExcluindo ? 'Excluindo…' : 'Excluir definitivamente'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

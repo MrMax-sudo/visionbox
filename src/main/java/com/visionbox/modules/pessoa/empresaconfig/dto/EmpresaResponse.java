@@ -28,6 +28,7 @@ public class EmpresaResponse {
     private String cep;
     private String site;
     private String logoUrl;
+    private String logoBase64;
 
     public static EmpresaResponse from(Loja loja) {
         return EmpresaResponse.builder()
@@ -46,6 +47,7 @@ public class EmpresaResponse {
                 .cep(loja.getCep())
                 .site(loja.getSite())
                 .logoUrl(loja.getLogoUrl())
+                .logoBase64(loja.getLogoBase64())
                 .build();
     }
 }

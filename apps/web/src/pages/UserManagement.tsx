@@ -169,9 +169,9 @@ export default function UserManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redireciona se não for ADMIN (regra da tela legada, preservada)
+  // Acesso permitido para ADMIN e DESENVOLVEDOR
   useEffect(() => {
-    if (user?.perfil !== 'ADMIN') {
+    if (user?.perfil !== 'ADMIN' && user?.perfil !== 'DESENVOLVEDOR') {
       navigate('/', { replace: true });
     }
   }, [user, navigate]);
@@ -305,13 +305,13 @@ export default function UserManagement() {
     setDeleteDialogOpen(true);
   }
 
-  if (!user || user.perfil !== 'ADMIN') {
+  if (!user || (user.perfil !== 'ADMIN' && user.perfil !== 'DESENVOLVEDOR')) {
     return (
       <div className="mx-auto max-w-lg py-10">
         <EmptyState
           icon={Shield}
           title="Acesso restrito"
-          description="Apenas administradores podem gerenciar usuários."
+          description="Apenas administradores e desenvolvedores podem gerenciar usuários."
         />
       </div>
     );

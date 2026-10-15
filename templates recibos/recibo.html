@@ -12,7 +12,7 @@
 
         body {
             font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
-            background-color: #f8f9fa;
+            background-color: #e9edef;
             color: #000;
             padding: 20px;
             display: flex;
@@ -20,27 +20,57 @@
         }
 
         .receipt-container {
-            width: 300px;
+            width: 302px;
             background-color: white;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            line-height: 1.3;
+            padding: 16px 14px 18px 14px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
+            line-height: 1.35;
+            position: relative;
         }
 
         h4 {
             text-align: center;
             margin: 4px 0;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .text-center { text-align: center; }
         .text-right  { text-align: right; }
 
+        /* ---------- Marca (óculos) ---------- */
+        .lens-mark {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+
+        .lens-mark svg { width: 54px; height: 23px; }
+
+        .lens-inline {
+            display: inline-block;
+            width: 30px;
+            height: 13px;
+            vertical-align: middle;
+        }
+
+        /* ---------- Divisores ---------- */
         .divider {
             border-bottom: 1px dashed #000;
             margin: 8px 0;
         }
 
+        /* Título do documento em moldura */
+        .doc-title {
+            border-top: 3px double #000;
+            border-bottom: 3px double #000;
+            padding: 5px 0;
+            margin: 2px 0;
+            font-size: 0.95em;
+            letter-spacing: 2px;
+        }
+
+        /* ---------- Tabelas ---------- */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -53,9 +83,31 @@
             vertical-align: top;
         }
 
+        thead th {
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 3px 2px;
+        }
+
+        tbody tr + tr td { border-top: 1px dotted #777; }
+
         .qty   { width: 35px; text-align: right; white-space: nowrap; padding-right: 6px; }
         .unit  { width: 65px; text-align: right; white-space: nowrap; padding-right: 6px; }
         .total { width: 70px; text-align: right; white-space: nowrap; }
+
+        /* Bloco de totais: TOTAL em destaque */
+        .totals { margin-top: 2px; }
+
+        .totals tr:last-child td {
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            font-size: 1.25em !important;
+            padding: 5px 2px !important;
+            letter-spacing: 0.5px;
+        }
 
         .no-print {
             display: block;
@@ -67,10 +119,10 @@
             padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
-            background-color: #007bff;
+            background-color: #0B3C5D;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 50px;
         }
 
         @media print {
@@ -110,6 +162,8 @@
 
         <div class="receipt-container">
 
+            <div class="lens-mark"><svg viewBox="0 0 48 20" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="11" r="7"/><circle cx="36" cy="11" r="7"/><path d="M19 10 Q24 6 29 10"/><path d="M5.5 8 L1 5"/><path d="M42.5 8 L47 5"/></svg></div>
+
             <!-- Cabeçalho empresa (sem logotipo) -->
             <h4 th:text="${venda.empresa != null ? venda.empresa.razaoSocial : 'EMPRESA'}">EMPRESA</h4>
             <div class="text-center" style="font-size:0.75em; line-height:1.35;" th:if="${venda.empresa != null}">
@@ -128,7 +182,7 @@
             </div>
 
             <div class="divider"></div>
-            <h4>CUPOM NÃO FISCAL</h4>
+            <h4 class="doc-title">CUPOM NÃO FISCAL</h4>
             <div class="divider"></div>
 
             <!-- Número da venda -->
@@ -192,7 +246,7 @@
             <div class="divider"></div>
 
             <!-- Totais -->
-            <table style="font-weight:bold;">
+            <table class="totals" style="font-weight:bold;">
                 <tr>
                     <td>Subtotal:</td>
                     <td class="text-right" th:text="'R$ ' + ${#numbers.formatDecimal(venda.status != null and venda.status.name() == 'ORCAMENTO' and venda.valorEntrada != null and venda.valorEntrada > 0 ? venda.valorEntrada : venda.subtotal, 1, 2, 'COMMA')}"></td>
@@ -258,7 +312,7 @@
             <div class="divider" style="margin-top:16px;"></div>
             <div class="text-center" style="font-size:0.85em; font-weight:bold;">
                 OBRIGADO PELA PREFERENCIA!<br>
-                Volte Sempre &#9829;
+                Volte Sempre <svg class="lens-inline" viewBox="0 0 48 20" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="11" r="7"/><circle cx="36" cy="11" r="7"/><path d="M19 10 Q24 6 29 10"/><path d="M5.5 8 L1 5"/><path d="M42.5 8 L47 5"/></svg>
             </div>
             <div class="divider"></div>
 

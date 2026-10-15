@@ -48,8 +48,42 @@ public class EmpresaConfigService {
         loja.setCep(campoOuNulo(req.getCep()));
         loja.setSite(campoOuNulo(req.getSite()));
         loja.setLogoUrl(campoOuNulo(req.getLogoUrl()));
+        if (req.getLogoBase64() != null) {
+            loja.setLogoBase64(campoOuNulo(req.getLogoBase64()));
+        }
 
         return EmpresaResponse.from(lojaRepository.save(loja));
+    }
+
+    @Transactional
+    public EmpresaResponse salvarLogo(String base64Data) {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("Empresa não encontrada"));
+
+        loja.setLogoBase64(base64Data);
+        loja.setLogoUrl("/api/v1/empresa/logo.png");
+        return EmpresaResponse.from(lojaRepository.save(loja));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] buscarLogoBytes() {
+        UUID lojaId = TenantContext.requireCurrentLojaId();
+        Loja loja = lojaRepository.findById(lojaId)
+                .orElseThrow(() -> new EntityNotFoundException("Empresa não encontrada"));
+
+        String base64 = loja.getLogoBase64();
+        if (base64 == null || base64.isBlank()) {
+            return new byte[0];
+        }
+        if (base64.contains(",")) {
+            base64 = base64.substring(base64.indexOf(",") + 1);
+        }
+        try {
+            return java.util.Base64.getDecoder().decode(base64.trim());
+        } catch (IllegalArgumentException e) {
+            return new byte[0];
+        }
     }
 
     private String normalizar(String valor) {

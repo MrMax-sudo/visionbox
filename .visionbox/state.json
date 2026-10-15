@@ -1,7 +1,21 @@
 {
   "project": "VisionBox",
   "version": "1.1.0-web-refactor",
-  "updated_at": "2026-10-15T00:35:00-03:00",
+  "updated_at": "2026-10-15T01:40:00-03:00",
+  "ajustes_ux_rbac_documentos": {
+    "status": "concluido",
+    "updated_at": "2026-10-15T01:40:00-03:00",
+    "sidebar_submenus": "Dashboard, PDV, Operacional (Receitas, OS), Financeiro (Caixas, Vendas, Compras, Maquininhas, Comissoes), Estoque (Catalogo). Submenus colapsaveis com animacao e filtro de modulos inativos do Painel DEV",
+    "online_indicator": "Removido status redundante (visivel apenas quando offline ou sincronizando)",
+    "logo_sidebar": "Tamanho ampliado para 175px (expandido) e 44px (recolhido)",
+    "scrollbar": "Barra de rolagem camuflada com utility .scrollbar-none",
+    "templates_recibos": "Paridade 1:1 com D:\\TECHBOXBR\\PRODUTOS\\VisionBox\\templates recibos (Recibo 80mm com lente SVG, NFC-e 80mm, DANFE A4 modelo 55 e Orcamento A4). Invocacao obrigatoria de /api/v1/empresa/logo.png",
+    "configuracoes_empresa": "UUID cru removido das preferencias; componente de upload com persistencia no banco (V50__loja_logo_base64.sql e POST /api/v1/empresa/logo); aba A1 removida do modal de configuracoes",
+    "fiscal_texto": "Menção a outbox substituida por mensagem institucional do VisionBox",
+    "receitas_crud": "CRUD completo concluido com criacao, edicao com pre-preenchimento, listagem com filtros e exclusao com confirmacao",
+    "roles_acessos": "ADMIN tem tudo exceto DEV; DESENVOLVEDOR acessa DEV, Usuarios, Fiscal; Fiscal restrito a ADMIN e DESENVOLVEDOR. 42 testes de seguranca verdes",
+    "tunnel_hostname": "https://opticanacional.techboxbr.app.br/ configurado no nginx.conf (server_name com fallback para visionbox.techboxbr.app.br)"
+  },
   "fiscal_emissao_fix": {
     "status": "EM_PRODUCAO_AUTORIZADO_CSTAT_100",
     "resumo": "Onze causas corrigidas na emissao NFC-e: (1) visionbox-app morto sem restart policy; (2) payload do provider sem emitente/itens; (3) Flowbox exigia PFX inline (certificadoId aceito agora); (4) motivo varchar(500) gerava 409 que mascarava o erro; (5) envelope SOAP malformado; (6) indSinc=0 (cStat 452); (7) cStat 225 com 4 violacoes do leiaute 4.00; (8) cStat 104 tratado como layout nao reconhecido; (9) motivo varchar(255) no Flowbox quebrava o INSERT; (10) emitente com valores fixos (V47: campos fiscais em loja + Painel Fiscal + recusa antes de transmitir); (11) tres rejeicoes novas da SEFAZ-SP corrigidas alinhadas ao OUTBOX ERP - cStat 373 (xProd literal na homologacao), cStat 742 (modelo 65 nao emite grupo IPI, zera vIPI/vIPIDevol) e cStat 391 (regra YA04-10: tPag 03/04/17 exige grupo card com tpIntegra=2).",
@@ -56,6 +70,25 @@
       "updated_at": "2026-10-14T01:10:00-03:00",
       "scope": "Auto-emissão no PDV ao concluir venda fiscal, eliminação de fallback mock de chave de acesso em reciboPrint.ts, vinculação de ordemServicoId em FiscalService e alinhamento do FlowboxFiscalProvider com /api/v1/nfce/emitir, emitente/itens reais e certificadoId (sem PFX inline)"
     }
+  },
+  "flowbox_escopo_cnpj": {
+    "status": "em_andamento",
+    "updated_at": "2026-10-15T00:00:00-03:00",
+    "pedido": "Escopo de API key por CNPJ no Flowbox - varios clientes no mesmo container",
+    "decisoes": {
+      "vinculacao": "Admin provisiona por API (endpoints /api/v1/admin/usuarios); registro publico fica sem escopo ate vincular",
+      "usuario_sem_cnpj": "Nega tudo (403 fail-closed); pre-deploy vincular 40187613000102 ao dono da chave fb_Hc85 da VisionBox e testar E2E",
+      "abrangencia": "Nucleo fiscal: documentos/empresas/certificados/emitir NFC-e+NF-e/cancelar/inutilizar/consultar/fila/contingencia/SAT/SAF; config global, webhooks e logs inalterados",
+      "admin_e_chave_global": "Sem restricao"
+    },
+    "plano_tecnico": [
+      "migration V7__escopo_usuario_cnpj (tb_usuario_empresas usuario_id+cnpj)",
+      "UsuarioEmpresaEntity + UsuarioEmpresaRepository",
+      "EscopoService (le flowbox.usuario do ApiKeyAuthFilter; exigir(cnpj) -> 403)",
+      "enforcement nos controllers do nucleo fiscal",
+      "testes de isolamento cross-tenant + mvn test",
+      "deploy VPS + provisionamento CNPJ VisionBox + E2E emissao"
+    ]
   },
   "wave_in_progress": [],
   "p1_aplicacao": {

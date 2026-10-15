@@ -72,16 +72,17 @@ public class SecurityConfig {
                                 "/api/v1/ordens-servico/rastreio",
                                 "/api/v1/ordens-servico/rastreio/**",
                                 "/api/v1/laboratorios/portal/**",
+                                "/api/v1/empresa/logo.png",
                                 "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/empresa/**").authenticated()
                         .requestMatchers("/api/v1/empresa/**").hasAnyRole("ADMIN", "GERENTE", "DESENVOLVEDOR")
-                        .requestMatchers("/api/v1/dev/**").hasAnyRole("ADMIN", "DESENVOLVEDOR")
-                        .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/dev/**").hasRole("DESENVOLVEDOR")
+                        .requestMatchers("/api/v1/usuarios/**").hasAnyRole("ADMIN", "DESENVOLVEDOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/caixa/sangria", "/api/v1/caixa/suprimento", "/api/v1/caixa/fechar").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
                         .requestMatchers("/api/v1/caixa/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "FINANCEIRO")
                         .requestMatchers("/api/v1/financeiro/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO")
-                        .requestMatchers("/api/v1/fiscal/**").hasAnyRole("ADMIN", "GERENTE", "FINANCEIRO", "DESENVOLVEDOR")
+                        .requestMatchers("/api/v1/fiscal/**").hasAnyRole("ADMIN", "DESENVOLVEDOR")
                         .requestMatchers("/api/v1/receitas/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "OTICO")
                         .requestMatchers("/api/v1/crm/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR")
                         .requestMatchers("/api/v1/estoque/**").hasAnyRole("ADMIN", "GERENTE", "VENDEDOR", "TECNICO")

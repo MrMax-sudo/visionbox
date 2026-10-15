@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { Building2, CreditCard, FileText, LogOut, Moon, Sun, UserRound } from 'lucide-react';
+import { Building2, CreditCard, LogOut, Moon, Sun, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmpresaConfig } from '@/components/config/EmpresaConfig';
-import { FiscalConfig } from '@/components/config/FiscalConfig';
 import { FormasPagamentoConfig } from '@/components/config/FormasPagamentoConfig';
+import { useEmpresaStore } from '@/stores/empresaStore';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
@@ -127,12 +127,6 @@ export function ConfiguracoesDialog({
               Empresa
             </TabsTrigger>
           )}
-          {isAdmin && (
-            <TabsTrigger value="fiscal">
-              <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Módulo Fiscal (A1)
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <div className="mt-3 max-h-[62vh] overflow-y-auto pr-1">
@@ -170,8 +164,8 @@ export function ConfiguracoesDialog({
                 </div>
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <dt className="text-xs text-secondary">Loja</dt>
-                  <dd className="truncate font-mono text-sm text-primary">
-                    {user?.lojaId || '—'}
+                  <dd className="truncate text-sm font-medium text-primary">
+                    {useEmpresaStore.getState().empresa?.nome || 'Ótica Matriz (Unidade Principal)'}
                   </dd>
                 </div>
               </dl>
@@ -193,12 +187,6 @@ export function ConfiguracoesDialog({
           {isAdmin && (
             <TabsContent value="empresa" className="mt-0">
               <EmpresaConfig />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="fiscal" className="mt-0">
-              <FiscalConfig />
             </TabsContent>
           )}
         </div>
