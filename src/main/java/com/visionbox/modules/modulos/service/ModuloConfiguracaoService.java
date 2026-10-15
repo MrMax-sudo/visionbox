@@ -58,6 +58,7 @@ import com.visionbox.modules.catalogo.repository.CategoriaRepository;
 import com.visionbox.modules.financeiro.formapagamento.domain.FormaPagamento;
 import com.visionbox.modules.financeiro.formapagamento.repository.FormaPagamentoRepository;
 import com.visionbox.modules.modulos.dto.ModuloDtos.CriarLojaRequest;
+import com.visionbox.modules.modulos.dto.ModuloDtos.EditarLojaRequest;
 import com.visionbox.modules.modulos.dto.ModuloDtos.LojaCriadaResponse;
 import com.visionbox.modules.pessoa.domain.Loja;
 import com.visionbox.modules.usuario.domain.Perfil;
